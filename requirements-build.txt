@@ -1,0 +1,3 @@
+pyinstaller>=6.0
+# optional: a native app window instead of the browser (then rebuild)
+# pywebview>=5.0

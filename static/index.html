@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OligoForge</title>
+<style>
+:root{
+ --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3340; --ink:#e6edf3;
+ --dim:#8b97a6; --acc:#4cc2ff; --pass:#3fb950; --warn:#d29922; --fail:#f85149; --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0;letter-spacing:.5px} header h1 b{color:var(--acc)}
+header .sub{color:var(--dim);font-size:12px}
+header .email{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
+input,select,textarea{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit}
+textarea{width:100%;font-family:var(--mono);resize:vertical;line-height:1.45}
+input.seq{font-family:var(--mono)} button{background:var(--acc);color:#03263a;border:0;border-radius:6px;padding:8px 14px;font-weight:600;cursor:pointer;font-size:13px}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:500}
+button:hover{filter:brightness(1.08)} nav{display:flex;gap:4px;padding:10px 16px 0;flex-wrap:wrap;border-bottom:1px solid var(--line);background:var(--panel)}
+nav a{padding:8px 14px;color:var(--dim);cursor:pointer;border-radius:6px 6px 0 0;font-size:13px;border:1px solid transparent;border-bottom:none}
+nav a.on{color:var(--ink);background:var(--bg);border-color:var(--line)}
+main{padding:22px;max-width:1080px;margin:0 auto} section{display:none} section.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:4px}
+h2{font-size:15px;margin:0 0 4px} .hint{color:var(--dim);font-size:12px;margin:0 0 14px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px} th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+td.mono,.mono{font-family:var(--mono)} .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.PASS{color:var(--pass)} .WARN{color:var(--warn)} .FAIL{color:var(--fail)}
+.b-PASS{background:rgba(63,185,80,.16);color:var(--pass)} .b-WARN{background:rgba(210,153,34,.16);color:var(--warn)} .b-FAIL{background:rgba(248,81,73,.16);color:var(--fail)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:10px 0}
+.kv div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.kv b{display:block;font-size:18px;font-family:var(--mono)} .kv span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+.err{color:var(--fail);font-size:13px;margin-top:8px} .ok{color:var(--pass)}
+.matrix td{text-align:center;font-family:var(--mono);font-size:12px;cursor:default} .matrix th{text-align:center;font-family:var(--mono)}
+.matrix td.cell{border:1px solid var(--bg)} pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-all}
+.seqrow{display:flex;gap:8px;margin-bottom:6px} .seqrow input:first-child{flex:0 0 130px} .seqrow input:nth-child(2){flex:1}
+small.note{color:var(--dim)} a.lnk{color:var(--acc);cursor:pointer}
+</style>
+<style id="polish">
+:root{--bg:#0b0f15;--panel:#10151d;--panel2:#161d27;--line:#26303c;--acc:#56ccff;--acc2:#7ee787;--shadow:0 10px 30px -16px rgba(0,0,0,.75)}
+*{scrollbar-color:#2c3744 transparent;scrollbar-width:thin}
+::selection{background:rgba(86,204,255,.28)}
+body{background:
+  radial-gradient(1100px 520px at 72% -12%,rgba(86,204,255,.06),transparent 60%),
+  radial-gradient(900px 480px at -5% 112%,rgba(126,231,135,.045),transparent 55%),
+  linear-gradient(rgba(86,204,255,.020) 1px,transparent 1px) 0 0/100% 30px,
+  linear-gradient(90deg,rgba(86,204,255,.020) 1px,transparent 1px) 0 0/30px 100%,
+  var(--bg)}
+header{background:linear-gradient(180deg,rgba(20,27,38,.92),rgba(16,21,29,.92));backdrop-filter:blur(8px);border-bottom:1px solid var(--line);row-gap:10px}
+header::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--acc),var(--acc2));opacity:.9}
+.brand{display:flex;align-items:center;gap:9px}
+header h1{font-weight:700;letter-spacing:.4px;font-size:18px}
+header .sub{opacity:.9}
+nav{gap:6px;row-gap:6px;background:linear-gradient(180deg,rgba(16,21,29,.96),rgba(13,17,23,.96))}
+nav a{transition:color .15s,background .15s,border-color .15s;border:1px solid transparent;border-bottom:2px solid transparent;border-radius:7px 7px 0 0;font-weight:500}
+nav a:hover{color:var(--ink);background:rgba(86,204,255,.05)}
+nav a.on{color:var(--ink);background:linear-gradient(180deg,rgba(86,204,255,.10),rgba(86,204,255,.01));border-bottom-color:var(--acc)}
+.card{background:linear-gradient(180deg,#131a24,#0f141c);border:1px solid var(--line);border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),var(--shadow)}
+section.on{animation:ofIn .2s ease}
+@keyframes ofIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+h2{font-size:16px;font-weight:650;letter-spacing:.2px}
+input,select,textarea{box-shadow:inset 0 1px 2px rgba(0,0,0,.28);transition:border-color .12s,box-shadow .12s}
+input:hover,select:hover,textarea:hover{border-color:#34414f}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(86,204,255,.16),inset 0 1px 2px rgba(0,0,0,.25)}
+button{transition:transform .06s,filter .12s,box-shadow .12s;box-shadow:0 1px 0 rgba(0,0,0,.35)}
+button:active{transform:translateY(1px)}
+button:not(.ghost){background:linear-gradient(180deg,#6fd2ff,#33b2f3);color:#042130;box-shadow:0 1px 0 rgba(0,0,0,.35),0 6px 16px -8px rgba(86,204,255,.5)}
+button:not(.ghost):hover{filter:brightness(1.06)}
+button.ghost{background:rgba(255,255,255,.012)}
+button.ghost:hover{background:rgba(86,204,255,.08);border-color:#3a4b5a;color:var(--ink)}
+.kv div{background:linear-gradient(180deg,#19222e,#141b25);border:1px solid var(--line);border-left:2px solid rgba(86,204,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+.kv b{letter-spacing:.3px;color:#dbe9f6}
+.kv span{opacity:.9}
+th{background:rgba(255,255,255,.022)}
+td,th{border-bottom:1px solid rgba(42,51,64,.7)}
+tbody tr:hover td{background:rgba(86,204,255,.05)}
+tbody tr:last-child td{border-bottom:0}
+.b-PASS,.b-WARN,.b-FAIL{border:1px solid transparent;border-radius:20px}
+.b-PASS{border-color:rgba(63,185,80,.4)}.b-WARN{border-color:rgba(210,153,34,.4)}.b-FAIL{border-color:rgba(248,81,73,.4)}
+.chip{display:inline-block;padding:2px 9px;border:1px solid var(--line);border-radius:20px;font-size:11px;color:var(--acc);background:rgba(86,204,255,.09);font-weight:600}
+.cond{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:var(--dim)}
+.cond .u{font-size:10px;text-transform:uppercase;letter-spacing:.4px;margin-right:-7px}
+.cond input{width:64px;padding:6px 8px;text-align:right;font-family:var(--mono);font-size:12px}
+footer{border-top:1px solid var(--line);margin-top:10px}
+</style>
+<style id="polish2">
+/* keep wide results (matrix, in-silico PCR, conservation) inside their panel, never off-page */
+[id$="_out"]{overflow-x:auto;max-width:100%}
+#orderrows,#consrows{max-width:100%}
+.seqrow{flex-wrap:wrap;gap:6px}
+table.matrix{font-size:12px}
+main{max-width:100%}
+/* workbench: assay cards that wrap instead of a table that runs off the page */
+.acard{background:linear-gradient(180deg,#141c27,#0f141c);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:10px 0;box-shadow:inset 0 1px 0 rgba(255,255,255,.03),var(--shadow)}
+.acard.cur{border-color:var(--acc);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 0 1px rgba(86,204,255,.35),var(--shadow)}
+.acard-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.acard-cur{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;cursor:pointer}
+.acard-name{flex:1 1 180px;min-width:140px;font-weight:600;font-size:14px}
+.acard-status{font-size:10px;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.acard-x{padding:3px 9px;flex:0 0 auto}
+.acard-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.acard-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px solid rgba(42,51,64,.6)}
+.acard-actions button{flex:0 0 auto}
+.achip{display:inline-flex;align-items:center;font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.025);color:var(--ink);white-space:nowrap}
+.achip.dim{color:var(--dim)}
+.achip.ok{color:var(--pass);border-color:rgba(63,185,80,.42)}
+.achip.warn{color:var(--warn);border-color:rgba(210,153,34,.42)}
+/* tidier clickable tabs */
+nav{padding:9px 16px 0;gap:5px}
+nav a{padding:8px 13px;font-size:12.5px}
+nav a:hover{color:var(--ink);background:rgba(86,204,255,.07)}
+nav a.on{background:linear-gradient(180deg,rgba(86,204,255,.13),rgba(86,204,255,.02));border-color:var(--line);border-bottom-color:var(--acc);color:var(--ink)}
+/* breathing room */
+h2{font-size:15px;font-weight:650;letter-spacing:.2px;margin-bottom:2px}
+.card{padding:16px 18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="flex:0 0 auto"><defs><linearGradient id="ofg" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop stop-color="#6fd2ff"/><stop offset="1" stop-color="#7ee787"/></linearGradient></defs><path d="M8 3C16 7.5 8 16.5 16 21" stroke="url(#ofg)" stroke-width="1.7" stroke-linecap="round"/><path d="M16 3C8 7.5 16 16.5 8 21" stroke="url(#ofg)" stroke-width="1.7" stroke-linecap="round"/><line x1="9.4" y1="6.1" x2="14.6" y2="6.1" stroke="url(#ofg)" stroke-width="1.2" stroke-linecap="round"/><line x1="9.4" y1="12" x2="14.6" y2="12" stroke="url(#ofg)" stroke-width="1.2" stroke-linecap="round"/><line x1="9.4" y1="17.9" x2="14.6" y2="17.9" stroke="url(#ofg)" stroke-width="1.2" stroke-linecap="round"/></svg><h1>Oligo<b>Forge</b></h1></div><span class="sub">qPCR primer / probe design + QC · local</span>
+  <div class="cond" title="reaction salt used for every Tm — match it to your master mix">
+    <span class="u">Mg²⁺</span><input id="cond_dv" type="number" step="0.1">
+    <span class="u">mono</span><input id="cond_mv" type="number" step="1">
+    <span class="u">dNTP</span><input id="cond_dntp" type="number" step="0.1">
+    <span class="u">oligo&nbsp;nM</span><input id="cond_dna" type="number" step="10">
+    <button class="ghost" style="padding:5px 9px" onclick="applyConditions()">apply</button>
+    <span id="cond_note" class="ok" style="font-size:11px"></span>
+  </div>
+  <div class="email">NCBI email <input id="email" placeholder="you@uni.edu" style="width:160px"></div>
+</header>
+<nav id="nav"></nav>
+<main>
+  <!-- QC -->
+  <section id="qc" class="on"><div class="card">
+    <h2>Oligo QC + vendor lint</h2><p class="hint">Real primer3 thermodynamics at qPCR salt. Pick the chemistry to lint against.</p>
+    <div class="row">
+      <div style="flex:1"><label>sequence (5'→3')</label><input id="qc_seq" class="seq" placeholder="GAGCTATACCCCGACCTCTG" style="width:100%"></div>
+      <div><label>role</label><select id="qc_role"><option>primer</option><option>forward</option><option>reverse</option><option>probe</option></select></div>
+      <div><label>chemistry</label><select id="qc_prof" class="profsel"></select></div>
+      <button onclick="doQC()">Analyze</button>
+    </div>
+    <div id="qc_out"></div>
+  </div></section>
+
+  <!-- PAIR -->
+  <section id="pair"><div class="card">
+    <h2>Primer pair / amplicon</h2><p class="hint">Tm match, F×R dimer (SYBR-critical), amplicon size against the chosen chemistry.</p>
+    <div class="row">
+      <div style="flex:1"><label>forward</label><input id="p_f" class="seq" style="width:100%"></div>
+      <div style="flex:1"><label>reverse</label><input id="p_r" class="seq" style="width:100%"></div>
+      <div><label>amplicon bp</label><input id="p_amp" type="number" style="width:90px"></div>
+      <div><label>chemistry</label><select id="p_prof" class="profsel"></select></div>
+      <button onclick="doPair()">Check</button>
+    </div>
+    <div id="p_out"></div>
+  </div></section>
+
+  <!-- MATRIX -->
+  <section id="matrix"><div class="card">
+    <h2>Panel cross-dimer matrix</h2><p class="hint">Every oligo against every other. Green &gt; −6, amber −6 to −9, red ≤ −9 (kcal/mol).</p>
+    <div id="seqrows"></div>
+    <div class="row"><button class="ghost" onclick="addSeqRow()">+ oligo</button><button onclick="doMatrix()">Build matrix</button><span style="flex:1"></span><input id="panelname" placeholder="panel name" style="width:140px"><button class="ghost" onclick="savePanel()">Save</button><select id="panelsel" style="width:150px"></select><button class="ghost" onclick="loadPanel()">Load</button></div>
+    <div id="m_out"></div>
+  </div></section>
+
+  <!-- DESIGN -->
+  <section id="design"><div class="card">
+    <h2>Design from template</h2><p class="hint">Paste a transcript region (or pull one in the NCBI tab). Enumerate → gate → pair → probe → gBlock.</p>
+    <div class="row"><div style="flex:1"><label>template (5'→3')</label><textarea id="d_tmpl" rows="4" placeholder="paste mRNA / CDS region"></textarea></div></div>
+    <div class="row"><div><label>chemistry</label><select id="d_prof" class="profsel"></select></div><button onclick="doDesign()">Design assay</button></div>
+    <div id="d_out"></div>
+  </div>
+  <div class="card">
+    <h2>Batch design</h2><p class="hint">Paste FASTA — one ">name" header per template, sequence on following lines. Designs an assay for each.</p>
+    <textarea id="b_fasta" rows="4" placeholder=">HMBS (sequence on next lines)  >SDHA ..."></textarea>
+    <div class="row" style="margin-top:8px"><button onclick="doBatch()">Design all</button></div>
+    <div id="bd_out"></div>
+  </div></section>
+
+
+  <!-- NCBI -->
+  <section id="ncbi"><div class="card">
+    <h2>NCBI fetch</h2><p class="hint">By accession, or gene + organism. Tick isoform-common to get the block shared by all transcripts.</p>
+    <div class="row">
+      <div><label>accession(s)</label><input id="n_acc" placeholder="e.g. XM_001234567.1" style="width:200px"></div>
+      <span style="color:var(--dim);align-self:center">or</span>
+      <div><label>gene</label><input id="n_gene" placeholder="HMBS" style="width:120px"></div>
+      <div><label>organism</label><input id="n_org" placeholder="genus species" style="width:200px"></div>
+      <div><label><input type="checkbox" id="n_common"> isoform-common</label></div>
+      <button onclick="doFetch()">Fetch</button>
+    </div>
+    <div id="n_out"></div>
+  </div></section>
+
+  <!-- INTRON -->
+  <section id="intron"><div class="card">
+    <h2>Intron / exon-junction check</h2><p class="hint">Does the amplicon span a junction? If not, genomic DNA co-amplifies — the worst failure for an expression reference.</p>
+    <div class="row">
+      <div><label>gene</label><input id="i_gene" placeholder="HMBS" style="width:110px"></div>
+      <div><label>organism</label><input id="i_org" placeholder="genus species" style="width:190px"></div>
+      <div><label>mRNA acc</label><input id="i_acc" placeholder="e.g. XM_001234567.1" style="width:150px"></div>
+      <div><label>forward primer</label><input id="i_f" class="seq" placeholder="auto-locates amplicon" style="width:185px"></div>
+      <div><label>reverse primer</label><input id="i_r" class="seq" placeholder="auto-locates amplicon" style="width:185px"></div>
+      <div><label>amp start</label><input id="i_s" type="number" placeholder="auto" style="width:80px"></div>
+      <div><label>amp end</label><input id="i_e" type="number" placeholder="auto" style="width:80px"></div>
+      <button onclick="doIntron()">Check</button>
+    </div>
+    <div id="i_out"></div>
+  </div></section>
+
+  <!-- BLAST -->
+  <section id="blast"><div class="card">
+    <h2>Specificity (BLAST)</h2><p class="hint">Remote = NCBI, no install, slower. Local = your blastn DB, fast/offline.</p>
+    <div class="row">
+      <div style="flex:1"><label>sequence</label><input id="b_seq" class="seq" style="width:100%"></div>
+      <div><label>mode</label><select id="b_mode"><option value="remote">remote (NCBI)</option><option value="local">local (blastn)</option></select></div>
+      <div><label>organism filter</label><input id="b_org" placeholder="optional" style="width:160px"></div>
+      <div><label>db / db_path</label><input id="b_db" placeholder="nt" style="width:120px"></div>
+      <button onclick="doBlast()">BLAST</button>
+    </div>
+    <p class="hint" id="b_note"></p><div id="b_out"></div>
+  </div></section>
+  <section id="quant"><div class="card">
+    <h2>Standard-curve copies</h2><p class="hint">gBlock / amplicon copies per µL from concentration, plus a dilution series for the standard curve.</p>
+    <div class="row">
+      <div><label>conc ng/µL</label><input id="q_ng" type="number" value="10" style="width:110px"></div>
+      <div><label>length bp</label><input id="q_len" type="number" placeholder="173" style="width:100px"></div>
+      <div><label>fold</label><input id="q_fold" type="number" value="10" style="width:80px"></div>
+      <div><label>points</label><input id="q_pts" type="number" value="6" style="width:80px"></div>
+      <button onclick="doCopies()">Compute</button>
+    </div><div id="q_out"></div>
+  </div></section>
+  <section id="order"><div class="card">
+    <h2>IDT order export</h2><p class="hint">IDT bulk CSV (Name, Sequence, Scale, Purification) + gBlock FASTA. ZEN probes wrap /56-FAM/…/3IABkFQ/; order them via PrimeTime for the double-quench and BOGO.</p>
+    <div id="orderrows"></div>
+    <div class="row"><button class="ghost" onclick="addOrderRow()">+ oligo</button><button class="ghost" onclick="loadMatrixToOrder()">pull from panel matrix</button></div>
+    <label style="margin-top:12px;display:block">gBlock standards</label><div id="gbrows"></div>
+    <div class="row"><button class="ghost" onclick="addGbRow()">+ gBlock</button><button onclick="doOrder()">Generate order files</button></div>
+    <div id="o_out"></div>
+  </div></section>
+  <section id="cons"><div class="card">
+    <h2>Conservation &amp; discrimination</h2>
+    <p class="hint">Per-base conservation of each oligo across a target set, and how cleanly it mismatches an off-target set (e.g. one genus vs a closely related genus). Paste FASTA or pull from NCBI.</p>
+    <label>oligos</label><div id="consrows"></div>
+    <div class="row"><button class="ghost" onclick="addConsRow()">+ oligo</button></div>
+    <label style="margin-top:10px;display:block">target sequences (FASTA)</label>
+    <div class="row"><input id="cons_tq" placeholder="NCBI query, e.g. Genus[Organism] AND gene[Title] AND 400:1500[SLEN]" style="flex:1"><input id="cons_tn" type="number" value="10" style="width:70px"><button class="ghost" onclick="fetchNuc('cons_targets','cons_tq','cons_tn')">fetch</button></div>
+    <textarea id="cons_targets" rows="4" placeholder="&gt;seq ... ACGT..."></textarea>
+    <label style="margin-top:10px;display:block">off-target sequences (FASTA, optional)</label>
+    <div class="row"><input id="cons_oq" placeholder="NCBI query, e.g. RelatedGenus[Organism] AND gene[Title] AND 400:1500[SLEN]" style="flex:1"><input id="cons_on" type="number" value="8" style="width:70px"><button class="ghost" onclick="fetchNuc('cons_offs','cons_oq','cons_on')">fetch</button></div>
+    <textarea id="cons_offs" rows="3" placeholder="&gt;offseq ..."></textarea>
+    <div class="row" style="margin-top:8px"><div><label>min ident to count</label><input id="cons_mi" type="number" value="0.6" step="0.05" style="width:90px"></div><button onclick="doCons()">Analyze</button></div>
+    <div id="cons_out"></div>
+  </div></section>
+  <section id="epcr"><div class="card">
+    <h2>In-silico PCR</h2>
+    <p class="hint">BLASTs both primers and reports predicted products: same subject, opposite strands, convergent, in size range. The intended target should be the only product at the expected size. Remote BLAST is queued at NCBI (slow); local needs BLAST+ and a genome DB.</p>
+    <div class="row"><div style="flex:1"><label>forward</label><input id="ep_f" class="seq" placeholder="forward primer"></div></div>
+    <div class="row"><div style="flex:1"><label>reverse</label><input id="ep_r" class="seq" placeholder="reverse primer"></div></div>
+    <div class="row"><div><label>mode</label><select id="ep_mode"><option value="remote">remote (NCBI)</option><option value="local">local (blastn)</option></select></div><div><label>organism (optional)</label><input id="ep_org" placeholder="genus species" style="width:200px"></div></div>
+    <div class="row"><div><label>db (remote)</label><input id="ep_db" value="nt" style="width:90px"></div><div><label>db path (local)</label><input id="ep_dbp" placeholder="your_genome_db" style="width:150px"></div><div><label>max product</label><input id="ep_max" type="number" value="3000" style="width:100px"></div></div>
+    <div class="row" style="margin-top:8px"><button onclick="doEpcr()">Run in-silico PCR</button></div>
+    <div id="ep_out"></div>
+  </div></section>
+  <section id="std"><div class="card">
+    <h2>Standard curve &amp; efficiency</h2>
+    <p class="hint">Paste standard-curve results, one "quantity, Cq" per line (copies or ng). Repeat a quantity for replicates; leave Cq blank or NA for a non-detect. Reports efficiency, R&sup2;, dynamic range, and a practical LOD (MIQE).</p>
+    <textarea id="std_in" rows="8" placeholder="1e6, 20.1&#10;1e5, 23.4&#10;1e4, 26.7&#10;1e3, 30.0&#10;1e2, 33.4&#10;1e1, 36.7"></textarea>
+    <div class="row" style="margin-top:8px"><button onclick="doStd()">Fit curve</button></div>
+    <div id="std_out"></div>
+  </div></section>
+  <section id="auto"><div class="card">
+    <h2>Target → assay</h2>
+    <p class="hint">Type an NCBI target (organism AND gene), it fetches sequences, designs a primer/probe set on the most complete one, and scores conservation across the whole set plus discrimination against an off-target set. A screen, not a final answer — confirm winners in OligoAnalyzer. AT-rich parasite mtDNA needs a low-Tm parasite profile. Timing: without BLAST this is one NCBI fetch plus design — usually well under a minute; if it ever stalls it now fails at 45 s rather than hanging. Ticking BLAST adds a remote NCBI search that can take several minutes. Fewer sequences to fetch is faster.</p>
+    <label>target (include the gene)</label>
+    <input id="au_q" class="seq" placeholder="e.g. Genus species gene" style="width:100%;text-transform:none">
+    <label style="margin-top:8px;display:block">off-target to discriminate against (optional)</label>
+    <input id="au_off" class="seq" placeholder="e.g. RelatedGenus gene" style="width:100%;text-transform:none">
+    <div class="row" style="margin-top:8px">
+      <div><label>chemistry</label><select id="au_prof">
+        <option value="auto" selected>Auto — pick the chemistry for me</option>
+        <option value="idt_taqman">IDT PrimeTime (TaqMan)</option>
+        <option value="idt_affinity">IDT Affinity Plus (LNA)</option>
+        <option value="thermo_taqman">Thermo TaqMan (MGB)</option>
+        <option value="parasite_mtdna">Parasite mtDNA — low-Tm TaqMan</option>
+        <option value="parasite_sybr">Parasite mtDNA — low-Tm SYBR</option>
+        <option value="biorad_probe">Bio-Rad PrimePCR</option>
+        <option value="sybr_generic">SYBR generic</option>
+      </select></div>
+      <div><label># to fetch</label><input id="au_n" type="number" value="12" style="width:80px"></div>
+      <button onclick="doAuto()">Design</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div><label><input type="checkbox" id="au_blast"> also BLAST the winning pair (in-silico PCR)</label></div>
+      <div><label>BLAST</label><select id="au_bmode"><option value="remote">remote (NCBI · slow)</option><option value="local">local (blastn)</option></select></div>
+      <div><label>organism filter</label><input id="au_borg" placeholder="optional, e.g. Genus" style="width:170px"></div>
+      <div><label>db / db path</label><input id="au_bdb" placeholder="nt, or local genome path" style="width:170px"></div>
+    </div>
+    <div id="au_out"></div>
+  </div></section>
+  <section id="refgenes"><div class="card">
+    <h3 style="margin:0 0 6px">Reference-gene stability</h3>
+    <small class="note">geNorm M + pairwise V (Vandesompele 2002) and BestKeeper Cq SD/CV. Paste your SYBR-screen Cq table: one gene per line — name then one Cq per sample, space or comma separated. Needs &ge;2 genes and &ge;3 samples. MIQE wants &ge;2 validated reference genes.</small>
+    <textarea id="rg_text" class="seq" rows="6" style="width:100%;text-transform:none;margin-top:8px" placeholder="RPL13 22.1 22.3 21.9 22.0 22.2&#10;YWHAZ 24.5 24.6 24.4 24.7 24.5&#10;HMBS 23.0 23.2 22.9 23.1 23.0&#10;SDHA 25.1 25.9 24.2 26.0 24.8"></textarea>
+    <div class="row" style="margin-top:8px"><button onclick="doRefGenes()">Rank stability</button></div>
+    <div id="rg_out"></div>
+  </div></section>
+  <section id="work"><div class="card">
+    <h3 style="margin:0 0 6px">Workbench &mdash; your panel</h3>
+    <small class="note">Assays you add from Design or Target &rarr; assay collect here and carry across tabs. Pick one (radio) to make it current, then attach a standard curve to it from the Std-curve tab. Edit name/gene/organism/dye inline. Stored in this browser.</small>
+    <div id="wk_out" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:10px;align-items:flex-end">
+      <div><label>project</label><input id="pj_name" placeholder="e.g. Smith frog panel" style="width:180px"></div>
+      <button class="ghost" onclick="saveProject()">Save project</button>
+      <div><label>open saved</label><select id="pj_sel" style="width:200px"></select></div>
+      <button class="ghost" onclick="loadProject()">Load</button>
+      <button class="ghost" onclick="deleteProject()">Delete</button>
+      <span id="pj_note" class="ok" style="font-size:11px"></span>
+    </div>
+    <div class="row">
+      <button onclick="genReport()">Generate MIQE report (HTML + CSV)</button>
+      <button class="ghost" onclick="checkMultiplex()">Check multiplex</button>
+      <button class="ghost" onclick="seedFSJ()">Load example (FSJ)</button>
+      <button class="ghost" onclick="clearPanel()">Clear panel</button>
+    </div>
+    <div id="wk_mx" style="margin-top:8px"></div>
+  </div></section>
+</main>
+<footer style="text-align:center;color:var(--dim);font-size:10px;letter-spacing:.4px;padding:10px 0 20px;opacity:.65">OligoForge v1.1.1</footer>
+<script>
+const TABS=[["qc","QC"],["pair","Pair"],["matrix","Panel matrix"],["design","Design"],["ncbi","NCBI"],["intron","Intron check"],["blast","BLAST"],["quant","Quant"],["order","Order"],["work","Workbench"],["cons","Conservation"],["epcr","in-silico PCR"],["std","Std curve"],["auto","Target → assay"],["refgenes","Ref genes"]];
+const nav=document.getElementById("nav");
+TABS.forEach(([id,label],i)=>{const a=document.createElement("a");a.textContent=label;a.className=i===0?"on":"";a.onclick=()=>{
+ document.querySelectorAll("nav a").forEach(x=>x.classList.remove("on"));a.classList.add("on");
+ document.querySelectorAll("section").forEach(s=>s.classList.remove("on"));document.getElementById(id).classList.add("on");try{localStorage.setItem("of_tab",id);}catch(e){}};nav.appendChild(a);});
+try{const _lt=localStorage.getItem("of_tab");if(_lt){const _i=TABS.findIndex(t=>t[0]===_lt);if(_i>=0)document.querySelectorAll("nav a")[_i].click();}}catch(e){}
+
+const email=document.getElementById("email");
+const cond_dv=document.getElementById("cond_dv"),cond_mv=document.getElementById("cond_mv"),cond_dntp=document.getElementById("cond_dntp"),cond_dna=document.getElementById("cond_dna");
+try{const _e=localStorage.getItem("ncbi_email");if(_e)email.value=_e;}catch(e){}
+email.addEventListener("change",()=>{try{localStorage.setItem("ncbi_email",email.value);}catch(e){}});
+function copyText(t){try{navigator.clipboard.writeText(t);}catch(e){}}
+document.getElementById("qc_seq").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();doQC();}});
+async function api(path,body){let r,j;
+ try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
+ catch(e){return {error:"cannot reach the server — is it still running in the terminal?"};}
+ try{j=await r.json();}catch(e){return {error:"server returned a non-JSON response (HTTP "+r.status+")"};}
+ if(!r.ok && !(j&&j.error)){
+  if(Array.isArray(j.detail))return {error:"input problem — "+j.detail.map(e=>(e.loc?e.loc[e.loc.length-1]+": ":"")+e.msg).join("; ")};
+  return {error:(j&&j.detail)?(""+j.detail):("server error HTTP "+r.status)};
+ }
+ return j;}
+function dgClass(dg){return dg>-6?"PASS":(dg>-9?"WARN":"FAIL");}
+function lintTable(rows){if(!rows)return"";return `<table><tr><th>rule</th><th>status</th><th>detail</th></tr>`+
+ rows.map(r=>`<tr><td>${r.rule}</td><td><span class="pill b-${r.status}">${r.status}</span></td><td class="mono">${r.detail}</td></tr>`).join("")+`</table>`;}
+function err(m){return `<div class="err">${m}</div>`;}
+
+// profiles
+let PROFILES={};
+fetch("/api/profiles").then(r=>r.json()).then(p=>{PROFILES=p;
+ document.querySelectorAll(".profsel").forEach(sel=>{sel.innerHTML=Object.entries(p).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join("");});});
+
+async function doQC(){const o=document.getElementById("qc_out");o.innerHTML="…";
+ const d=await api("/api/qc",{seq:document.getElementById("qc_seq").value,role:document.getElementById("qc_role").value,profile:document.getElementById("qc_prof").value});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ o.innerHTML=`<div class="kv">
+   <div><span>Tm${d.tm_min!=null?" (range)":""}</span><b>${d.tm_min!=null?d.tm_min+"–"+d.tm_max:d.tm}</b></div><div><span>GC%</span><b>${d.gc}</b></div>
+   <div><span>hairpin ΔG</span><b>${d.hairpin_dg}</b></div><div><span>self-dimer ΔG</span><b>${d.self_dimer}</b></div>
+   <div><span>length</span><b>${d.length}</b></div><div><span>max run</span><b>${d.max_run}</b></div>
+   <div><span>3' clamp (G/C in 5)</span><b>${d.last5_gc}</b></div></div>
+   <small class="note mono">revcomp: ${d.revcomp}</small> <button class="ghost" style="padding:1px 7px;font-size:11px" onclick='copyText("${d.revcomp}")'>copy</button>${d.note?`<br><small class="note">${d.note}</small>`:""}${d.lna_note?`<br><small class="note">${d.lna_note}</small>`:""}`+lintTable(d.lint);}
+
+async function doPair(){const o=document.getElementById("p_out");o.innerHTML="…";
+ const d=await api("/api/pair",{forward:document.getElementById("p_f").value,reverse:document.getElementById("p_r").value,
+  amplicon:parseInt(document.getElementById("p_amp").value)||null,profile:document.getElementById("p_prof").value});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ o.innerHTML=`<div class="kv">
+   <div><span>F Tm</span><b>${d.f_tm_min!=null?d.f_tm_min+"–"+d.f_tm_max:d.f_tm}</b></div><div><span>R Tm</span><b>${d.r_tm_min!=null?d.r_tm_min+"–"+d.r_tm_max:d.r_tm}</b></div>
+   <div><span>pair gap</span><b>${d.pair_gap}</b></div>
+   <div><span>F×R ΔG</span><b class="${dgClass(d.fxr)}">${d.fxr}</b></div>
+   <div><span>F-self</span><b class="${dgClass(d.f_self)}">${d.f_self}</b></div>
+   <div><span>R-self</span><b class="${dgClass(d.r_self)}">${d.r_self}</b></div></div>`+lintTable(d.lint);}
+
+let seqN=0;
+function addSeqRow(name="",seq=""){const w=document.getElementById("seqrows");const div=document.createElement("div");div.className="seqrow";
+ div.innerHTML=`<input placeholder="name (e.g. HMBS_F)" value="${name}"><input class="seq" placeholder="sequence" value="${seq}"><button class="ghost" onclick="this.parentNode.remove()">✕</button>`;w.appendChild(div);seqN++;}
+addSeqRow("HMBS_F","GAGCTATACCCCGACCTCTG");addSeqRow("HMBS_R","CTTCTCTCCAATCTTGGAAAGCG");addSeqRow("HMBS_P","ATCTTGTCCCCAGTTGTTGACATGGCC");
+async function doMatrix(){const rows=[...document.querySelectorAll("#seqrows .seqrow")];const ol={};
+ rows.forEach(r=>{const i=r.querySelectorAll("input");if(i[0].value&&i[1].value)ol[i[0].value]=i[1].value.toUpperCase();});
+ const o=document.getElementById("m_out");if(Object.keys(ol).length<2){o.innerHTML=err("add at least two oligos");return;}o.innerHTML="…";
+ const d=await api("/api/matrix",{oligos:ol});if(d.error){o.innerHTML=err(d.error);return;}const g={};d.cells.forEach(c=>{g[c.a+"|"+c.b]=c.dg;g[c.b+"|"+c.a]=c.dg;});
+ let h=`<table class="matrix"><tr><th></th>${d.names.map(n=>`<th>${n}</th>`).join("")}</tr>`;
+ d.names.forEach(a=>{h+=`<tr><th>${a}</th>`+d.names.map(b=>{const v=g[a+"|"+b];const c=dgClass(v);return `<td class="cell b-${c}" title="${a} × ${b}">${v}</td>`;}).join("")+`</tr>`;});
+ o.innerHTML=h+`</table>`;}
+
+async function doDesign(){const o=document.getElementById("d_out");o.innerHTML="…";
+ const d=await api("/api/design",{template:document.getElementById("d_tmpl").value,profile:document.getElementById("d_prof").value});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ LAST_DESIGN=d;
+ const probeRow=d.probe?`<tr><td>Probe</td><td class="mono">${d.probe}</td><td>${d.probe_tm}</td><td>offset +${d.probe_offset}, hairpin ${d.probe_hairpin} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText("${d.probe}")'>copy</button></td></tr>`:`<tr><td>Probe</td><td colspan="3" class="note">none — SYBR profile (no probe)</td></tr>`;
+ const probeKv=d.probe?`<div><span>P×F ΔG</span><b class="${dgClass(d.probe_dimer_f)}">${d.probe_dimer_f}</b></div><div><span>P×R ΔG</span><b class="${dgClass(d.probe_dimer_r)}">${d.probe_dimer_r}</b></div>`:"";
+ o.innerHTML=`<table>
+   <tr><th>oligo</th><th>sequence</th><th>Tm</th><th>note</th></tr>
+   <tr><td>Forward</td><td class="mono">${d.forward}</td><td>${d.f_tm}</td><td>pos ${d.f_xy[0]}-${d.f_xy[1]} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText("${d.forward}")'>copy</button></td></tr>
+   <tr><td>Reverse</td><td class="mono">${d.reverse}</td><td>${d.r_tm}</td><td>pos ${d.r_xy[0]}-${d.r_xy[1]} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText("${d.reverse}")'>copy</button></td></tr>
+   ${probeRow}
+   </table><div class="kv"><div><span>amplicon</span><b>${d.amplicon}</b></div><div><span>pair gap</span><b>${d.pair_tm_gap}</b></div>
+   ${probeKv}</div>
+   <label>gBlock standard</label><pre>${d.gblock}</pre>
+   <small class="note">designed under ${d.profile}</small>
+   <div style="margin-top:8px"><button class="ghost" onclick="doPairSpec('${d.forward}','${d.reverse}')">check specificity (BLAST)</button> <button class="ghost" onclick="designAdd()">★ add to workbench</button></div><div id="ds_out"></div>`;}
+
+async function doFetch(){const o=document.getElementById("n_out");o.innerHTML="…";
+ const d=await api("/api/fetch",{accession:document.getElementById("n_acc").value||null,gene:document.getElementById("n_gene").value||null,
+  organism:document.getElementById("n_org").value||null,isoform_common:document.getElementById("n_common").checked,email:email.value});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ let h=d.query?`<small class="note">query: ${d.query}</small>`:"";
+ if(d.records&&d.records.length)h+=`<small class="note">These are RefSeq mRNA(s) — the correct template for an expression assay. A much longer sequence on NCBI is the genomic chromosome (NC_…) with introns; do not design on that.</small>`;
+ h+=`<table><tr><th>accession</th><th>len</th><th>description</th><th></th></tr>`+
+  (d.records||[]).map((r,i)=>`<tr><td class="mono">${r.id}</td><td>${r.length}</td><td>${r.desc.slice(0,60)}</td>
+   <td><a class="lnk" onclick='useTmpl(${JSON.stringify(r.seq)})'>→ design</a></td></tr>`).join("")+`</table>`;
+ if(d.common_region)h+=`<label>isoform-common region (${d.common_region.length} bp)</label><pre>${d.common_region}</pre>
+   <a class="lnk" onclick='useTmpl(${JSON.stringify(d.common_region)})'>→ send to Design</a>`;
+ o.innerHTML=h;}
+function useTmpl(seq){document.getElementById("d_tmpl").value=seq;document.querySelectorAll("nav a")[3].click();}
+
+async function doIntron(){const o=document.getElementById("i_out");
+ const g=document.getElementById("i_gene").value,org=document.getElementById("i_org").value;
+ if(!g||!org){o.innerHTML=err("enter the gene and organism");return;}
+ const gs=parseInt(document.getElementById("i_s").value),ge=parseInt(document.getElementById("i_e").value);
+ const fwd=(document.getElementById("i_f").value||"").trim(),rev=(document.getElementById("i_r").value||"").trim();
+ const haveCoords=Number.isFinite(gs)&&Number.isFinite(ge);
+ if(!haveCoords&&!(fwd&&rev)){o.innerHTML=err("enter amplicon start + end, or paste the forward and reverse primers and they'll be located for you");return;}
+ o.innerHTML=haveCoords?"…":"locating the amplicon on the mRNA…";
+ const d=await api("/api/intron",{gene:g,organism:org,mrna_acc:document.getElementById("i_acc").value||null,
+  amp_start:haveCoords?gs:null,amp_end:haveCoords?ge:null,forward:fwd||null,reverse:rev||null,email:email.value});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ if(d.ok===null){o.innerHTML=err(d.info);return;}
+ if(d.amp_start!=null){document.getElementById("i_s").value=d.amp_start;document.getElementById("i_e").value=d.amp_end;}
+ const loc=d.amp_located?` · amplicon auto-located ${d.amp_start}\u2013${d.amp_end} (${d.amplicon} nt)`:(d.amp_start!=null?` · amplicon ${d.amp_start}\u2013${d.amp_end}`:"");
+ o.innerHTML=`<div class="card" style="margin:0;border-color:${d.ok?'var(--pass)':'var(--fail)'}">
+   <b class="${d.ok?'ok':'FAIL'}">${d.ok?'\u2713 ':'\u2717 '}${d.verdict}</b><br>
+   <small class="note">${d.info}${loc} · junctions (mRNA): ${d.junctions.join(", ")} · spanned: ${d.spanned.join(", ")||'none'}</small></div>`;}
+
+async function doBlast(){const o=document.getElementById("b_out");const mode=document.getElementById("b_mode").value;
+ document.getElementById("b_note").textContent=mode==="remote"?"remote BLAST is queued at NCBI — can take 30 s to a couple minutes":"";
+ o.innerHTML="…";
+ const d=await api("/api/blast",{seq:document.getElementById("b_seq").value,mode:mode,organism:document.getElementById("b_org").value||null,
+  db:mode==="local"?undefined:(document.getElementById("b_db").value||"nt"),db_path:mode==="local"?document.getElementById("b_db").value:null,email:email.value});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ const hits=d.hits||[];
+ o.innerHTML=`<small class="note">query ${d.query_len} nt · ${d.n_hits} hits</small><table><tr><th>hit</th><th>identity</th><th>e-value</th></tr>`+
+  hits.map(hh=>Array.isArray(hh)?`<tr><td class="mono">${hh[4]||hh[0]}</td><td>${hh[1]}%</td><td>${hh[3]}</td></tr>`
+   :`<tr><td>${hh.title}</td><td>${hh.identity}/${hh.align_len}</td><td>${hh.evalue}</td></tr>`).join("")+`</table>`;}
+// ---- stage-5 UI ----
+function download(fn,txt){const b=new Blob([txt],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=fn;a.click();}
+async function doCopies(){const o=document.getElementById("q_out");
+ const len=parseInt(document.getElementById("q_len").value),ng=parseFloat(document.getElementById("q_ng").value);
+ if(!Number.isFinite(len)||len<1||!Number.isFinite(ng)||ng<=0){o.innerHTML=err("enter a positive concentration (ng/µL) and the length in bp");return;}
+ o.innerHTML="…";
+ const d=await api("/api/copies",{ng_per_ul:ng,length_bp:len,factor:parseFloat(document.getElementById("q_fold").value)||10,points:parseInt(document.getElementById("q_pts").value)||6});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ o.innerHTML=`<div class="kv"><div><span>copies / µL</span><b>${d.copies_per_ul.toExponential(3)}</b></div></div>
+  <table><tr><th>point</th><th>copies / µL</th></tr>`+d.series.map(s=>`<tr><td>${s.point}</td><td class="mono">${s.copies_per_ul.toExponential(3)}</td></tr>`).join("")+`</table>`;}
+function addOrderRow(name="",seq="",kind="primer"){const w=document.getElementById("orderrows");const div=document.createElement("div");div.className="seqrow";
+ div.innerHTML=`<input placeholder="name" value="${name}"><input class="seq" placeholder="sequence" value="${seq}">
+  <select style="flex:0 0 120px"><option value="primer"${kind=='primer'?' selected':''}>primer</option><option value="probe_zen"${kind=='probe_zen'?' selected':''}>ZEN probe</option><option value="probe_lna"${kind=='probe_lna'?' selected':''}>LNA probe</option></select>
+  <button class="ghost" onclick="this.parentNode.remove()">✕</button>`;w.appendChild(div);}
+function addGbRow(name="",seq=""){const w=document.getElementById("gbrows");const div=document.createElement("div");div.className="seqrow";
+ div.innerHTML=`<input placeholder="name" value="${name}"><input class="seq" placeholder="gBlock sequence" value="${seq}"><button class="ghost" onclick="this.parentNode.remove()">✕</button>`;w.appendChild(div);}
+function loadMatrixToOrder(){document.getElementById("orderrows").innerHTML="";
+ [...document.querySelectorAll("#seqrows .seqrow")].forEach(r=>{const i=r.querySelectorAll("input");if(i[0].value&&i[1].value){const k=/_P$|probe/i.test(i[0].value)?"probe_zen":"primer";addOrderRow(i[0].value,i[1].value,k);}});}
+addOrderRow("HMBS_F","GAGCTATACCCCGACCTCTG","primer");addOrderRow("HMBS_P","ATCTTGTCCCCAGTTGTTGACATGGCC","probe_zen");addGbRow("HMBS_gBlock","");
+async function doOrder(){const o=document.getElementById("o_out");
+ const oligos=[...document.querySelectorAll("#orderrows .seqrow")].map(r=>{const i=r.querySelectorAll("input"),s=r.querySelector("select");return{name:i[0].value,seq:i[1].value,kind:s.value};}).filter(x=>x.name&&x.seq);
+ const gblocks=[...document.querySelectorAll("#gbrows .seqrow")].map(r=>{const i=r.querySelectorAll("input");return{name:i[0].value,seq:i[1].value};}).filter(x=>x.name&&x.seq);
+ const d=await api("/api/order_csv",{oligos,gblocks});if(d.error){o.innerHTML=err(d.error);return;}
+ o.innerHTML=`<label>oligo CSV — IDT bulk (Name, Sequence, Scale, Purification)</label><pre>${d.oligo_csv||"(none)"}</pre>
+  <button class="ghost" onclick='download("idt_oligos.csv",${JSON.stringify(d.oligo_csv)})'>download CSV</button>`+
+  (d.gblock_fasta?`<label style="margin-top:12px;display:block">gBlock FASTA</label><pre>${d.gblock_fasta}</pre><button class="ghost" onclick='download("gblocks.fasta",${JSON.stringify(d.gblock_fasta)})'>download FASTA</button>`:"");}
+async function savePanel(){const ol={};[...document.querySelectorAll("#seqrows .seqrow")].forEach(r=>{const i=r.querySelectorAll("input");if(i[0].value&&i[1].value)ol[i[0].value]=i[1].value.toUpperCase();});
+ const name=document.getElementById("panelname").value||"panel";await api("/api/panel/save",{name,oligos:ol});refreshPanels();}
+async function refreshPanels(){const d=await(await fetch("/api/panel/list")).json();const s=document.getElementById("panelsel");if(s)s.innerHTML=`<option value="">— saved panels —</option>`+(d.panels||[]).map(p=>`<option>${p}</option>`).join("");}
+async function loadPanel(){const name=document.getElementById("panelsel").value;if(!name)return;const d=await api("/api/panel/load",{name});if(d.error)return;
+ document.getElementById("seqrows").innerHTML="";Object.entries(d.oligos).forEach(([n,s])=>addSeqRow(n,s));}
+refreshPanels();
+async function doBatch(){const o=document.getElementById("bd_out");o.innerHTML="…";
+ const txt=document.getElementById("b_fasta").value.trim();const items=[];let name=null,seq="";
+ txt.split("\n").forEach(l=>{if(l.startsWith(">")){if(name)items.push({name,template:seq});name=l.slice(1).trim();seq="";}else seq+=l.trim();});
+ if(name)items.push({name,template:seq});
+ if(!items.length){o.innerHTML=err("paste FASTA — a >name header then sequence");return;}
+ const d=await api("/api/batch_design",{items});if(d.error){o.innerHTML=err(d.error);return;}
+ o.innerHTML=`<table><tr><th>gene</th><th>F</th><th>R</th><th>probe</th><th>amp</th></tr>`+
+  d.results.map(r=>r.ok?`<tr><td>${r.name}</td><td class="mono">${r.forward}</td><td class="mono">${r.reverse}</td><td class="mono">${r.probe||'—'}</td><td>${r.amplicon}</td></tr>`:`<tr><td>${r.name}</td><td colspan="4" class="FAIL">${r.error}</td></tr>`).join("")+`</table>`;}
+async function doPairSpec(f,r){const o=document.getElementById("ds_out");o.innerHTML="remote BLAST is queued at NCBI — 30 s to a few minutes…";
+ const d=await api("/api/pair_specificity",{forward:f,reverse:r,mode:"remote"});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ function tbl(x,lab){if(x.error)return `<small class="note">${lab}: ${x.error}</small><br>`;const h=x.hits||[];return `<b>${lab}</b> — ${x.n_hits} hits<table>`+h.slice(0,5).map(z=>`<tr><td>${z.title||z[4]||''}</td><td>${z.evalue!==undefined?z.evalue:(z[3]||'')}</td></tr>`).join("")+`</table>`;}
+ o.innerHTML=tbl(d.forward,"forward")+tbl(d.reverse,"reverse");}
+
+// ---- stage-6 UI: conservation + in-silico PCR ----
+function addConsRow(name="",seq=""){const w=document.getElementById("consrows");const d=document.createElement("div");d.className="seqrow";
+ d.innerHTML=`<input placeholder="name" value="${name}"><input class="seq" placeholder="sequence" value="${seq}"><button class="ghost" onclick="this.parentNode.remove()">✕</button>`;w.appendChild(d);}
+addConsRow();addConsRow();
+function parseFasta(t){const seqs=[];let cur="";t.split("\n").forEach(l=>{if(l.startsWith(">")){if(cur)seqs.push(cur);cur="";}else cur+=l.trim();});if(cur)seqs.push(cur);return seqs.filter(Boolean);}
+async function fetchNuc(boxId,qId,nId){const box=document.getElementById(boxId);box.value="fetching from NCBI…";
+ const d=await api("/api/fetch_nuc",{query:document.getElementById(qId).value,n:parseInt(document.getElementById(nId).value)||10,email:email.value});
+ box.value=d.error?(">ERROR "+d.error):d.fasta;}
+async function doCons(){const o=document.getElementById("cons_out");o.innerHTML="…";
+ const oligos={};[...document.querySelectorAll("#consrows .seqrow")].forEach(r=>{const i=r.querySelectorAll("input");if(i[0].value&&i[1].value)oligos[i[0].value]=i[1].value;});
+ const targets=parseFasta(document.getElementById("cons_targets").value);const off=parseFasta(document.getElementById("cons_offs").value);
+ if(!Object.keys(oligos).length||!targets.length){o.innerHTML=err("need at least one oligo and one target sequence (paste FASTA or fetch)");return;}
+ const d=await api("/api/conservation",{oligos,targets,off_targets:off,min_ident:parseFloat(document.getElementById("cons_mi").value)||0.6});if(d.error){o.innerHTML=err(d.error);return;}
+ let h="";for(const lab in d){const cn=d[lab].conservation,ds=d[lab].discrimination;const weak=cn.per_pos.filter(p=>p.pct_match<90);
+  h+=`<div class="card" style="margin-top:10px"><b>${lab}</b> <span class="mono">${oligos[lab]}</span>
+   <div class="kv"><div><span>located in</span><b>${cn.n_placed}/${cn.n_input}</b></div><div><span>mean ident</span><b>${cn.mean_ident}%</b></div><div><span>worst pos</span><b>${cn.min_pct_match}%</b></div><div><span>worst 3'</span><b>${cn.worst_3prime}%</b></div></div>`;
+  h+=`<table><tr><th>pos</th>`+cn.per_pos.map(p=>`<th>${p.oligo}</th>`).join("")+`</tr><tr><td>%</td>`+cn.per_pos.map(p=>`<td class="${p.pct_match<90?'FAIL':(p.pct_match<100?'WARN':'PASS')}">${p.pct_match}</td>`).join("")+`</tr></table>`;
+  if(weak.length)h+=`<small class="note">weak: ${weak.map(p=>`pos ${p.pos} ${p.oligo}→${p.major} (${p.pct_match}%)`).join(", ")}</small>`;
+  if(ds&&ds.n)h+=`<div style="margin-top:6px">vs off-target: located in ${ds.n}, median ident <b>${ds.median_ident}%</b>, closest match has <b>${ds.min_mismatch}</b> mismatches (${ds.min_3prime_mismatch} in 3')</div>`;
+  else if(ds)h+=`<small class="note">${ds.note}</small>`;
+  h+=`</div>`;}
+ o.innerHTML=h;}
+async function doEpcr(){const o=document.getElementById("ep_out");const mode=document.getElementById("ep_mode").value;
+ o.innerHTML=mode=="remote"?"remote BLAST queued at NCBI — 30 s to a few minutes…":"running local blastn…";
+ const d=await api("/api/epcr",{forward:document.getElementById("ep_f").value,reverse:document.getElementById("ep_r").value,mode,db:document.getElementById("ep_db").value,db_path:document.getElementById("ep_dbp").value,organism:document.getElementById("ep_org").value||null,max_product:parseInt(document.getElementById("ep_max").value)||3000,email:email.value});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ o.innerHTML=`<div class="kv"><div><span>forward hits</span><b>${d.forward_hits}</b></div><div><span>reverse hits</span><b>${d.reverse_hits}</b></div><div><span>predicted products</span><b>${d.n_products}</b></div></div>`+
+  (d.products.length?`<table><tr><th>subject</th><th>size</th><th>primers</th><th>span</th></tr>`+d.products.map(p=>`<tr><td class="mono">${p.subject}</td><td>${p.size}</td><td>${p.left}→${p.right}</td><td>${p.span[0]}–${p.span[1]}</td></tr>`).join("")+`</table>`:`<p class="hint">no products in the size window</p>`);}
+
+async function doStd(){const o=document.getElementById("std_out");o.innerHTML="…";
+ const pts=[];document.getElementById("std_in").value.split("\n").forEach(l=>{l=l.trim();if(!l)return;
+  const m=l.split(/[,\t]+/);const q=parseFloat(m[0]);if(!isFinite(q))return;
+  let c=(m[1]||"").trim();const cv=(c===""||/^(na|nd|undet)/i.test(c))?null:parseFloat(c);
+  pts.push({quantity:q,cq:(cv!=null&&isFinite(cv))?cv:null});});
+ if(pts.length<2){o.innerHTML=err("need at least 2 points");return;}
+ const d=await api("/api/standard_curve",{points:pts});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ LAST_STD=d;
+ o.innerHTML=`<div class="kv"><div><span>efficiency</span><b class="${d.efficiency_ok?'PASS':'FAIL'}">${d.efficiency_pct}%</b></div>`+
+  `<div><span>slope</span><b class="${d.slope_ok?'PASS':'WARN'}">${d.slope}</b></div>`+
+  `<div><span>R&sup2;</span><b class="${d.r2_ok?'PASS':'FAIL'}">${d.r2}</b></div>`+
+  `<div><span>amp factor</span><b>${d.amp_factor}</b></div>`+
+  `<div><span>practical LOD</span><b>${d.lod_practical!=null?d.lod_practical:'—'}</b></div></div>`+
+  `<table><tr><th>quantity</th><th>n</th><th>detected</th><th>mean Cq</th><th>SD</th><th>detect %</th></tr>`+
+  d.levels.map(l=>`<tr><td class="mono">${l.quantity}</td><td>${l.n}</td><td>${l.detected}</td><td>${l.mean_cq!=null?l.mean_cq:'—'}</td><td>${l.sd_cq!=null?l.sd_cq:'—'}</td><td class="${l.detection_rate<100?'WARN':'PASS'}">${l.detection_rate}</td></tr>`).join("")+`</table>`+
+  `<small class="note">${d.notes}</small><div style="margin-top:8px"><button class="ghost" onclick="attachStdToCurrent()">attach to current assay</button></div>`;}
+
+async function doAuto(){const o=document.getElementById("au_out");
+ const wantBlast=document.getElementById("au_blast").checked;
+ const bmode=document.getElementById("au_bmode").value, bdb=document.getElementById("au_bdb").value.trim();
+ o.innerHTML="fetching from NCBI and designing"+(wantBlast?" + BLASTing the winner — 30–90 s…":" — give it 20–60 s…");
+ const d=await api("/api/autodesign",{target_query:document.getElementById("au_q").value,
+   off_query:document.getElementById("au_off").value||null,
+   profile:document.getElementById("au_prof").value,
+   n_fetch:parseInt(document.getElementById("au_n").value)||12,
+   run_blast:wantBlast, blast_mode:bmode,
+   blast_db:bmode==="local"?"nt":(bdb||"nt"), blast_db_path:bmode==="local"?(bdb||null):null,
+   organism:document.getElementById("au_borg").value.trim()||null,
+   email:document.getElementById("email").value});
+ if(d.error){o.innerHTML=err(d.error)+(d.tried?`<small class="note">tried: ${d.tried.join(", ")}</small>`:"");return;}
+ LAST_AUTO={assay:d.candidates[0].assay,pretty:d.profile_pretty,query:d.target_query,acc:d.source_accession};
+ const probeKind=(d.profile_used==="idt_affinity"||d.profile_used==="parasite_mtdna")?"probe_lna":"probe_zen";
+ let h=`<small class="note">fetched ${d.n_targets} target${d.n_offs?(", "+d.n_offs+" off-target"):""}; designed on a ${d.reference_len} nt reference; ${d.n_candidates} candidate(s). Screen only — confirm in OligoAnalyzer.</small>
+   <div class="card" style="margin-top:8px;border-color:var(--acc)">chemistry chosen: <b>${d.profile_pretty||d.profile_used}</b></div>`;
+ d.candidates.forEach((c,i)=>{const a=c.assay,cn=c.conservation,ds=c.discrimination;
+  const rows=[["Fwd",a.forward,a.f_tm,"F"],["Rev",a.reverse,a.r_tm,"R"]];
+  if(a.probe)rows.push(["Probe",a.probe,(a.probe_info?a.probe_info.tm:0),"P"]);
+  h+=`<div class="card" style="margin-top:10px"><b>${i==0?'★ best':'alt '+i}</b> · score ${c.score} · amplicon ${a.amplicon} nt${a.probe?'':' · <span class="note">primers only</span>'}
+   <table><tr><th></th><th>sequence</th><th>Tm</th><th>conserved</th><th>worst 3'</th>${ds?'<th>off-target</th>':''}</tr>`+
+   rows.map(([lab,seq,tm,k])=>{const cc=cn[k]||{};const dd=ds&&ds[k]&&ds[k].n?`${ds[k].max_ident}% / ${ds[k].min_mismatch}mm`:(ds?'—':'');
+     return `<tr><td>${lab}</td><td class="mono">${seq}</td><td>${tm?tm.toFixed(1):'—'}</td><td class="${cc.mean_ident<90?'WARN':'PASS'}">${cc.mean_ident!=null?cc.mean_ident:'—'}%</td><td class="${cc.worst_3prime<90?'FAIL':'PASS'}">${cc.worst_3prime!=null?cc.worst_3prime:'—'}%</td>${ds?('<td>'+dd+'</td>'):''}</tr>`;}).join("")+
+   `</table>`+
+   (i===0?`<div style="margin-top:8px"><button class="ghost" onclick='autoAdd()'>★ add to workbench</button> <button class="ghost" onclick='autoToOrder(${JSON.stringify(a.forward)},${JSON.stringify(a.reverse)},${JSON.stringify(a.probe)},"${probeKind}")'>→ send to Order tab</button></div>`:"")+
+   `</div>`;});
+ if(d.specificity){const sp=d.specificity;
+  if(sp.error)h+=`<div class="card" style="margin-top:8px"><b>in-silico PCR</b> <span class="note">${sp.error}</span></div>`;
+  else h+=`<div class="card" style="margin-top:8px"><b>in-silico PCR on the winner</b> — F ${sp.forward_hits} hits, R ${sp.reverse_hits} hits, <b>${sp.n_products}</b> predicted product(s)`+
+   (sp.products&&sp.products.length?`<table><tr><th>subject</th><th>size</th><th>primers</th></tr>`+sp.products.map(pr=>`<tr><td class="mono">${pr.subject}</td><td>${pr.size}</td><td>${pr.left}→${pr.right}</td></tr>`).join("")+`</table>`:` <span class="note">— no off-target products in the size window (good)</span>`)+`</div>`;
+ }
+ o.innerHTML=h;}
+function autoToOrder(f,r,p,kind){
+ document.getElementById("orderrows").innerHTML="";
+ addOrderRow("assay_F",f,"primer");addOrderRow("assay_R",r,"primer");
+ if(p)addOrderRow("assay_P",p,kind);
+ const tabs=[...document.querySelectorAll("nav a")];const idx=TABS.findIndex(t=>t[0]==="order");if(idx>=0&&tabs[idx])tabs[idx].click();}
+
+async function doRefGenes(){const o=document.getElementById("rg_out");o.innerHTML="…";
+ const d=await api("/api/refgenes",{text:document.getElementById("rg_text").value});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ let h=`<small class="note">${d.n_genes} genes \u00d7 ${d.n_samples} samples; ranked most \u2192 least stable.</small>
+   <table><tr><th>rank</th><th>gene</th><th>geNorm M</th><th>Cq mean</th><th>Cq SD</th><th>CV%</th><th>BestKeeper</th></tr>`+
+  d.ranking.map((g,i)=>`<tr><td>${i+1}</td><td>${g.gene}</td><td class="${g.M<1.5?'PASS':'WARN'}">${g.M}</td><td>${g.cq_mean}</td><td class="${g.cq_sd>1?'WARN':''}">${g.cq_sd}</td><td>${g.cq_cv}</td><td><span class="pill b-${g.bestkeeper==='ok'?'PASS':'WARN'}">${g.bestkeeper}</span></td></tr>`).join("")+`</table>`;
+ if(d.pairwise_V&&d.pairwise_V.length){
+  h+=`<div style="margin-top:10px"><b>How many reference genes?</b> <small class="note">(pairwise variation V; &lt;0.15 = adding another gene barely changes normalization)</small><table><tr><th>step</th><th>V</th></tr>`+
+     d.pairwise_V.map(v=>`<tr><td>${v.step}</td><td class="${v.v<0.15?'PASS':'WARN'}">${v.v}</td></tr>`).join("")+`</table></div>`;
+ }
+ h+=`<div class="card" style="margin-top:8px;border-color:var(--acc)">Recommended: the top <b>${d.recommended_n}</b> gene(s) \u2014 ${d.ranking.slice(0,d.recommended_n).map(g=>g.gene).join(" + ")}.</div><small class="note">${d.note}</small>`;
+ o.innerHTML=h;}
+
+/* ---- workbench: assays carry across tabs + panel + report + multiplex ---- */
+let LAST_DESIGN=null,LAST_STD=null,LAST_AUTO=null;
+let PANEL=[];try{PANEL=JSON.parse(localStorage.getItem("of_panel")||"[]")||[];}catch(e){PANEL=[];}
+let CURRENT_ID=null;try{CURRENT_ID=localStorage.getItem("of_current")||null;}catch(e){}
+function savePanel(){try{localStorage.setItem("of_panel",JSON.stringify(PANEL));localStorage.setItem("of_current",CURRENT_ID||"");}catch(e){}}
+function curAssay(){return PANEL.find(a=>a.id===CURRENT_ID)||null;}
+function gotab(id){const i=TABS.findIndex(t=>t[0]===id);const a=document.querySelectorAll("nav a")[i];if(a)a.click();}
+function fld(id,v){const e=document.getElementById(id);if(e)e.value=(v==null?"":v);}
+function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+function editAssay(id,f,v){const a=PANEL.find(x=>x.id===id);if(a){a[f]=v;savePanel();}}
+function setCurrent(id){CURRENT_ID=id;savePanel();renderPanel();}
+function removeAssay(id){PANEL=PANEL.filter(a=>a.id!==id);if(CURRENT_ID===id)CURRENT_ID=null;savePanel();renderPanel();}
+function clearPanel(){if(!PANEL.length||confirm("Remove all "+PANEL.length+" assays from the workbench?")){PANEL=[];CURRENT_ID=null;savePanel();renderPanel();}}
+function addAssay(a){a.id="a"+Date.now()+Math.floor(Math.random()*1e4);a.status=a.status||"designed";PANEL.push(a);CURRENT_ID=a.id;savePanel();renderPanel();gotab("work");}
+function autoAdd(){if(!LAST_AUTO)return;const a=LAST_AUTO.assay;addAssay({name:(LAST_AUTO.query||"assay").slice(0,28),gene:LAST_AUTO.query||"",organism:"",forward:a.forward,reverse:a.reverse,probe:a.probe,amplicon:a.amplicon,f_tm:a.f_tm,r_tm:a.r_tm,probe_tm:a.probe_info?a.probe_info.tm:null,chemistry:LAST_AUTO.pretty||"",accession:LAST_AUTO.acc||""});}
+function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||""});}
+function renderPanel(){const o=document.getElementById("wk_out");if(!o)return;
+ if(!PANEL.length){o.innerHTML=`<small class="note">No assays yet \u2014 design one in <b>Target \u2192 assay</b> or <b>Design</b> and click \u201c\u2605 add to workbench\u201d, or use <b>Load example (FSJ)</b> below.</small>`;return;}
+ o.innerHTML=PANEL.map(a=>{const cur=a.id===CURRENT_ID;
+  const chips=[a.chemistry?`<span class="achip">${esc(a.chemistry)}</span>`:"",a.amplicon?`<span class="achip">${a.amplicon} nt</span>`:"",(a.f_tm||a.r_tm)?`<span class="achip">Tm ${a.f_tm||"?"} / ${a.r_tm||"?"}</span>`:"",a.probe?`<span class="achip">probe</span>`:`<span class="achip dim">no probe</span>`].join("");
+  const flags=`${a.checks&&a.checks.specificity?(a.checks.specificity.error?`<span class="achip warn">spec ?</span>`:`<span class="achip ok">spec \u2713</span>`):""}${a.validation&&a.validation.efficiency_pct!=null?`<span class="achip ok">eff ${a.validation.efficiency_pct}%</span>`:""}`;
+  return `<div class="acard${cur?" cur":""}">
+    <div class="acard-top">
+      <label class="acard-cur"><input type="radio" name="wkcur" ${cur?"checked":""} onclick="setCurrent(\'${a.id}\')"><span>current</span></label>
+      <input class="acard-name" value="${esc(a.name)}" oninput="editAssay(\'${a.id}\',\'name\',this.value)" placeholder="assay name">
+      <span class="acard-status" id="wk_status_${a.id}">${esc(a.status)}</span>
+      <button class="ghost acard-x" title="remove from workbench" onclick="removeAssay(\'${a.id}\')">\u2715</button>
+    </div>
+    <div class="acard-meta">
+      <input value="${esc(a.gene)}" oninput="editAssay(\'${a.id}\',\'gene\',this.value)" placeholder="gene" style="width:130px">
+      <input value="${esc(a.organism)}" oninput="editAssay(\'${a.id}\',\'organism\',this.value)" placeholder="organism" style="width:175px">
+      <input value="${esc(a.dye)}" oninput="editAssay(\'${a.id}\',\'dye\',this.value)" placeholder="dye" style="width:74px">
+      ${chips}${flags}
+    </div>
+    <div class="acard-actions">
+      <button class="ghost" onclick="checkAssay(\'${a.id}\')">Check specificity</button>
+      <button class="ghost" onclick="toPair(\'${a.id}\')">Pair QC</button>
+      <button class="ghost" onclick="toEpcr(\'${a.id}\')">in-silico PCR</button>
+      <button class="ghost" onclick="toIntron(\'${a.id}\')">Intron</button>
+      <button class="ghost" onclick="toConsAssay(\'${a.id}\')">Conservation</button>
+      <button class="ghost" onclick="toOrderAssay(\'${a.id}\')">Order</button>
+    </div>
+  </div>`;}).join("");}
+function toPair(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("p_f",a.forward);fld("p_r",a.reverse);fld("p_amp",a.amplicon);gotab("pair");doPair();}
+function toEpcr(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("ep_f",a.forward);fld("ep_r",a.reverse);fld("ep_org",a.organism);gotab("epcr");}
+function toIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("i_gene",a.gene);fld("i_org",a.organism);fld("i_acc",a.accession);fld("i_f",a.forward);fld("i_r",a.reverse);fld("i_s","");fld("i_e","");gotab("intron");}
+function toConsAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("consrows").innerHTML="";addConsRow((a.name||"a")+"_F",a.forward);addConsRow((a.name||"a")+"_R",a.reverse);if(a.probe)addConsRow((a.name||"a")+"_P",a.probe);gotab("cons");}
+function toOrderAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("orderrows").innerHTML="";const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);gotab("order");}
+async function checkAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;const c=document.getElementById("wk_status_"+id);if(c)c.textContent="checking\u2026";
+ const md=document.getElementById("ep_mode")?document.getElementById("ep_mode").value:"remote";
+ const d=await api("/api/epcr",{forward:a.forward,reverse:a.reverse,mode:md,db:"nt",organism:a.organism||null,email:email.value});
+ a.checks=a.checks||{};if(d.error){a.checks.specificity={error:d.error};}else{a.checks.specificity=d;if(a.status==="designed")a.status="checked";}savePanel();renderPanel();}
+function attachStdToCurrent(){const a=curAssay();if(!a){alert("Pick an assay in the Workbench (radio) first, then attach.");return;}if(!LAST_STD){alert("Run a standard curve first.");return;}const d=LAST_STD;a.validation={efficiency_pct:d.efficiency_pct,r2:d.r2,slope:d.slope,lod:(d.lod_practical!=null?d.lod_practical:null)};a.status="validated";savePanel();renderPanel();alert("Attached efficiency "+d.efficiency_pct+"% to "+(a.name||"current assay")+".");}
+async function genReport(){if(!PANEL.length){alert("Add some assays to the workbench first.");return;}const d=await api("/api/report",{panel:PANEL,meta:{title:"OligoForge panel"}});if(d.error){alert(d.error);return;}download("oligoforge_panel_report.html",d.html);download("oligoforge_panel_miqe.csv",d.csv);}
+async function checkMultiplex(){if(PANEL.length<2){alert("Need at least 2 assays in the workbench.");return;}
+ const assays=PANEL.map(a=>({name:a.name||"assay",dye:a.dye||"",oligos:[{name:"F",seq:a.forward},{name:"R",seq:a.reverse}].concat(a.probe?[{name:"P",seq:a.probe}]:[])}));
+ const o=document.getElementById("wk_mx");o.innerHTML="\u2026";const d=await api("/api/multiplex",{assays});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ let h=`<small class="note">${d.n_assays} assays, ${d.n_oligos} oligos; cross-assay dimers \u2264 ${d.threshold} kcal/mol flagged.</small>`;
+ h+=d.channel_conflicts.length?`<div class="err">channel conflicts: `+d.channel_conflicts.map(c=>`${esc(c.dye)} \u2192 ${c.assays.map(esc).join(", ")}`).join("; ")+`</div>`:`<div class="ok">no detection-channel conflicts</div>`;
+ h+=d.cross_dimers.length?`<table><tr><th>\u0394G</th><th>oligo A</th><th>oligo B</th></tr>`+d.cross_dimers.map(x=>`<tr><td class="FAIL">${x.dg}</td><td>${esc(x.assay_a)}\u00b7${x.oligo_a}</td><td>${esc(x.assay_b)}\u00b7${x.oligo_b}</td></tr>`).join("")+`</table>`:`<div class="ok">no cross-assay dimers below threshold</div>`;
+ o.innerHTML=h;}
+async function applyConditions(){const b={mv_conc:parseFloat(cond_mv.value)||50,dv_conc:parseFloat(cond_dv.value)||3,dntp_conc:parseFloat(cond_dntp.value)||0.8,dna_conc:parseFloat(cond_dna.value)||200};
+ await api("/api/conditions",b);try{localStorage.setItem("of_cond",JSON.stringify(b));}catch(e){}
+ const n=document.getElementById("cond_note");if(n){n.textContent="applied — Tm now uses your mix";setTimeout(()=>{n.textContent="";},2200);}}
+async function initConditions(){let b=null;try{b=JSON.parse(localStorage.getItem("of_cond")||"null");}catch(e){}
+ const cur=await api("/api/conditions",b||{});const v=(b||cur)||{};
+ if(!v.error){if(v.dv_conc!=null)cond_dv.value=v.dv_conc;if(v.mv_conc!=null)cond_mv.value=v.mv_conc;if(v.dntp_conc!=null)cond_dntp.value=v.dntp_conc;if(v.dna_conc!=null)cond_dna.value=v.dna_conc;}}
+function seedFSJ(){const host="IDT PrimeTime (ZEN 5'FAM)";const org="Aphelocoma coerulescens";
+ const A=[
+  {name:"IFNG",gene:"IFNG",organism:org,chemistry:host,dye:"FAM",amplicon:136,forward:"AGTCATTCTGATGTCGCTGATG",reverse:"ACCTGTCAGTGTTTTCAAGCA",probe:"TCATTTCTCTCTGTCCAGCCTGATAGCTTCTCT"},
+  {name:"IL4",gene:"IL4",organism:org,chemistry:host,dye:"FAM",amplicon:84,forward:"AACTTGCTCAGCCTGGTTTG",reverse:"ATTCTTTAGTGAGGTGGTGCTG",probe:"CTTGTGCCCTGCTCTGGTCCC"},
+  {name:"RPL13",gene:"RPL13",organism:org,chemistry:host,dye:"FAM",amplicon:138,forward:"TCGCTGGCATCAACAAGAAG",reverse:"TCGGGAAGAGGATGAGCTTG",probe:"AACAAGTCCACCGAGTCCCTGCA"},
+  {name:"YWHAZ",gene:"YWHAZ",organism:org,chemistry:host,dye:"FAM",amplicon:121,forward:"CCGTTACTTGGCTGAGGTTG",reverse:"GATGGGATGTGTTGGTTGCA",probe:"CCACTATCCCTTTCTTGTCATCTCCAGCAG"},
+  {name:"Plasmodium",gene:"Plasmodium cytb (genus)",organism:"Plasmodium",chemistry:"low-Tm TaqMan — probe as IDT Affinity Plus (LNA)",dye:"FAM",amplicon:157,forward:"TACCTGGACTWGTTTCATGG",reverse:"AAAGGATTTGTGCTACCTTG",probe:"CTTACAAGATATCCACCACA"}];
+ if(PANEL.length&&!confirm("Add the 5 locked FSJ assays to the workbench?"))return;
+ A.forEach(a=>{a.id="a"+Date.now()+Math.floor(Math.random()*1e5);a.status="designed";PANEL.push(a);});
+ CURRENT_ID=PANEL[PANEL.length-1].id;savePanel();renderPanel();gotab("work");
+ alert("Loaded your 5 locked FSJ assays (verbatim from the panel). Verify in OligoAnalyzer before ordering.");}
+async function loadProjectList(){const sel=document.getElementById("pj_sel");if(!sel)return;const d=await api("/api/project/list",{});const ps=(d&&d.projects)||[];sel.innerHTML=ps.length?ps.map(x=>`<option value="${esc(x.name)}">${esc(x.name)} (${x.n})</option>`).join(""):`<option value="">— no saved projects —</option>`;}
+async function saveProject(){const nm=(document.getElementById("pj_name").value||"").trim();if(!nm){alert("Name the project first.");return;}if(!PANEL.length){alert("Nothing to save — the workbench is empty.");return;}const d=await api("/api/project/save",{name:nm,assays:PANEL});const n=document.getElementById("pj_note");if(d.error){if(n){n.className="err";n.textContent=d.error;}return;}if(n){n.className="ok";n.textContent="saved "+d.saved+" ("+d.n+")";setTimeout(()=>{n.textContent="";},2200);}loadProjectList();}
+async function loadProject(){const nm=document.getElementById("pj_sel").value;if(!nm){alert("No saved project selected.");return;}if(PANEL.length&&!confirm("Replace the current workbench with project \""+nm+"\"?"))return;const d=await api("/api/project/load",{name:nm});if(d.error){alert(d.error);return;}PANEL=(d.assays||[]).map(a=>{if(!a.id)a.id="a"+Date.now()+Math.floor(Math.random()*1e5);return a;});CURRENT_ID=PANEL.length?PANEL[0].id:null;savePanel();renderPanel();document.getElementById("pj_name").value=nm;}
+async function deleteProject(){const nm=document.getElementById("pj_sel").value;if(!nm)return;if(!confirm("Delete saved project \""+nm+"\"? This cannot be undone."))return;const d=await api("/api/project/delete",{name:nm});const n=document.getElementById("pj_note");if(n&&!d.error){n.className="ok";n.textContent="deleted "+nm;setTimeout(()=>{n.textContent="";},2000);}loadProjectList();}
+initConditions();
+loadProjectList();
+renderPanel();
+</script>
+</body></html>

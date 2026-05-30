@@ -1,0 +1,12 @@
+# One-click deploy on Render (render.com): New + -> Blueprint -> pick this repo.
+# autoDeploy: every git push redeploys, so the live URL is always your latest commit.
+services:
+  - type: web
+    name: oligoforge
+    runtime: docker
+    plan: free            # free tier sleeps when idle; upgrade for always-on
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: OLIGOFORGE_EMAIL
+        value: arcarl27@colby.edu
