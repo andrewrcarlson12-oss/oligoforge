@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
 
-app = FastAPI(title="OligoForge", version="0.1.0")
+app = FastAPI(title="OligoForge", version="1.2.2")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -24,10 +24,12 @@ else:
     DATA_DIR = HERE
 
 
-def _set_email(email: Optional[str]):
+def _set_email(email=None, key=None):
     e = email or os.environ.get("OLIGOFORGE_EMAIL")
     if e:
         ncbi.Entrez.email = SP.Entrez.email = e
+    k = key or os.environ.get("OLIGOFORGE_NCBI_KEY")
+    ncbi.Entrez.api_key = SP.Entrez.api_key = (k or None)
 
 
 _set_email(None)
@@ -48,20 +50,19 @@ class DesignReq(BaseModel):
 
 class FetchReq(BaseModel):
     accession: Optional[str] = None; gene: Optional[str] = None
-    organism: Optional[str] = None; isoform_common: bool = False; email: Optional[str] = None
+    organism: Optional[str] = None; isoform_common: bool = False; email: Optional[str] = None; ncbi_key: Optional[str] = None
 
 class IntronReq(BaseModel):
     gene: str; organism: str
     amp_start: Optional[int] = None
     amp_end: Optional[int] = None
-    mrna_acc: Optional[str] = None
     forward: Optional[str] = None
     reverse: Optional[str] = None
-    mrna_acc: Optional[str] = None; email: Optional[str] = None
+    mrna_acc: Optional[str] = None; email: Optional[str] = None; ncbi_key: Optional[str] = None
 
 class BlastReq(BaseModel):
     seq: str; organism: Optional[str] = None; mode: str = "remote"
-    db: str = "nt"; db_path: Optional[str] = None; email: Optional[str] = None
+    db: str = "nt"; db_path: Optional[str] = None; email: Optional[str] = None; ncbi_key: Optional[str] = None
 
 
 # ---------- routes ----------
@@ -180,7 +181,7 @@ def design(r: DesignReq):
 
 @app.post("/api/fetch")
 def fetch(r: FetchReq):
-    _set_email(r.email)
+    _set_email(r.email, r.ncbi_key)
     try:
         if r.accession:
             recs = ncbi.fetch_accessions([x.strip() for x in r.accession.split(",") if x.strip()])
@@ -197,7 +198,7 @@ def fetch(r: FetchReq):
 
 @app.post("/api/intron")
 def intron(r: IntronReq):
-    _set_email(r.email)
+    _set_email(r.email, r.ncbi_key)
     try:
         return SP.intron_check(r.gene, r.organism, r.amp_start, r.amp_end, r.mrna_acc, r.forward, r.reverse)
     except Exception as e:
@@ -205,7 +206,7 @@ def intron(r: IntronReq):
 
 @app.post("/api/blast")
 def blast(r: BlastReq):
-    _set_email(r.email)
+    _set_email(r.email, r.ncbi_key)
     try:
         if r.mode == "local":
             return SP.blast_local(r.seq.upper().strip(), r.db_path or "")
@@ -219,7 +220,6 @@ import json, re
 from oligoforge import quant as Q, orders as O
 
 PANELS_DIR = os.path.join(DATA_DIR, "panels")
-os.makedirs(PANELS_DIR, exist_ok=True)
 os.makedirs(PANELS_DIR, exist_ok=True)
 PROJECTS_DIR = os.path.join(DATA_DIR, "projects")
 os.makedirs(PROJECTS_DIR, exist_ok=True)
@@ -295,15 +295,18 @@ class OrderReq(BaseModel):
 
 class PairSpecReq(BaseModel):
     forward: str; reverse: str; organism: Optional[str] = None
-    mode: str = "remote"; db: str = "nt"; db_path: Optional[str] = None; email: Optional[str] = None
+    mode: str = "remote"; db: str = "nt"; db_path: Optional[str] = None; email: Optional[str] = None; ncbi_key: Optional[str] = None
 
 
 @app.post("/api/copies")
 def copies(r: CopiesReq):
     if r.length_bp < 1 or r.ng_per_ul <= 0:
         return JSONResponse({"error": "enter a positive concentration and a length in bp"}, status_code=200)
+    if r.factor <= 1:
+        return JSONResponse({"error": "dilution factor must be greater than 1 (e.g. 10 for a 10-fold series)"}, status_code=200)
+    pts = max(1, min(int(r.points), 40))
     c = Q.copies_per_ul(r.ng_per_ul, r.length_bp)
-    series = Q.dilution_series(c, r.factor, r.points)
+    series = Q.dilution_series(c, r.factor, pts)
     return dict(copies_per_ul=c, ng_per_ul=r.ng_per_ul, length_bp=r.length_bp,
                 series=[dict(point=i, copies_per_ul=v) for i, v in enumerate(series)])
 
@@ -347,10 +350,18 @@ def panel_load(r: PanelLoadReq):
 def order_csv(r: OrderReq):
     oligos = []
     for e in r.oligos:
-        cs, _, err = T.clean_seq(e.seq)
+        if e.kind == "probe_lna":
+            # LNA / Affinity Plus probes use IDT '+N' notation; validate the DNA
+            # backbone but keep the +N positions in the ordered sequence.
+            raw = "".join(e.seq.upper().split())
+            backbone, _, _ = T.strip_lna(raw)
+            _, _, err = T.clean_seq(backbone)
+            seq_for_order = raw
+        else:
+            seq_for_order, _, err = T.clean_seq(e.seq)
         if err:
             return JSONResponse({"error": "%s: %s" % (e.name or "oligo", err)}, status_code=200)
-        d = e.dict(); d["seq"] = cs; oligos.append(d)
+        d = e.dict(); d["seq"] = seq_for_order; oligos.append(d)
     gbs = []
     for g in r.gblocks:
         cs, _, err = T.clean_seq(g.seq)
@@ -362,7 +373,7 @@ def order_csv(r: OrderReq):
 
 @app.post("/api/pair_specificity")
 def pair_specificity(r: PairSpecReq):
-    _set_email(r.email)
+    _set_email(r.email, r.ncbi_key)
     def one(seq):
         if r.mode == "local":
             return SP.blast_local(seq, r.db_path or "")
@@ -382,7 +393,7 @@ class ConsReq(BaseModel):
 class EpcrReq(BaseModel):
     forward: str; reverse: str; mode: str = "remote"; db: str = "nt"
     db_path: Optional[str] = None; organism: Optional[str] = None
-    min_product: int = 40; max_product: int = 3000; email: Optional[str] = None
+    min_product: int = 40; max_product: int = 3000; email: Optional[str] = None; ncbi_key: Optional[str] = None
 class LnaReq(BaseModel):
     seq: str; n_lna: Optional[int] = None
 
@@ -394,7 +405,7 @@ def api_conservation(r: ConsReq):
 
 @app.post("/api/epcr")
 def api_epcr(r: EpcrReq):
-    _set_email(r.email)
+    _set_email(r.email, r.ncbi_key)
     try:
         return SP.in_silico_pcr(r.forward, r.reverse, r.mode, r.db, r.db_path,
                                 r.organism, r.min_product, r.max_product)
@@ -442,10 +453,10 @@ def api_refgenes(r: RefGenesReq):
 
 from oligoforge import ncbi as NC
 class FetchNucReq(BaseModel):
-    query: str; n: int = 10; email: Optional[str] = None
+    query: str; n: int = 10; email: Optional[str] = None; ncbi_key: Optional[str] = None
 @app.post("/api/fetch_nuc")
 def api_fetch_nuc(r: FetchNucReq):
-    _set_email(r.email)
+    _set_email(r.email, r.ncbi_key)
     try:
         recs = NC.search_fetch_fasta(r.query, min(r.n, 30))
         return dict(n=len(recs), fasta="\n".join(f">{d}\n{s}" for d, s in recs),
@@ -469,10 +480,10 @@ class AutoDesignReq(BaseModel):
     min_ident: float = 0.6
     run_blast: bool = False; blast_mode: str = "remote"
     blast_db: str = "nt"; blast_db_path: Optional[str] = None; organism: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[str] = None; ncbi_key: Optional[str] = None
 @app.post("/api/autodesign")
 def api_autodesign(r: AutoDesignReq):
-    _set_email(r.email)
+    _set_email(r.email, r.ncbi_key)
     try:
         return AD.design_from_query(r.target_query, r.profile, r.off_query, min(r.n_fetch, 30),
                                     r.min_ident, r.run_blast, r.blast_mode, r.blast_db,

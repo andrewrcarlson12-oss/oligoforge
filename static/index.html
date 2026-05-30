@@ -3,119 +3,164 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OligoForge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
- --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3340; --ink:#e6edf3;
- --dim:#8b97a6; --acc:#4cc2ff; --pass:#3fb950; --warn:#d29922; --fail:#f85149; --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+ --bg:#0a0e15; --panel:#0f141d; --panel2:#141b26; --panel3:#19212e; --line:#222c3a; --line2:#2f3c4d;
+ --ink:#e9eff7; --ink2:#c2cdda; --dim:#7e8b9d;
+ --acc:#5cc8ff; --acc-d:#33b2f3; --acc2:#6ee7a8;
+ --pass:#46c25c; --warn:#e2a83a; --fail:#fb6d63;
+ --ui:'IBM Plex Sans',ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+ --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+ --r:12px; --r2:9px; --sh:0 14px 38px -20px rgba(0,0,0,.8); --sh2:0 4px 14px -8px rgba(0,0,0,.6);
 }
-*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-header{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
-header h1{font-size:17px;margin:0;letter-spacing:.5px} header h1 b{color:var(--acc)}
-header .sub{color:var(--dim);font-size:12px}
-header .email{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
-input,select,textarea{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit}
-textarea{width:100%;font-family:var(--mono);resize:vertical;line-height:1.45}
-input.seq{font-family:var(--mono)} button{background:var(--acc);color:#03263a;border:0;border-radius:6px;padding:8px 14px;font-weight:600;cursor:pointer;font-size:13px}
-button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:500}
-button:hover{filter:brightness(1.08)} nav{display:flex;gap:4px;padding:10px 16px 0;flex-wrap:wrap;border-bottom:1px solid var(--line);background:var(--panel)}
-nav a{padding:8px 14px;color:var(--dim);cursor:pointer;border-radius:6px 6px 0 0;font-size:13px;border:1px solid transparent;border-bottom:none}
-nav a.on{color:var(--ink);background:var(--bg);border-color:var(--line)}
-main{padding:22px;max-width:1080px;margin:0 auto} section{display:none} section.on{display:block}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:4px}
-h2{font-size:15px;margin:0 0 4px} .hint{color:var(--dim);font-size:12px;margin:0 0 14px}
-table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px} th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line)}
-th{color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
-td.mono,.mono{font-family:var(--mono)} .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
-.PASS{color:var(--pass)} .WARN{color:var(--warn)} .FAIL{color:var(--fail)}
-.b-PASS{background:rgba(63,185,80,.16);color:var(--pass)} .b-WARN{background:rgba(210,153,34,.16);color:var(--warn)} .b-FAIL{background:rgba(248,81,73,.16);color:var(--fail)}
-.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:10px 0}
-.kv div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
-.kv b{display:block;font-size:18px;font-family:var(--mono)} .kv span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
-.err{color:var(--fail);font-size:13px;margin-top:8px} .ok{color:var(--pass)}
-.matrix td{text-align:center;font-family:var(--mono);font-size:12px;cursor:default} .matrix th{text-align:center;font-family:var(--mono)}
-.matrix td.cell{border:1px solid var(--bg)} pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-all}
-.seqrow{display:flex;gap:8px;margin-bottom:6px} .seqrow input:first-child{flex:0 0 130px} .seqrow input:nth-child(2){flex:1}
-small.note{color:var(--dim)} a.lnk{color:var(--acc);cursor:pointer}
-</style>
-<style id="polish">
-:root{--bg:#0b0f15;--panel:#10151d;--panel2:#161d27;--line:#26303c;--acc:#56ccff;--acc2:#7ee787;--shadow:0 10px 30px -16px rgba(0,0,0,.75)}
-*{scrollbar-color:#2c3744 transparent;scrollbar-width:thin}
-::selection{background:rgba(86,204,255,.28)}
-body{background:
-  radial-gradient(1100px 520px at 72% -12%,rgba(86,204,255,.06),transparent 60%),
-  radial-gradient(900px 480px at -5% 112%,rgba(126,231,135,.045),transparent 55%),
-  linear-gradient(rgba(86,204,255,.020) 1px,transparent 1px) 0 0/100% 30px,
-  linear-gradient(90deg,rgba(86,204,255,.020) 1px,transparent 1px) 0 0/30px 100%,
+*{box-sizing:border-box;scrollbar-color:#2c3744 transparent;scrollbar-width:thin}
+::selection{background:rgba(92,200,255,.28)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#26303d;border-radius:8px;border:2px solid transparent;background-clip:content-box}
+html,body{margin:0}
+body{color:var(--ink);font:14px/1.55 var(--ui);min-height:100vh;-webkit-font-smoothing:antialiased;
+ background:
+  radial-gradient(1200px 560px at 78% -10%,rgba(92,200,255,.07),transparent 60%),
+  radial-gradient(900px 520px at -6% 110%,rgba(110,231,168,.05),transparent 55%),
+  linear-gradient(rgba(92,200,255,.018) 1px,transparent 1px) 0 0/100% 34px,
+  linear-gradient(90deg,rgba(92,200,255,.018) 1px,transparent 1px) 0 0/34px 100%,
   var(--bg)}
-header{background:linear-gradient(180deg,rgba(20,27,38,.92),rgba(16,21,29,.92));backdrop-filter:blur(8px);border-bottom:1px solid var(--line);row-gap:10px}
-header::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--acc),var(--acc2));opacity:.9}
-.brand{display:flex;align-items:center;gap:9px}
-header h1{font-weight:700;letter-spacing:.4px;font-size:18px}
-header .sub{opacity:.9}
-nav{gap:6px;row-gap:6px;background:linear-gradient(180deg,rgba(16,21,29,.96),rgba(13,17,23,.96))}
-nav a{transition:color .15s,background .15s,border-color .15s;border:1px solid transparent;border-bottom:2px solid transparent;border-radius:7px 7px 0 0;font-weight:500}
-nav a:hover{color:var(--ink);background:rgba(86,204,255,.05)}
-nav a.on{color:var(--ink);background:linear-gradient(180deg,rgba(86,204,255,.10),rgba(86,204,255,.01));border-bottom-color:var(--acc)}
-.card{background:linear-gradient(180deg,#131a24,#0f141c);border:1px solid var(--line);border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),var(--shadow)}
-section.on{animation:ofIn .2s ease}
-@keyframes ofIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-h2{font-size:16px;font-weight:650;letter-spacing:.2px}
-input,select,textarea{box-shadow:inset 0 1px 2px rgba(0,0,0,.28);transition:border-color .12s,box-shadow .12s}
-input:hover,select:hover,textarea:hover{border-color:#34414f}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(86,204,255,.16),inset 0 1px 2px rgba(0,0,0,.25)}
-button{transition:transform .06s,filter .12s,box-shadow .12s;box-shadow:0 1px 0 rgba(0,0,0,.35)}
+a{color:var(--acc)}
+/* header */
+header{display:flex;align-items:center;gap:18px;padding:13px 22px;position:sticky;top:0;z-index:30;flex-wrap:wrap;row-gap:10px;
+ background:linear-gradient(180deg,rgba(15,20,29,.94),rgba(11,15,22,.92));backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--acc),var(--acc2));opacity:.95}
+.brand{display:flex;align-items:center;gap:10px}
+header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.3px}
+header h1 b{color:var(--acc);font-weight:700}
+header .sub{color:var(--dim);font-size:12px;letter-spacing:.2px}
+header .email{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim)}
+.cond{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--dim);background:rgba(255,255,255,.018);border:1px solid var(--line);border-radius:30px;padding:5px 12px}
+.cond .u{font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-right:-6px;font-weight:600}
+.cond input{width:62px;padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px}
+/* inputs */
+input,select,textarea{background:var(--panel3);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;box-shadow:inset 0 1px 2px rgba(0,0,0,.25);transition:border-color .13s,box-shadow .13s,background .13s}
+input:hover,select:hover,textarea:hover{border-color:var(--line2)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(92,200,255,.16),inset 0 1px 2px rgba(0,0,0,.2)}
+textarea{width:100%;font-family:var(--mono);resize:vertical;line-height:1.5}
+input.seq{font-family:var(--mono);letter-spacing:.3px}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:5px;font-weight:600}
+/* buttons */
+button{background:linear-gradient(180deg,#6fd2ff,#2fb1f3);color:#04222f;border:0;border-radius:8px;padding:9px 15px;font-weight:600;cursor:pointer;font-size:13px;font-family:var(--ui);letter-spacing:.2px;box-shadow:0 1px 0 rgba(0,0,0,.35),0 8px 18px -10px rgba(92,200,255,.55);transition:transform .07s,filter .13s,box-shadow .13s}
+button:hover{filter:brightness(1.06)}
 button:active{transform:translateY(1px)}
-button:not(.ghost){background:linear-gradient(180deg,#6fd2ff,#33b2f3);color:#042130;box-shadow:0 1px 0 rgba(0,0,0,.35),0 6px 16px -8px rgba(86,204,255,.5)}
-button:not(.ghost):hover{filter:brightness(1.06)}
-button.ghost{background:rgba(255,255,255,.012)}
-button.ghost:hover{background:rgba(86,204,255,.08);border-color:#3a4b5a;color:var(--ink)}
-.kv div{background:linear-gradient(180deg,#19222e,#141b25);border:1px solid var(--line);border-left:2px solid rgba(86,204,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
-.kv b{letter-spacing:.3px;color:#dbe9f6}
-.kv span{opacity:.9}
-th{background:rgba(255,255,255,.022)}
-td,th{border-bottom:1px solid rgba(42,51,64,.7)}
-tbody tr:hover td{background:rgba(86,204,255,.05)}
-tbody tr:last-child td{border-bottom:0}
-.b-PASS,.b-WARN,.b-FAIL{border:1px solid transparent;border-radius:20px}
-.b-PASS{border-color:rgba(63,185,80,.4)}.b-WARN{border-color:rgba(210,153,34,.4)}.b-FAIL{border-color:rgba(248,81,73,.4)}
-.chip{display:inline-block;padding:2px 9px;border:1px solid var(--line);border-radius:20px;font-size:11px;color:var(--acc);background:rgba(86,204,255,.09);font-weight:600}
-.cond{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:var(--dim)}
-.cond .u{font-size:10px;text-transform:uppercase;letter-spacing:.4px;margin-right:-7px}
-.cond input{width:64px;padding:6px 8px;text-align:right;font-family:var(--mono);font-size:12px}
-footer{border-top:1px solid var(--line);margin-top:10px}
-</style>
-<style id="polish2">
-/* keep wide results (matrix, in-silico PCR, conservation) inside their panel, never off-page */
+button.ghost{background:rgba(255,255,255,.015);border:1px solid var(--line);color:var(--ink2);font-weight:500;box-shadow:none}
+button.ghost:hover{background:rgba(92,200,255,.09);border-color:var(--line2);color:var(--ink)}
+/* nav */
+nav{display:flex;align-items:center;gap:5px;padding:10px 18px;flex-wrap:wrap;row-gap:8px;background:linear-gradient(180deg,rgba(13,18,26,.96),rgba(10,14,21,.96));border-bottom:1px solid var(--line)}
+.navgroup{display:inline-flex;align-items:center;font-size:9.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--dim);opacity:.75;margin:0 8px 0 6px;padding-left:12px;border-left:1px solid var(--line);height:18px}
+.navgroup.first{border-left:0;padding-left:0;margin-left:0}
+nav a{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;color:var(--dim);cursor:pointer;border-radius:8px;font-size:12.5px;font-weight:500;border:1px solid transparent;transition:color .14s,background .14s,border-color .14s}
+nav a:hover{color:var(--ink);background:rgba(92,200,255,.07)}
+nav a.on{color:var(--ink);background:linear-gradient(180deg,rgba(92,200,255,.16),rgba(92,200,255,.03));border-color:rgba(92,200,255,.32);box-shadow:inset 0 0 0 1px rgba(92,200,255,.06),0 6px 14px -10px rgba(92,200,255,.5)}
+nav a.lead{color:var(--ink2);font-weight:600}
+nav a.lead.on{background:linear-gradient(180deg,rgba(110,231,168,.16),rgba(92,200,255,.05));border-color:rgba(110,231,168,.32)}
+/* main + sections */
+main{padding:24px 22px 40px;max-width:1120px;margin:0 auto}
+section{display:none}
+section.on{display:block;animation:ofIn .22s ease}
+@keyframes ofIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* cards */
+.card{background:linear-gradient(180deg,#121823,#0e131c);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin-bottom:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),var(--sh)}
+.row{display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+h2{font-size:16px;margin:0 0 5px;font-weight:650;letter-spacing:.2px}
+h3{font-size:15px;margin:0 0 5px;font-weight:650}
+.hint{color:var(--dim);font-size:12.5px;margin:0 0 15px;line-height:1.6;max-width:82ch}
+/* tables */
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid rgba(34,44,58,.7)}
+th{color:var(--dim);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.02)}
+tbody tr:hover td,table tr:hover td{background:rgba(92,200,255,.045)}
+tr:last-child td{border-bottom:0}
+td.mono,.mono{font-family:var(--mono);letter-spacing:.2px}
+/* status + pills */
+.PASS{color:var(--pass)}.WARN{color:var(--warn)}.FAIL{color:var(--fail)}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.b-PASS{background:rgba(70,194,92,.16);color:var(--pass);border:1px solid rgba(70,194,92,.4);border-radius:20px}
+.b-WARN{background:rgba(226,168,58,.16);color:var(--warn);border:1px solid rgba(226,168,58,.4);border-radius:20px}
+.b-FAIL{background:rgba(251,109,99,.16);color:var(--fail);border:1px solid rgba(251,109,99,.4);border-radius:20px}
+/* kv tiles */
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin:12px 0}
+.kv div{background:linear-gradient(180deg,#19222e,#131a24);border:1px solid var(--line);border-left:2px solid rgba(92,200,255,.6);border-radius:9px;padding:10px 12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+.kv b{display:block;font-size:18px;font-family:var(--mono);letter-spacing:.3px;color:#dbe9f6}
+.kv span{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px}
+/* misc */
+.err{color:var(--fail);font-size:13px;margin-top:8px;background:rgba(251,109,99,.08);border:1px solid rgba(251,109,99,.28);border-radius:8px;padding:9px 12px}
+.ok{color:var(--pass)}
+.matrix td{text-align:center;font-family:var(--mono);font-size:12px;cursor:default}
+.matrix th{text-align:center;font-family:var(--mono)}
+.matrix td.cell{border:1px solid var(--bg)}
+table.matrix{font-size:12px}
+pre{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:13px;overflow:auto;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.seqrow{display:flex;gap:7px;margin-bottom:6px;flex-wrap:wrap}
+.seqrow input:first-child{flex:0 0 130px}
+.seqrow input:nth-child(2){flex:1;min-width:170px}
+small.note{color:var(--dim);font-size:12px;line-height:1.55}
+a.lnk{color:var(--acc);cursor:pointer;font-weight:500}
+a.lnk:hover{text-decoration:underline}
+.chip{display:inline-block;padding:2px 9px;border:1px solid var(--line);border-radius:20px;font-size:11px;color:var(--acc);background:rgba(92,200,255,.09);font-weight:600}
 [id$="_out"]{overflow-x:auto;max-width:100%}
 #orderrows,#consrows{max-width:100%}
-.seqrow{flex-wrap:wrap;gap:6px}
-table.matrix{font-size:12px}
-main{max-width:100%}
-/* workbench: assay cards that wrap instead of a table that runs off the page */
-.acard{background:linear-gradient(180deg,#141c27,#0f141c);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:10px 0;box-shadow:inset 0 1px 0 rgba(255,255,255,.03),var(--shadow)}
-.acard.cur{border-color:var(--acc);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 0 1px rgba(86,204,255,.35),var(--shadow)}
+/* workbench assay cards */
+.acard{background:linear-gradient(180deg,#141c27,#0f141c);border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin:10px 0;box-shadow:inset 0 1px 0 rgba(255,255,255,.03),var(--sh2)}
+.acard.cur{border-color:var(--acc);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 0 1px rgba(92,200,255,.4),var(--sh2)}
 .acard-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .acard-cur{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;cursor:pointer}
 .acard-name{flex:1 1 180px;min-width:140px;font-weight:600;font-size:14px}
 .acard-status{font-size:10px;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
 .acard-x{padding:3px 9px;flex:0 0 auto}
-.acard-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
-.acard-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px solid rgba(42,51,64,.6)}
+.acard-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:11px}
+.acard-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid rgba(34,44,58,.7)}
 .acard-actions button{flex:0 0 auto}
-.achip{display:inline-flex;align-items:center;font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.025);color:var(--ink);white-space:nowrap}
+.acard-res{margin-top:11px;padding-top:11px;border-top:1px solid rgba(34,44,58,.6);display:flex;flex-direction:column;gap:6px}
+.resrow{display:flex;gap:10px;align-items:baseline;font-size:12px;flex-wrap:wrap}
+.reslab{flex:0 0 92px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;font-size:10px;font-weight:600;padding-top:1px}
+.resval{flex:1 1 200px;color:var(--ink2);font-family:var(--mono);font-size:11.5px;line-height:1.5}
+.resval .lnk{font-family:var(--ui);font-size:11px;margin-left:4px}
+.achip{display:inline-flex;align-items:center;font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.025);color:var(--ink2);white-space:nowrap}
 .achip.dim{color:var(--dim)}
-.achip.ok{color:var(--pass);border-color:rgba(63,185,80,.42)}
-.achip.warn{color:var(--warn);border-color:rgba(210,153,34,.42)}
-/* tidier clickable tabs */
-nav{padding:9px 16px 0;gap:5px}
-nav a{padding:8px 13px;font-size:12.5px}
-nav a:hover{color:var(--ink);background:rgba(86,204,255,.07)}
-nav a.on{background:linear-gradient(180deg,rgba(86,204,255,.13),rgba(86,204,255,.02));border-color:var(--line);border-bottom-color:var(--acc);color:var(--ink)}
-/* breathing room */
-h2{font-size:15px;font-weight:650;letter-spacing:.2px;margin-bottom:2px}
-.card{padding:16px 18px}
+.achip.ok{color:var(--pass);border-color:rgba(70,194,92,.42)}
+.achip.warn{color:var(--warn);border-color:rgba(226,168,58,.42)}
+/* hero (create flow intro) */
+.hero{background:linear-gradient(135deg,rgba(92,200,255,.10),rgba(110,231,168,.05) 60%,transparent);border:1px solid rgba(92,200,255,.22);border-radius:var(--r);padding:16px 19px;margin-bottom:16px}
+.hero h2{font-size:17px}
+.hero p{color:var(--ink2);font-size:13px;margin:6px 0 0;max-width:82ch;line-height:1.6}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.step{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink2);background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:20px;padding:5px 11px}
+.step b{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#04222f;font-size:10px;font-weight:700}
+/* progress */
+.ofbar{height:6px;border-radius:6px;background:rgba(255,255,255,.06);overflow:hidden;margin:10px 0;position:relative}
+.ofbar::after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;border-radius:6px;background:linear-gradient(90deg,transparent,var(--acc),var(--acc2),transparent);animation:ofslide 1.1s ease-in-out infinite}
+@keyframes ofslide{from{left:-40%}to{left:100%}}
+.working{color:var(--dim);font-size:13px}
+/* autofill flash */
+.flash{animation:ofFlash 1s ease}
+@keyframes ofFlash{0%{box-shadow:0 0 0 0 rgba(110,231,168,0);border-color:var(--acc2)}25%{box-shadow:0 0 0 3px rgba(110,231,168,.28);border-color:var(--acc2);background:rgba(110,231,168,.07)}100%{box-shadow:0 0 0 0 rgba(110,231,168,0)}}
+/* toasts */
+.toast-wrap{position:fixed;right:18px;bottom:18px;z-index:9999;display:flex;flex-direction:column;gap:9px;pointer-events:none}
+.toast{pointer-events:auto;min-width:200px;max-width:340px;padding:11px 14px;border-radius:10px;font-size:13px;color:var(--ink);background:linear-gradient(180deg,#1a2330,#141b26);border:1px solid var(--line2);border-left:3px solid var(--acc);box-shadow:var(--sh);animation:ofToast .26s cubic-bezier(.2,.8,.2,1)}
+.toast.ok{border-left-color:var(--pass)}
+.toast.warn{border-left-color:var(--warn)}
+.toast.err{border-left-color:var(--fail)}
+.toast.out{animation:ofToastOut .3s ease forwards}
+@keyframes ofToast{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes ofToastOut{to{opacity:0;transform:translateY(8px) scale(.98)}}
+/* footer */
+footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.5px;padding:14px 0 26px;opacity:.6;border-top:1px solid var(--line);margin-top:14px}
+/* responsive */
+@media (max-width:720px){
+ .email{margin-left:0}
+ main{padding:18px 14px 32px}
+ nav{padding:9px 12px}
+ .navgroup{display:none}
+}
 </style>
 </head>
 <body>
@@ -129,12 +174,12 @@ h2{font-size:15px;font-weight:650;letter-spacing:.2px;margin-bottom:2px}
     <button class="ghost" style="padding:5px 9px" onclick="applyConditions()">apply</button>
     <span id="cond_note" class="ok" style="font-size:11px"></span>
   </div>
-  <div class="email">NCBI email <input id="email" placeholder="you@uni.edu" style="width:160px"></div>
+  <div class="email">NCBI email <input id="email" placeholder="you@uni.edu" style="width:150px"> <span style="color:var(--dim)">key</span> <input id="ncbi_key" type="password" placeholder="optional" style="width:120px"></div>
 </header>
 <nav id="nav"></nav>
 <main>
   <!-- QC -->
-  <section id="qc" class="on"><div class="card">
+  <section id="qc"><div class="card">
     <h2>Oligo QC + vendor lint</h2><p class="hint">Real primer3 thermodynamics at qPCR salt. Pick the chemistry to lint against.</p>
     <div class="row">
       <div style="flex:1"><label>sequence (5'→3')</label><input id="qc_seq" class="seq" placeholder="GAGCTATACCCCGACCTCTG" style="width:100%"></div>
@@ -162,7 +207,7 @@ h2{font-size:15px;font-weight:650;letter-spacing:.2px;margin-bottom:2px}
   <section id="matrix"><div class="card">
     <h2>Panel cross-dimer matrix</h2><p class="hint">Every oligo against every other. Green &gt; −6, amber −6 to −9, red ≤ −9 (kcal/mol).</p>
     <div id="seqrows"></div>
-    <div class="row"><button class="ghost" onclick="addSeqRow()">+ oligo</button><button onclick="doMatrix()">Build matrix</button><span style="flex:1"></span><input id="panelname" placeholder="panel name" style="width:140px"><button class="ghost" onclick="savePanel()">Save</button><select id="panelsel" style="width:150px"></select><button class="ghost" onclick="loadPanel()">Load</button></div>
+    <div class="row"><button class="ghost" onclick="addSeqRow()">+ oligo</button><button onclick="doMatrix()">Build matrix</button><span style="flex:1"></span><input id="panelname" placeholder="panel name" style="width:140px"><button class="ghost" onclick="saveOligoPanel()">Save</button><select id="panelsel" style="width:150px"></select><button class="ghost" onclick="loadPanel()">Load</button></div>
     <div id="m_out"></div>
   </div></section>
 
@@ -272,9 +317,14 @@ h2{font-size:15px;font-weight:650;letter-spacing:.2px;margin-bottom:2px}
     <div class="row" style="margin-top:8px"><button onclick="doStd()">Fit curve</button></div>
     <div id="std_out"></div>
   </div></section>
-  <section id="auto"><div class="card">
-    <h2>Target → assay</h2>
-    <p class="hint">Type an NCBI target (organism AND gene), it fetches sequences, designs a primer/probe set on the most complete one, and scores conservation across the whole set plus discrimination against an off-target set. A screen, not a final answer — confirm winners in OligoAnalyzer. AT-rich parasite mtDNA needs a low-Tm parasite profile. Timing: without BLAST this is one NCBI fetch plus design — usually well under a minute; if it ever stalls it now fails at 45 s rather than hanging. Ticking BLAST adds a remote NCBI search that can take several minutes. Fewer sequences to fetch is faster.</p>
+  <section id="auto" class="on">
+    <div class="hero">
+      <h2>Target → assay — a whole primer/probe set from a gene or organism</h2>
+      <p>Name a target (organism + gene, or just an organism) and OligoForge pulls the sequences from NCBI, designs a primer/probe set on the most complete transcript, then scores it for conservation across the set and discrimination against an off-target group. Set your NCBI email at the top right first.</p>
+      <div class="steps"><span class="step"><b>1</b> Name the target</span><span class="step"><b>2</b> Fetch + design</span><span class="step"><b>3</b> Review &amp; add to Workbench</span><span class="step"><b>4</b> Order oligos + gBlock</span></div>
+    </div>
+    <div class="card">
+    <p class="hint">A screen, not a final answer — confirm winners in OligoAnalyzer. AT-rich parasite mtDNA needs a low-Tm parasite profile. Without BLAST this is one NCBI fetch plus design (usually under a minute; it gives up at 120 s rather than hanging). Ticking BLAST adds a remote NCBI search that can take several minutes; fewer sequences is faster.</p>
     <label>target (include the gene)</label>
     <input id="au_q" class="seq" placeholder="e.g. Genus species gene" style="width:100%;text-transform:none">
     <label style="margin-top:8px;display:block">off-target to discriminate against (optional)</label>
@@ -323,28 +373,42 @@ h2{font-size:15px;font-weight:650;letter-spacing:.2px;margin-bottom:2px}
     <div class="row">
       <button onclick="genReport()">Generate MIQE report (HTML + CSV)</button>
       <button class="ghost" onclick="checkMultiplex()">Check multiplex</button>
+      <button class="ghost" onclick="exportPanel()">Export panel (JSON)</button>
+      <button class="ghost" onclick="document.getElementById('pj_import').click()">Import panel</button>
+      <input type="file" id="pj_import" accept="application/json,.json" style="display:none" onchange="importPanel(this)">
       <button class="ghost" onclick="seedFSJ()">Load example (FSJ)</button>
       <button class="ghost" onclick="clearPanel()">Clear panel</button>
     </div>
     <div id="wk_mx" style="margin-top:8px"></div>
   </div></section>
 </main>
-<footer style="text-align:center;color:var(--dim);font-size:10px;letter-spacing:.4px;padding:10px 0 20px;opacity:.65">OligoForge v1.1.1</footer>
+<footer>OligoForge v1.2.2</footer>
+<div id="toast" class="toast-wrap"></div>
 <script>
-const TABS=[["qc","QC"],["pair","Pair"],["matrix","Panel matrix"],["design","Design"],["ncbi","NCBI"],["intron","Intron check"],["blast","BLAST"],["quant","Quant"],["order","Order"],["work","Workbench"],["cons","Conservation"],["epcr","in-silico PCR"],["std","Std curve"],["auto","Target → assay"],["refgenes","Ref genes"]];
-const nav=document.getElementById("nav");
-TABS.forEach(([id,label],i)=>{const a=document.createElement("a");a.textContent=label;a.className=i===0?"on":"";a.onclick=()=>{
- document.querySelectorAll("nav a").forEach(x=>x.classList.remove("on"));a.classList.add("on");
- document.querySelectorAll("section").forEach(s=>s.classList.remove("on"));document.getElementById(id).classList.add("on");try{localStorage.setItem("of_tab",id);}catch(e){}};nav.appendChild(a);});
+const TABS=[
+ ["auto","Target → assay","Create"],["design","Design","Create"],["ncbi","NCBI fetch","Create"],
+ ["qc","QC","Check"],["pair","Pair","Check"],["matrix","Panel matrix","Check"],["cons","Conservation","Check"],["epcr","in-silico PCR","Check"],["intron","Intron check","Check"],["blast","BLAST","Check"],
+ ["quant","Quant","Quantify"],["std","Std curve","Quantify"],["refgenes","Ref genes","Quantify"],
+ ["order","Order","Finish"],["work","Workbench","Finish"]];
+const nav=document.getElementById("nav");let _grp=null;
+TABS.forEach(([id,label,group],i)=>{
+ if(group!==_grp){const g=document.createElement("span");g.className="navgroup"+(_grp===null?" first":"");g.textContent=group;nav.appendChild(g);_grp=group;}
+ const a=document.createElement("a");a.textContent=label;a.className=(i===0?"on lead":"");a.onclick=()=>{
+  document.querySelectorAll("nav a").forEach(x=>x.classList.remove("on"));a.classList.add("on");
+  document.querySelectorAll("section").forEach(s=>s.classList.remove("on"));document.getElementById(id).classList.add("on");try{localStorage.setItem("of_tab",id);}catch(e){}};
+ nav.appendChild(a);});
 try{const _lt=localStorage.getItem("of_tab");if(_lt){const _i=TABS.findIndex(t=>t[0]===_lt);if(_i>=0)document.querySelectorAll("nav a")[_i].click();}}catch(e){}
 
 const email=document.getElementById("email");
 const cond_dv=document.getElementById("cond_dv"),cond_mv=document.getElementById("cond_mv"),cond_dntp=document.getElementById("cond_dntp"),cond_dna=document.getElementById("cond_dna");
 try{const _e=localStorage.getItem("ncbi_email");if(_e)email.value=_e;}catch(e){}
 email.addEventListener("change",()=>{try{localStorage.setItem("ncbi_email",email.value);}catch(e){}});
+const ncbi_key=document.getElementById("ncbi_key");try{const _k=localStorage.getItem("of_ncbi_key");if(_k)ncbi_key.value=_k;}catch(e){}
+ncbi_key.addEventListener("change",()=>{try{localStorage.setItem("of_ncbi_key",ncbi_key.value);}catch(e){}});
 function copyText(t){try{navigator.clipboard.writeText(t);}catch(e){}}
 document.getElementById("qc_seq").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();doQC();}});
 async function api(path,body){let r,j;
+ if(body&&typeof body==="object"&&!Array.isArray(body)){try{const _em=(document.getElementById("email")||{}).value;const _ky=(document.getElementById("ncbi_key")||{}).value;if(_em&&body.email==null)body.email=_em;if(_ky)body.ncbi_key=_ky;}catch(e){}}
  try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
  catch(e){return {error:"cannot reach the server — is it still running in the terminal?"};}
  try{j=await r.json();}catch(e){return {error:"server returned a non-JSON response (HTTP "+r.status+")"};}
@@ -357,6 +421,8 @@ function dgClass(dg){return dg>-6?"PASS":(dg>-9?"WARN":"FAIL");}
 function lintTable(rows){if(!rows)return"";return `<table><tr><th>rule</th><th>status</th><th>detail</th></tr>`+
  rows.map(r=>`<tr><td>${r.rule}</td><td><span class="pill b-${r.status}">${r.status}</span></td><td class="mono">${r.detail}</td></tr>`).join("")+`</table>`;}
 function err(m){return `<div class="err">${m}</div>`;}
+function toast(msg,kind){try{const w=document.getElementById("toast");if(!w){return;}const t=document.createElement("div");t.className="toast "+(kind||"");t.textContent=msg;w.appendChild(t);setTimeout(()=>{try{t.classList.add("out");setTimeout(()=>{try{w.removeChild(t);}catch(_){}},320);}catch(_){}},2600);}catch(e){}}
+function flash(e){try{if(!e||!e.classList)return;e.classList.remove("flash");void(e.offsetWidth);e.classList.add("flash");setTimeout(()=>{try{e.classList.remove("flash");}catch(_){}},1000);}catch(_){}}
 
 // profiles
 let PROFILES={};
@@ -410,6 +476,7 @@ async function doDesign(){const o=document.getElementById("d_out");o.innerHTML="
    </table><div class="kv"><div><span>amplicon</span><b>${d.amplicon}</b></div><div><span>pair gap</span><b>${d.pair_tm_gap}</b></div>
    ${probeKv}</div>
    <label>gBlock standard</label><pre>${d.gblock}</pre>
+   <div style="margin:4px 0 2px"><button class="ghost" style="padding:2px 9px;font-size:11px" onclick='copyText(${JSON.stringify(d.gblock)})'>copy gBlock</button> <button class="ghost" style="padding:2px 9px;font-size:11px" onclick='gblockToOrder("assay_gBlock",${JSON.stringify(d.gblock)})'>→ Order as standard</button></div>
    <small class="note">designed under ${d.profile}</small>
    <div style="margin-top:8px"><button class="ghost" onclick="doPairSpec('${d.forward}','${d.reverse}')">check specificity (BLAST)</button> <button class="ghost" onclick="designAdd()">★ add to workbench</button></div><div id="ds_out"></div>`;}
 
@@ -420,12 +487,12 @@ async function doFetch(){const o=document.getElementById("n_out");o.innerHTML="�
  let h=d.query?`<small class="note">query: ${d.query}</small>`:"";
  if(d.records&&d.records.length)h+=`<small class="note">These are RefSeq mRNA(s) — the correct template for an expression assay. A much longer sequence on NCBI is the genomic chromosome (NC_…) with introns; do not design on that.</small>`;
  h+=`<table><tr><th>accession</th><th>len</th><th>description</th><th></th></tr>`+
-  (d.records||[]).map((r,i)=>`<tr><td class="mono">${r.id}</td><td>${r.length}</td><td>${r.desc.slice(0,60)}</td>
+  (d.records||[]).map((r,i)=>`<tr><td class="mono">${esc(r.id)}</td><td>${r.length}</td><td>${esc(r.desc.slice(0,60))}</td>
    <td><a class="lnk" onclick='useTmpl(${JSON.stringify(r.seq)})'>→ design</a></td></tr>`).join("")+`</table>`;
  if(d.common_region)h+=`<label>isoform-common region (${d.common_region.length} bp)</label><pre>${d.common_region}</pre>
    <a class="lnk" onclick='useTmpl(${JSON.stringify(d.common_region)})'>→ send to Design</a>`;
  o.innerHTML=h;}
-function useTmpl(seq){document.getElementById("d_tmpl").value=seq;document.querySelectorAll("nav a")[3].click();}
+function useTmpl(seq){document.getElementById("d_tmpl").value=seq;gotab("design");}
 
 async function doIntron(){const o=document.getElementById("i_out");
  const g=document.getElementById("i_gene").value,org=document.getElementById("i_org").value;
@@ -453,8 +520,8 @@ async function doBlast(){const o=document.getElementById("b_out");const mode=doc
  if(d.error){o.innerHTML=err(d.error);return;}
  const hits=d.hits||[];
  o.innerHTML=`<small class="note">query ${d.query_len} nt · ${d.n_hits} hits</small><table><tr><th>hit</th><th>identity</th><th>e-value</th></tr>`+
-  hits.map(hh=>Array.isArray(hh)?`<tr><td class="mono">${hh[4]||hh[0]}</td><td>${hh[1]}%</td><td>${hh[3]}</td></tr>`
-   :`<tr><td>${hh.title}</td><td>${hh.identity}/${hh.align_len}</td><td>${hh.evalue}</td></tr>`).join("")+`</table>`;}
+  hits.map(hh=>Array.isArray(hh)?`<tr><td class="mono">${esc(hh[4]||hh[0])}</td><td>${hh[1]}%</td><td>${hh[3]}</td></tr>`
+   :`<tr><td>${esc(hh.title)}</td><td>${hh.identity}/${hh.align_len}</td><td>${hh.evalue}</td></tr>`).join("")+`</table>`;}
 // ---- stage-5 UI ----
 function download(fn,txt){const b=new Blob([txt],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=fn;a.click();}
 async function doCopies(){const o=document.getElementById("q_out");
@@ -481,7 +548,7 @@ async function doOrder(){const o=document.getElementById("o_out");
  o.innerHTML=`<label>oligo CSV — IDT bulk (Name, Sequence, Scale, Purification)</label><pre>${d.oligo_csv||"(none)"}</pre>
   <button class="ghost" onclick='download("idt_oligos.csv",${JSON.stringify(d.oligo_csv)})'>download CSV</button>`+
   (d.gblock_fasta?`<label style="margin-top:12px;display:block">gBlock FASTA</label><pre>${d.gblock_fasta}</pre><button class="ghost" onclick='download("gblocks.fasta",${JSON.stringify(d.gblock_fasta)})'>download FASTA</button>`:"");}
-async function savePanel(){const ol={};[...document.querySelectorAll("#seqrows .seqrow")].forEach(r=>{const i=r.querySelectorAll("input");if(i[0].value&&i[1].value)ol[i[0].value]=i[1].value.toUpperCase();});
+async function saveOligoPanel(){const ol={};[...document.querySelectorAll("#seqrows .seqrow")].forEach(r=>{const i=r.querySelectorAll("input");if(i[0].value&&i[1].value)ol[i[0].value]=i[1].value.toUpperCase();});
  const name=document.getElementById("panelname").value||"panel";await api("/api/panel/save",{name,oligos:ol});refreshPanels();}
 async function refreshPanels(){const d=await(await fetch("/api/panel/list")).json();const s=document.getElementById("panelsel");if(s)s.innerHTML=`<option value="">— saved panels —</option>`+(d.panels||[]).map(p=>`<option>${p}</option>`).join("");}
 async function loadPanel(){const name=document.getElementById("panelsel").value;if(!name)return;const d=await api("/api/panel/load",{name});if(d.error)return;
@@ -495,10 +562,10 @@ async function doBatch(){const o=document.getElementById("bd_out");o.innerHTML="
  const d=await api("/api/batch_design",{items});if(d.error){o.innerHTML=err(d.error);return;}
  o.innerHTML=`<table><tr><th>gene</th><th>F</th><th>R</th><th>probe</th><th>amp</th></tr>`+
   d.results.map(r=>r.ok?`<tr><td>${r.name}</td><td class="mono">${r.forward}</td><td class="mono">${r.reverse}</td><td class="mono">${r.probe||'—'}</td><td>${r.amplicon}</td></tr>`:`<tr><td>${r.name}</td><td colspan="4" class="FAIL">${r.error}</td></tr>`).join("")+`</table>`;}
-async function doPairSpec(f,r){const o=document.getElementById("ds_out");o.innerHTML="remote BLAST is queued at NCBI — 30 s to a few minutes…";
+async function doPairSpec(f,r){const o=document.getElementById("ds_out");o.innerHTML='<div class="working">Remote BLAST queued at NCBI — 30 s to a few minutes…</div><div class="ofbar"></div>';
  const d=await api("/api/pair_specificity",{forward:f,reverse:r,mode:"remote"});
  if(d.error){o.innerHTML=err(d.error);return;}
- function tbl(x,lab){if(x.error)return `<small class="note">${lab}: ${x.error}</small><br>`;const h=x.hits||[];return `<b>${lab}</b> — ${x.n_hits} hits<table>`+h.slice(0,5).map(z=>`<tr><td>${z.title||z[4]||''}</td><td>${z.evalue!==undefined?z.evalue:(z[3]||'')}</td></tr>`).join("")+`</table>`;}
+ function tbl(x,lab){if(x.error)return `<small class="note">${lab}: ${x.error}</small><br>`;const h=x.hits||[];return `<b>${lab}</b> — ${x.n_hits} hits<table>`+h.slice(0,5).map(z=>`<tr><td>${esc(z.title||z[4]||'')}</td><td>${z.evalue!==undefined?z.evalue:(z[3]||'')}</td></tr>`).join("")+`</table>`;}
  o.innerHTML=tbl(d.forward,"forward")+tbl(d.reverse,"reverse");}
 
 // ---- stage-6 UI: conservation + in-silico PCR ----
@@ -524,7 +591,7 @@ async function doCons(){const o=document.getElementById("cons_out");o.innerHTML=
   h+=`</div>`;}
  o.innerHTML=h;}
 async function doEpcr(){const o=document.getElementById("ep_out");const mode=document.getElementById("ep_mode").value;
- o.innerHTML=mode=="remote"?"remote BLAST queued at NCBI — 30 s to a few minutes…":"running local blastn…";
+ o.innerHTML=(mode=="remote"?'<div class="working">Remote BLAST queued at NCBI — 30 s to a few minutes…</div>':'<div class="working">Running local blastn…</div>')+'<div class="ofbar"></div>';
  const d=await api("/api/epcr",{forward:document.getElementById("ep_f").value,reverse:document.getElementById("ep_r").value,mode,db:document.getElementById("ep_db").value,db_path:document.getElementById("ep_dbp").value,organism:document.getElementById("ep_org").value||null,max_product:parseInt(document.getElementById("ep_max").value)||3000,email:email.value});
  if(d.error){o.innerHTML=err(d.error);return;}
  o.innerHTML=`<div class="kv"><div><span>forward hits</span><b>${d.forward_hits}</b></div><div><span>reverse hits</span><b>${d.reverse_hits}</b></div><div><span>predicted products</span><b>${d.n_products}</b></div></div>`+
@@ -551,7 +618,7 @@ async function doStd(){const o=document.getElementById("std_out");o.innerHTML="�
 async function doAuto(){const o=document.getElementById("au_out");
  const wantBlast=document.getElementById("au_blast").checked;
  const bmode=document.getElementById("au_bmode").value, bdb=document.getElementById("au_bdb").value.trim();
- o.innerHTML="fetching from NCBI and designing"+(wantBlast?" + BLASTing the winner — 30–90 s…":" — give it 20–60 s…");
+ o.innerHTML='<div class="working">Fetching from NCBI and designing'+(wantBlast?" + BLASTing the winner — 30–90 s…":" — usually 20–60 s…")+'</div><div class="ofbar"></div>';
  const d=await api("/api/autodesign",{target_query:document.getElementById("au_q").value,
    off_query:document.getElementById("au_off").value||null,
    profile:document.getElementById("au_prof").value,
@@ -607,15 +674,46 @@ let CURRENT_ID=null;try{CURRENT_ID=localStorage.getItem("of_current")||null;}cat
 function savePanel(){try{localStorage.setItem("of_panel",JSON.stringify(PANEL));localStorage.setItem("of_current",CURRENT_ID||"");}catch(e){}}
 function curAssay(){return PANEL.find(a=>a.id===CURRENT_ID)||null;}
 function gotab(id){const i=TABS.findIndex(t=>t[0]===id);const a=document.querySelectorAll("nav a")[i];if(a)a.click();}
-function fld(id,v){const e=document.getElementById(id);if(e)e.value=(v==null?"":v);}
+function fld(id,v){const e=document.getElementById(id);if(e){e.value=(v==null?"":v);flash(e);}}
 function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
 function editAssay(id,f,v){const a=PANEL.find(x=>x.id===id);if(a){a[f]=v;savePanel();}}
 function setCurrent(id){CURRENT_ID=id;savePanel();renderPanel();}
 function removeAssay(id){PANEL=PANEL.filter(a=>a.id!==id);if(CURRENT_ID===id)CURRENT_ID=null;savePanel();renderPanel();}
 function clearPanel(){if(!PANEL.length||confirm("Remove all "+PANEL.length+" assays from the workbench?")){PANEL=[];CURRENT_ID=null;savePanel();renderPanel();}}
-function addAssay(a){a.id="a"+Date.now()+Math.floor(Math.random()*1e4);a.status=a.status||"designed";PANEL.push(a);CURRENT_ID=a.id;savePanel();renderPanel();gotab("work");}
-function autoAdd(){if(!LAST_AUTO)return;const a=LAST_AUTO.assay;addAssay({name:(LAST_AUTO.query||"assay").slice(0,28),gene:LAST_AUTO.query||"",organism:"",forward:a.forward,reverse:a.reverse,probe:a.probe,amplicon:a.amplicon,f_tm:a.f_tm,r_tm:a.r_tm,probe_tm:a.probe_info?a.probe_info.tm:null,chemistry:LAST_AUTO.pretty||"",accession:LAST_AUTO.acc||""});}
-function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||""});}
+function exportPanel(){if(!PANEL.length){toast("Nothing to export — the workbench is empty.","warn");return;}download("oligoforge_panel.json",JSON.stringify(PANEL,null,1));}
+function importPanel(inp){const f=inp&&inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{let arr;try{arr=JSON.parse(rd.result);}catch(e){toast("That file isn't valid JSON.","err");inp.value="";return;}if(!Array.isArray(arr)){toast("Expected a panel file — a JSON array of assays (use Export panel to make one).","err");inp.value="";return;}if(PANEL.length&&!confirm("Replace the current workbench with "+arr.length+" imported assay(s)?")){inp.value="";return;}PANEL=arr.map(a=>{a=a||{};if(!a.id)a.id=uid();return a;});CURRENT_ID=PANEL.length?PANEL[0].id:null;savePanel();renderPanel();gotab("work");toast("Imported "+PANEL.length+" assay(s).","ok");inp.value="";};rd.readAsText(f);}
+function uid(){return "a"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function addAssay(a){a.id=uid();a.status=a.status||"designed";PANEL.push(a);CURRENT_ID=a.id;savePanel();renderPanel();gotab("work");toast('Added '+(a.name||a.gene||"assay")+' to the Workbench','ok');}
+function autoAdd(){if(!LAST_AUTO)return;const a=LAST_AUTO.assay;addAssay({name:(LAST_AUTO.query||"assay").slice(0,28),gene:LAST_AUTO.query||"",organism:"",forward:a.forward,reverse:a.reverse,probe:a.probe,amplicon:a.amplicon,f_tm:a.f_tm,r_tm:a.r_tm,probe_tm:a.probe_info?a.probe_info.tm:null,chemistry:LAST_AUTO.pretty||"",accession:LAST_AUTO.acc||"",gblock:a.gblock||null});}
+function gblockToOrder(name,seq){addGbRow(name,seq);gotab("order");toast("gBlock added to the Order tab as a standard.","ok");}
+function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||"",gblock:d.gblock});}
+function suggestProtocol(a){
+ const tms=[a.f_tm,a.r_tm].filter(t=>t!=null&&isFinite(t)).map(Number);
+ if(a.probe)return "TaqMan two-step — 95 °C 15 s / 60 °C 60 s, ×40–45 (read at 60 °C); probe Tm should sit ~8–10 °C above the primers.";
+ const ta=tms.length?Math.round(Math.min(...tms)-4):null;
+ return "SYBR three-step — 95 °C 15 s / "+(ta!=null?ta+" °C":"Ta")+" 30 s / 72 °C 30 s, ×40, then a melt curve (expect one peak). Start near Ta ≈ lowest primer Tm − 4 °C"+(ta!=null?" ("+ta+" °C)":"")+" and optimise with a gradient.";
+}
+function assayResultsHtml(a){
+ const proto=suggestProtocol(a);
+ const pr=a.results&&a.results.pair, sp=a.checks&&a.checks.specificity, it=(a.checks&&a.checks.intron)||(a.results&&a.results.intron), va=a.validation;
+ let h=`<div class="acard-res"><div class="resrow"><span class="reslab">protocol</span><span class="resval">${proto}</span></div>`;
+ if(pr)h+=`<div class="resrow"><span class="reslab">QC primers</span><span class="resval">${pr.running?"running…":(pr.error?`<span class="FAIL">${esc(pr.error)}</span>`:`Tm ${pr.f_tm} / ${pr.r_tm} · gap ${pr.pair_gap} · F×R <b class="${dgClass(pr.fxr)}">${pr.fxr}</b> · self ${pr.f_self} / ${pr.r_self} <a class="lnk" onclick="toPair('${a.id}')">tab ↗</a>`)}</span></div>`;
+ if(sp)h+=`<div class="resrow"><span class="reslab">in-silico PCR</span><span class="resval">${sp.error?esc(sp.error):`${sp.n_products} product(s) <b class="${sp.n_products===1?"PASS":"WARN"}">${sp.n_products===1?"✓":"review"}</b> · F ${sp.forward_hits} / R ${sp.reverse_hits} hits <a class="lnk" onclick="toEpcr('${a.id}')">tab ↗</a>`}</span></div>`;
+ if(it)h+=`<div class="resrow"><span class="reslab">intron</span><span class="resval">${it.running?"running…":(it.error?`<span class="FAIL">${esc(it.error)}</span>`:(it.ok==null?esc(it.info||"gene not found"):`<b class="${it.ok?"PASS":"FAIL"}">${it.ok?"✓ ":"✗ "}${esc(it.verdict||"")}</b> <a class="lnk" onclick="toIntron('${a.id}')">tab ↗</a>`))}</span></div>`;
+ if(va&&va.efficiency_pct!=null)h+=`<div class="resrow"><span class="reslab">std curve</span><span class="resval">eff ${va.efficiency_pct}% · R² ${va.r2} · slope ${va.slope}${va.lod!=null?` · LOD ${va.lod}`:""}</span></div>`;
+ return h+`</div>`;
+}
+async function wbPair(id){const a=PANEL.find(x=>x.id===id);if(!a)return;a.results=a.results||{};a.results.pair={running:true};savePanel();renderPanel();
+ const d=await api("/api/pair",{forward:a.forward,reverse:a.reverse,amplicon:a.amplicon||null,profile:(a.probe?"idt_taqman":"sybr_generic")});
+ a.results.pair=d.error?{error:d.error}:{f_tm:d.f_tm,r_tm:d.r_tm,pair_gap:d.pair_gap,fxr:d.fxr,f_self:d.f_self,r_self:d.r_self};savePanel();renderPanel();
+ toast(d.error?d.error:"Primer QC saved to "+(a.name||"assay")+".",d.error?"err":"ok");}
+async function wbIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;if(!a.gene||!a.organism){toast("Set this assay's gene and organism first — the intron check needs both.","warn");return;}a.results=a.results||{};a.results.intron={running:true};savePanel();renderPanel();
+ const d=await api("/api/intron",{gene:a.gene,organism:a.organism,mrna_acc:a.accession||null,forward:a.forward,reverse:a.reverse});
+ if(d.error){a.results.intron={error:d.error};}
+ else if(d.ok==null){a.results.intron={ok:null,info:d.info};}
+ else{a.checks=a.checks||{};a.checks.intron={ok:d.ok,verdict:d.verdict,info:d.info};delete a.results.intron;}
+ savePanel();renderPanel();
+ toast(d.error?d.error:(d.ok==null?(d.info||"intron: couldn't locate the amplicon"):"Intron check saved to "+(a.name||"assay")+"."),(d.error||d.ok==null)?"warn":"ok");}
 function renderPanel(){const o=document.getElementById("wk_out");if(!o)return;
  if(!PANEL.length){o.innerHTML=`<small class="note">No assays yet \u2014 design one in <b>Target \u2192 assay</b> or <b>Design</b> and click \u201c\u2605 add to workbench\u201d, or use <b>Load example (FSJ)</b> below.</small>`;return;}
  o.innerHTML=PANEL.map(a=>{const cur=a.id===CURRENT_ID;
@@ -635,26 +733,26 @@ function renderPanel(){const o=document.getElementById("wk_out");if(!o)return;
       ${chips}${flags}
     </div>
     <div class="acard-actions">
-      <button class="ghost" onclick="checkAssay(\'${a.id}\')">Check specificity</button>
-      <button class="ghost" onclick="toPair(\'${a.id}\')">Pair QC</button>
-      <button class="ghost" onclick="toEpcr(\'${a.id}\')">in-silico PCR</button>
-      <button class="ghost" onclick="toIntron(\'${a.id}\')">Intron</button>
-      <button class="ghost" onclick="toConsAssay(\'${a.id}\')">Conservation</button>
-      <button class="ghost" onclick="toOrderAssay(\'${a.id}\')">Order</button>
+      <button class="ghost" onclick="wbPair(\'${a.id}\')">QC primers</button>
+      <button class="ghost" onclick="checkAssay(\'${a.id}\')">Specificity (in-silico PCR)</button>
+      <button class="ghost" onclick="wbIntron(\'${a.id}\')">Intron / junction</button>
+      <button class="ghost" onclick="toConsAssay(\'${a.id}\')">Conservation ↗</button>
+      <button class="ghost" onclick="toOrderAssay(\'${a.id}\')">Order ↗</button>
     </div>
+    ${assayResultsHtml(a)}
   </div>`;}).join("");}
 function toPair(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("p_f",a.forward);fld("p_r",a.reverse);fld("p_amp",a.amplicon);gotab("pair");doPair();}
 function toEpcr(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("ep_f",a.forward);fld("ep_r",a.reverse);fld("ep_org",a.organism);gotab("epcr");}
 function toIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("i_gene",a.gene);fld("i_org",a.organism);fld("i_acc",a.accession);fld("i_f",a.forward);fld("i_r",a.reverse);fld("i_s","");fld("i_e","");gotab("intron");}
 function toConsAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("consrows").innerHTML="";addConsRow((a.name||"a")+"_F",a.forward);addConsRow((a.name||"a")+"_R",a.reverse);if(a.probe)addConsRow((a.name||"a")+"_P",a.probe);gotab("cons");}
-function toOrderAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("orderrows").innerHTML="";const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);gotab("order");}
+function toOrderAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("orderrows").innerHTML="";const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);if(a.gblock){const gb=document.getElementById("gbrows");if(gb)gb.innerHTML="";addGbRow((a.name||"assay")+"_gBlock",a.gblock);}gotab("order");}
 async function checkAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;const c=document.getElementById("wk_status_"+id);if(c)c.textContent="checking\u2026";
  const md=document.getElementById("ep_mode")?document.getElementById("ep_mode").value:"remote";
  const d=await api("/api/epcr",{forward:a.forward,reverse:a.reverse,mode:md,db:"nt",organism:a.organism||null,email:email.value});
  a.checks=a.checks||{};if(d.error){a.checks.specificity={error:d.error};}else{a.checks.specificity=d;if(a.status==="designed")a.status="checked";}savePanel();renderPanel();}
-function attachStdToCurrent(){const a=curAssay();if(!a){alert("Pick an assay in the Workbench (radio) first, then attach.");return;}if(!LAST_STD){alert("Run a standard curve first.");return;}const d=LAST_STD;a.validation={efficiency_pct:d.efficiency_pct,r2:d.r2,slope:d.slope,lod:(d.lod_practical!=null?d.lod_practical:null)};a.status="validated";savePanel();renderPanel();alert("Attached efficiency "+d.efficiency_pct+"% to "+(a.name||"current assay")+".");}
-async function genReport(){if(!PANEL.length){alert("Add some assays to the workbench first.");return;}const d=await api("/api/report",{panel:PANEL,meta:{title:"OligoForge panel"}});if(d.error){alert(d.error);return;}download("oligoforge_panel_report.html",d.html);download("oligoforge_panel_miqe.csv",d.csv);}
-async function checkMultiplex(){if(PANEL.length<2){alert("Need at least 2 assays in the workbench.");return;}
+function attachStdToCurrent(){const a=curAssay();if(!a){toast("Pick an assay in the Workbench (tick its radio), then attach.","warn");return;}if(!LAST_STD){toast("Run a standard curve first (Std curve tab).","warn");return;}const d=LAST_STD;a.validation={efficiency_pct:d.efficiency_pct,r2:d.r2,slope:d.slope,lod:(d.lod_practical!=null?d.lod_practical:null)};a.status="validated";savePanel();renderPanel();toast("Attached efficiency "+d.efficiency_pct+"% to "+(a.name||"current assay")+".","ok");}
+async function genReport(){if(!PANEL.length){toast("Add some assays to the workbench first.","warn");return;}const d=await api("/api/report",{panel:PANEL,meta:{title:"OligoForge panel"}});if(d.error){toast(d.error,"err");return;}download("oligoforge_panel_report.html",d.html);setTimeout(()=>download("oligoforge_panel_miqe.csv",d.csv),350);toast("Report downloaded — HTML + CSV.","ok");}
+async function checkMultiplex(){if(PANEL.length<2){toast("Add at least 2 assays to check multiplexing.","warn");return;}
  const assays=PANEL.map(a=>({name:a.name||"assay",dye:a.dye||"",oligos:[{name:"F",seq:a.forward},{name:"R",seq:a.reverse}].concat(a.probe?[{name:"P",seq:a.probe}]:[])}));
  const o=document.getElementById("wk_mx");o.innerHTML="\u2026";const d=await api("/api/multiplex",{assays});
  if(d.error){o.innerHTML=err(d.error);return;}
@@ -676,12 +774,12 @@ function seedFSJ(){const host="IDT PrimeTime (ZEN 5'FAM)";const org="Aphelocoma 
   {name:"YWHAZ",gene:"YWHAZ",organism:org,chemistry:host,dye:"FAM",amplicon:121,forward:"CCGTTACTTGGCTGAGGTTG",reverse:"GATGGGATGTGTTGGTTGCA",probe:"CCACTATCCCTTTCTTGTCATCTCCAGCAG"},
   {name:"Plasmodium",gene:"Plasmodium cytb (genus)",organism:"Plasmodium",chemistry:"low-Tm TaqMan — probe as IDT Affinity Plus (LNA)",dye:"FAM",amplicon:157,forward:"TACCTGGACTWGTTTCATGG",reverse:"AAAGGATTTGTGCTACCTTG",probe:"CTTACAAGATATCCACCACA"}];
  if(PANEL.length&&!confirm("Add the 5 locked FSJ assays to the workbench?"))return;
- A.forEach(a=>{a.id="a"+Date.now()+Math.floor(Math.random()*1e5);a.status="designed";PANEL.push(a);});
+ A.forEach(a=>{a.id=uid();a.status="designed";PANEL.push(a);});
  CURRENT_ID=PANEL[PANEL.length-1].id;savePanel();renderPanel();gotab("work");
- alert("Loaded your 5 locked FSJ assays (verbatim from the panel). Verify in OligoAnalyzer before ordering.");}
+ toast("Loaded the 5 locked FSJ assays — verify in OligoAnalyzer before ordering.","ok");}
 async function loadProjectList(){const sel=document.getElementById("pj_sel");if(!sel)return;const d=await api("/api/project/list",{});const ps=(d&&d.projects)||[];sel.innerHTML=ps.length?ps.map(x=>`<option value="${esc(x.name)}">${esc(x.name)} (${x.n})</option>`).join(""):`<option value="">— no saved projects —</option>`;}
-async function saveProject(){const nm=(document.getElementById("pj_name").value||"").trim();if(!nm){alert("Name the project first.");return;}if(!PANEL.length){alert("Nothing to save — the workbench is empty.");return;}const d=await api("/api/project/save",{name:nm,assays:PANEL});const n=document.getElementById("pj_note");if(d.error){if(n){n.className="err";n.textContent=d.error;}return;}if(n){n.className="ok";n.textContent="saved "+d.saved+" ("+d.n+")";setTimeout(()=>{n.textContent="";},2200);}loadProjectList();}
-async function loadProject(){const nm=document.getElementById("pj_sel").value;if(!nm){alert("No saved project selected.");return;}if(PANEL.length&&!confirm("Replace the current workbench with project \""+nm+"\"?"))return;const d=await api("/api/project/load",{name:nm});if(d.error){alert(d.error);return;}PANEL=(d.assays||[]).map(a=>{if(!a.id)a.id="a"+Date.now()+Math.floor(Math.random()*1e5);return a;});CURRENT_ID=PANEL.length?PANEL[0].id:null;savePanel();renderPanel();document.getElementById("pj_name").value=nm;}
+async function saveProject(){const nm=(document.getElementById("pj_name").value||"").trim();if(!nm){toast("Name the project first.","warn");return;}if(!PANEL.length){toast("Nothing to save — the workbench is empty.","warn");return;}const d=await api("/api/project/save",{name:nm,assays:PANEL});const n=document.getElementById("pj_note");if(d.error){if(n){n.className="err";n.textContent=d.error;}return;}if(n){n.className="ok";n.textContent="saved "+d.saved+" ("+d.n+")";setTimeout(()=>{n.textContent="";},2200);}loadProjectList();}
+async function loadProject(){const nm=document.getElementById("pj_sel").value;if(!nm){toast("No saved project selected.","warn");return;}if(PANEL.length&&!confirm("Replace the current workbench with project \""+nm+"\"?"))return;const d=await api("/api/project/load",{name:nm});if(d.error){toast(d.error,"err");return;}PANEL=(d.assays||[]).map(a=>{if(!a.id)a.id=uid();return a;});CURRENT_ID=PANEL.length?PANEL[0].id:null;savePanel();renderPanel();document.getElementById("pj_name").value=nm;}
 async function deleteProject(){const nm=document.getElementById("pj_sel").value;if(!nm)return;if(!confirm("Delete saved project \""+nm+"\"? This cannot be undone."))return;const d=await api("/api/project/delete",{name:nm});const n=document.getElementById("pj_note");if(n&&!d.error){n.className="ok";n.textContent="deleted "+nm;setTimeout(()=>{n.textContent="";},2000);}loadProjectList();}
 initConditions();
 loadProjectList();

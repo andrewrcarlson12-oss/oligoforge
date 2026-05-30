@@ -13,9 +13,12 @@ PURIF = {"primer": "STD", "probe_zen": "HPLC", "probe_lna": "HPLC"}
 
 
 def _wrap(kind, seq):
-    if kind == "probe_zen":
-        # 5' 6-FAM, 3' Iowa Black FQ. Internal ZEN is added by the PrimeTime
-        # double-quench config at order time.
+    if kind in ("probe_zen", "probe_lna"):
+        # 5' 6-FAM, 3' Iowa Black FQ for both hydrolysis chemistries. For a ZEN
+        # probe the internal ZEN quencher is added by IDT's PrimeTime double-quench
+        # config at order time; an Affinity Plus (LNA) probe carries its LNA bases
+        # as +N inside {seq} and uses the same 5'FAM / 3'IBFQ ends (no ZEN). Either
+        # way a probe must ship with a reporter and a quencher to be usable.
         return f"/56-FAM/{seq}/3IABkFQ/"
     return seq
 

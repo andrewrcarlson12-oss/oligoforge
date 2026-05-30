@@ -10,3 +10,5 @@ services:
     envVars:
       - key: OLIGOFORGE_EMAIL
         value: arcarl27@colby.edu
+      - key: OLIGOFORGE_NCBI_KEY
+        sync: false      # paste your NCBI API key in the Render dashboard; never stored in git

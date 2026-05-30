@@ -20,7 +20,7 @@ Works on **any organism** — you supply the sequence, accession, NCBI query, an
 - **Vendor lint** — IDT PrimeTime / Affinity Plus, Thermo MGB, Bio-Rad, generic SYBR; pass/fail against each chemistry
 - **Primer-pair / amplicon** QC (Tm match, F×R dimer, amplicon size)
 - **Panel cross-dimer matrix** — every oligo against every other
-- **Auto-design** from a template: enumerate -> gate -> pair -> probe -> gBlock
+- **Auto-design** from a template: enumerate -> gate -> pair -> probe -> gBlock, then one click into the Workbench or the Order tab (carrying its gBlock standard)
 - **NCBI fetch** by accession or gene+organism, with isoform-common region
 - **Intron / exon-junction check** — flags gDNA-contamination risk
 - **BLAST specificity** — remote (NCBI) or local (blastn)
@@ -29,7 +29,7 @@ Works on **any organism** — you supply the sequence, accession, NCBI query, an
 - **LNA-aware Tm** — honest effective-Tm range for LNA probes
 - **Standard-curve copies & IDT order export** — copy number / dilution series; IDT bulk CSV + gBlock FASTA
 - **Reference-gene stability** — geNorm M + pairwise V (how many to use) + BestKeeper Cq SD/CV, from a Cq table; picks your >=2 MIQE reference genes
-- **Workbench** — a designed assay carries across every tab: add it once, then prefill Pair, in-silico PCR, Intron, Conservation, and Order from it in one click. Edit name/gene/organism/dye inline; Check runs in-silico PCR; attach a standard curve to record efficiency/LOD against that assay; save and reload named **projects** (one per study system / lab member), and a one-click example panel to start from
+- **Workbench** — a designed assay carries across every tab: add it once, then prefill Pair, in-silico PCR, Intron, Conservation, and Order from it in one click. Edit name/gene/organism/dye inline; Check runs in-silico PCR; attach a standard curve to record efficiency/LOD against that assay; save and reload named **projects** (one per study system / lab member), export/import the whole panel as a JSON file for backup or sharing, run QC, in-silico PCR, and the intron/junction check on an assay right in the Workbench (results saved to that assay) with a suggested cycling protocol per assay, and a one-click example panel to start from
 - **MIQE report** — one button emits a self-contained HTML report (per-oligo QC recomputed, specificity, validation, MIQE 2.0 completeness checklist) plus a CSV, ready for a supplement
 - **Multiplex planner** — flags detection-channel conflicts (assays sharing a dye) and cross-assay primer/probe dimers below threshold
 - **Paste-safe input** — strips FASTA headers, whitespace, and numbering from pasted sequences and converts RNA->DNA; flags (never silently drops) invalid characters

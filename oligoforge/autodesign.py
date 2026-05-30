@@ -137,9 +137,8 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
     out["off_query"] = off_query
 
     if out.get("candidates") and _pairs:
-        from .autodesign import _reference as _refsel
         try:
-            _ref = _refsel(tg)
+            _ref = _reference(tg)
             out["source_accession"] = next((a for a, sq in _pairs if sq == _ref), None)
         except Exception:
             out["source_accession"] = None

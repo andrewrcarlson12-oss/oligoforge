@@ -1,12 +1,19 @@
 """NCBI retrieval via Entrez (biopython): fetch by accession, search a gene in
 an organism, pull all mRNA isoforms, and find the region common to every isoform
 (so an assay reads total transcript, not one variant)."""
-import time, difflib, socket
+import time, difflib, socket, os
 from Bio import Entrez, SeqIO
 
-# Bound every NCBI HTTP call so a slow/stalled server fails fast instead of
-# hanging the request forever. Async server sockets are non-blocking and ignore this.
-socket.setdefaulttimeout(45)
+# Bound every NCBI HTTP call so a genuinely stalled connection eventually fails
+# instead of hanging forever — but generously, because an efetch of several or
+# large records can legitimately take a while. Override with the env var
+# OLIGOFORGE_NCBI_TIMEOUT (seconds). Async server sockets are non-blocking and
+# ignore this.
+try:
+    NCBI_TIMEOUT = float(os.environ.get("OLIGOFORGE_NCBI_TIMEOUT", "120"))
+except ValueError:
+    NCBI_TIMEOUT = 120.0
+socket.setdefaulttimeout(NCBI_TIMEOUT)
 
 Entrez.email = "set-me@example.com"   # set to your address; NCBI requires it
 Entrez.api_key = None                  # optional: set for 10 req/s instead of 3

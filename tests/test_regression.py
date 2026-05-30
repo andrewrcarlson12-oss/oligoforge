@@ -110,6 +110,26 @@ try:
 except Exception as _e:
     check("project roundtrip", False, str(_e))
 
+# 16. NCBI api_key wiring: per-request, env fallback, and clearing
+try:
+    import os as _os
+    _os.environ.pop("OLIGOFORGE_NCBI_KEY", None)
+    import app as _APP
+    from oligoforge import ncbi as _NCBI
+    _APP._set_email("e@x.com", "KEY123")
+    check("api_key set from request", _NCBI.Entrez.api_key == "KEY123")
+    _APP._set_email("e@x.com", None)
+    check("api_key cleared when none given", _NCBI.Entrez.api_key is None)
+    _os.environ["OLIGOFORGE_NCBI_KEY"] = "ENVKEY"
+    _APP._set_email("e@x.com", None)
+    check("api_key falls back to env", _NCBI.Entrez.api_key == "ENVKEY")
+    _APP._set_email("e@x.com", "REQWINS")
+    check("request key beats env", _NCBI.Entrez.api_key == "REQWINS")
+    _os.environ.pop("OLIGOFORGE_NCBI_KEY", None)
+    _APP._set_email("e@x.com", None)
+except Exception as _e:
+    check("api_key wiring", False, str(_e))
+
 print()
 if fails: print("REGRESSION FAILURES:", fails); sys.exit(1)
 print("ALL REGRESSION ASSERTS PASS")
