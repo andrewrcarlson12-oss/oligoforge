@@ -7,6 +7,15 @@ Degenerate oligo bases (IUPAC) are honored. Positions are reported in the oligo'
 own 5'->3' orientation, so the last position is the 3' end that governs priming.
 """
 import statistics as _st
+try:
+    import numpy as _np
+except Exception:
+    _np = None
+# sequence base -> code for the numpy fast path: A,C,G,T/U -> 0..3, N -> 4, anything else -> 5
+_T = bytearray([5] * 256)
+for _c, _v in ((65, 0), (67, 1), (71, 2), (84, 3), (85, 3), (78, 4)):
+    _T[_c] = _v
+_T = bytes(_T)
 
 IUPAC = {
     "A": set("A"), "C": set("C"), "G": set("G"), "T": set("T"),
@@ -28,11 +37,7 @@ def _match(o, b):
     return b == "N" or b in IUPAC.get(o, set())
 
 
-def best_placement(oligo, seq):
-    """Best ungapped placement of oligo on seq over both strands.
-    Returns dict(score, ident, offset, strand, window) or None if seq too short."""
-    o = oligo.upper()
-    seq = seq.upper().replace("U", "T")
+def _best_placement_py(o, seq):
     L = len(o)
     best = None
     for strand, t in (("+", seq), ("-", _rc(seq))):
@@ -40,13 +45,62 @@ def best_placement(oligo, seq):
             continue
         for i in range(0, len(t) - L + 1):
             w = t[i:i + L]
-            s = 0
-            for a, b in zip(o, w):
-                if _match(a, b):
-                    s += 1
+            s = sum(1 for a, b in zip(o, w) if _match(a, b))
             if best is None or s > best["score"]:
                 best = dict(score=s, ident=s / L, offset=i, strand=strand, window=w)
     return best
+
+
+def _allowed(oligo):
+    # (L x 6) bool: does a sequence base of each code (A,C,G,T,N,other) match this oligo position?
+    M = _np.zeros((len(oligo), 6), dtype=bool)
+    for k, o in enumerate(oligo):
+        s = IUPAC.get(o, set())
+        for ci, b in enumerate("ACGT"):
+            if b in s:
+                M[k, ci] = True
+        M[k, 4] = True   # N in the sequence is an unknown base -> never penalise (matches _match)
+    return M
+
+
+def _best_strand(codes, M, L):
+    n = len(codes) - L + 1
+    if n <= 0:
+        return None
+    score = _np.zeros(n, dtype=_np.int32)
+    for k in range(L):
+        score += M[k][codes[k:k + n]]
+    i = int(_np.argmax(score))
+    return i, int(score[i])
+
+
+def best_placement(oligo, seq):
+    """Best ungapped placement of oligo on seq over both strands.
+    Returns dict(score, ident, offset, strand, window) or None if seq too short.
+    numpy fast path gives the identical result to the reference scan but in C — a long
+    mitogenome reference would otherwise make the pure-Python scan O(len x L) per oligo,
+    which is what timed out (HTTP 502) on whole-mitogenome targets like cox1/cox3."""
+    o = oligo.upper()
+    su = seq.upper().replace("U", "T")
+    L = len(o)
+    if _np is None:
+        return _best_placement_py(o, su)
+    M = _allowed(o)
+    out = None
+    for strand, t in (("+", su), ("-", _rc(su))):
+        if len(t) < L:
+            continue
+        codes = _np.frombuffer(t.encode("ascii", "replace").translate(_T), dtype=_np.uint8)
+        r = _best_strand(codes, M, L)
+        if r is None:
+            continue
+        i, sc = r
+        if out is None or sc > out[1]:
+            out = (strand, sc, i, t)
+    if out is None:
+        return None
+    strand, sc, i, t = out
+    return dict(score=sc, ident=sc / L, offset=i, strand=strand, window=t[i:i + L])
 
 
 def conservation(oligo, sequences, min_ident=0.6):

@@ -43,7 +43,11 @@ def _candidates(reference, profile, n=3, window=350, step=100):
     so a transcript with a bad 5' end and a bad middle could falsely report
     NO ASSAY FOUND while hundreds of valid interior bases went unexamined."""
     L = len(reference)
-    starts = [0] if L <= window else list(range(0, L - window + 1, step))
+    if L <= window:
+        starts = [0]
+    else:
+        step_eff = max(step, (L - window) // 29 + 1)   # <= ~30 design windows even on a ~6 kb mitogenome
+        starts = list(range(0, L - window + 1, step_eff))
     cands, seen = [], set()
     for s in starts:
         a = _design_one(reference[s:s + window], profile)

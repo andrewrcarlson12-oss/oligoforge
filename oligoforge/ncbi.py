@@ -104,26 +104,32 @@ def gene_id_from_accession(acc):
 
 def search_fetch_fasta(query, n=10):
     """esearch + efetch a nucleotide query -> [(description, sequence), ...].
-    Caps the request count and skips oversized records (genomic contigs /
-    chromosomes) with a total-bases ceiling, so a stray large hit can't run the
-    server out of memory on a small instance."""
-    from io import StringIO
+
+    Bounds the work three ways so a broad query (a gene name like cox3 that also matches
+    genome/chromosome records) can't run a small instance out of memory: (1) an esearch
+    sequence-length filter excludes genome-scale records up front, (2) the efetch response
+    is STREAM-parsed rather than read whole into memory, and (3) a per-record size skip and
+    a total-bases ceiling break early. Before this, a stray Plasmodium genome hit pulled
+    ~375 MB through `h.read()` and OOM-killed the worker (HTTP 502)."""
     from Bio import SeqIO
     n = max(1, min(int(n), 40))
-    h = Entrez.esearch(db="nucleotide", term=query, retmax=n)
+    term = f"({query}) AND 50:120000[SLEN]"      # keep genes / mitogenomes, drop chromosome & genome records
+    h = Entrez.esearch(db="nucleotide", term=term, retmax=n)
     ids = Entrez.read(h)["IdList"]; h.close()
     if not ids:
         return []
     h = Entrez.efetch(db="nucleotide", id=",".join(ids), rettype="fasta", retmode="text")
     recs, total = [], 0
-    for r in SeqIO.parse(StringIO(h.read()), "fasta"):
-        s = str(r.seq)
-        if len(s) > 120000:                 # skip genomic contigs / chromosomes
-            continue
-        recs.append((r.description, s)); total += len(s)
-        if total > 4_000_000:               # ~4 Mb total cap
-            break
-    h.close()
+    try:
+        for r in SeqIO.parse(h, "fasta"):        # stream: never read the whole response into memory
+            s = str(r.seq)
+            if len(s) > 120000:                  # defensive: skip any oversized record that slips through
+                continue
+            recs.append((r.description, s)); total += len(s)
+            if len(recs) >= n or total > 4_000_000:
+                break
+    finally:
+        h.close()
     return recs
 
 
