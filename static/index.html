@@ -438,7 +438,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.5.2</footer>
+<footer>OligoForge v1.5.4</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -548,7 +548,7 @@ async function doDesign(){const o=document.getElementById("d_out");o.innerHTML="
    <tr><td>Forward</td><td class="mono">${d.forward}</td><td>${d.f_tm}</td><td>pos ${d.f_xy[0]}-${d.f_xy[1]} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText("${d.forward}")'>copy</button></td></tr>
    <tr><td>Reverse</td><td class="mono">${d.reverse}</td><td>${d.r_tm}</td><td>pos ${d.r_xy[0]}-${d.r_xy[1]} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText("${d.reverse}")'>copy</button></td></tr>
    ${probeRow}
-   </table><div class="kv"><div><span>amplicon</span><b>${d.amplicon}</b></div><div><span>pair gap</span><b>${d.pair_tm_gap}</b></div>
+   </table><div class="kv"><div><span>amplicon</span><b>${d.amplicon}</b></div><div><span title="Estimated melt Tm of the product — empirical salt-adjusted formula, not nearest-neighbor. For SYBR, compare it to your melt-curve peak to confirm the right product.">amplicon Tm ≈</span><b>${d.amplicon_tm!=null?d.amplicon_tm+' °C':'—'}</b></div><div><span>pair gap</span><b>${d.pair_tm_gap}</b></div>
    ${probeKv}</div>
    ${ampliconMap(d)}
    <label>gBlock standard</label><pre>${esc(d.gblock)}</pre>
@@ -665,9 +665,14 @@ async function doCons(){const o=document.getElementById("cons_out");o.innerHTML=
  let h="";for(const lab in d){const cn=d[lab].conservation,ds=d[lab].discrimination;const weak=cn.per_pos.filter(p=>p.pct_match<90);
   h+=`<div class="card" style="margin-top:10px"><b>${lab}</b> <span class="mono">${oligos[lab]}</span>
    <div class="kv"><div><span title="How many of your input target sequences this oligo could be located in.">located in</span><b>${cn.n_placed}/${cn.n_input}</b></div><div><span title="Average % of bases matching across the target set. Higher = the oligo binds every target.">mean match ↑</span><b class="${cn.mean_ident>=90?'PASS':(cn.mean_ident>=80?'WARN':'FAIL')}">${cn.mean_ident}%</b></div><div><span title="The single weakest base anywhere in the oligo — its lowest per-position % match across the set.">worst position</span><b class="${cn.min_pct_match>=90?'PASS':(cn.min_pct_match>=80?'WARN':'FAIL')}">${cn.min_pct_match}%</b></div><div><span title="Lowest % match in the last 5 bases (the 3′ end). Polymerase extends from the 3′ end, so a mismatch here can stop priming. Keep this high.">3′-end match ↑</span><b class="${cn.worst_3prime>=90?'PASS':(cn.worst_3prime>=80?'WARN':'FAIL')}">${cn.worst_3prime}%</b></div></div>`;
-  h+=`<table><tr><th>pos</th>`+cn.per_pos.map(p=>`<th>${p.oligo}</th>`).join("")+`</tr><tr><td>%</td>`+cn.per_pos.map(p=>`<td class="${p.pct_match<90?'FAIL':(p.pct_match<100?'WARN':'PASS')}">${p.pct_match}</td>`).join("")+`</tr></table>`;
+  const omf=(ds&&ds.off_mismatch_frac)||[];
+  const diag=cn.per_pos.filter((p,k)=>p.pct_match>=90&&(omf[k]||0)>=0.7);
+  const diagSet=new Set(diag.map(p=>p.pos));
+  h+=`<table><tr><th>pos</th>`+cn.per_pos.map(p=>`<th>${p.oligo}</th>`).join("")+`</tr><tr><td>%</td>`+cn.per_pos.map(p=>`<td class="${p.pct_match<90?'FAIL':(p.pct_match<100?'WARN':'PASS')}">${p.pct_match}</td>`).join("")+`</tr>`+(diagSet.size?`<tr><td title="conserved in your target AND different from the off-target set — anchor a 3′ end or probe here">◆</td>`+cn.per_pos.map(p=>`<td style="color:var(--acc2)">${diagSet.has(p.pos)?'◆':''}</td>`).join("")+`</tr>`:``)+`</table>`;
   if(weak.length)h+=`<small class="note">weak: ${weak.map(p=>`pos ${p.pos} ${p.oligo}→${p.major} (${p.pct_match}%)`).join(", ")}</small>`;
-  if(ds&&ds.n)h+=`<div style="margin-top:6px">vs off-target set — you want the oligo to <b>differ</b> here, so <b>lower</b> identity and <b>more</b> mismatches is better: median identity <b class="${ds.median_ident>=90?'FAIL':(ds.median_ident>=80?'WARN':'PASS')}">${ds.median_ident}%</b> over ${ds.n} sequence(s); the closest off-target site differs by <b>${ds.min_mismatch}</b> mismatch(es), <b>${ds.min_3prime_mismatch}</b> of them within the 3′ end. More 3′ mismatches = cleaner discrimination.</div>`;
+  if(ds&&ds.n){h+=`<div style="margin-top:6px">vs off-target set — you want the oligo to <b>differ</b> here, so <b>lower</b> identity and <b>more</b> mismatches is better: median identity <b class="${ds.median_ident>=90?'FAIL':(ds.median_ident>=80?'WARN':'PASS')}">${ds.median_ident}%</b> over ${ds.n} sequence(s); the closest off-target site differs by <b>${ds.min_mismatch}</b> mismatch(es), <b>${ds.min_3prime_mismatch}</b> of them within the 3′ end. More 3′ mismatches = cleaner discrimination.</div>`;
+   if(ds.indel_masked)h+=`<div style="margin-top:4px;color:var(--warn)">⚠ ${ds.indel_masked} off-target${ds.indel_masked>1?'s':''} match closely once a small indel is allowed (gapped identity up to ${ds.gapped_max_ident}%) — the ungapped screen understates this. Confirm in BLAST.</div>`;
+   h+=(diagSet.size?`<div style="margin-top:5px"><b style="color:var(--acc2)">◆ diagnostic positions ${diag.map(p=>p.pos).join(", ")}</b>: conserved across your target but differing in ≥70% of off-targets — put a primer 3′ end or the probe over these for species-level specificity. <span class="note">(Oligo-anchored & ungapped; confirm in an alignment.)</span></div>`:`<div class="note" style="margin-top:5px">No position is both conserved in your target and divergent across the off-target set, so this oligo won't separate them on its own — shift the oligo, or place a probe over a known diagnostic base.</div>`);}
   else if(ds)h+=`<small class="note">${ds.note}</small>`;
   h+=`</div>`;}
  o.innerHTML=h;}
@@ -718,9 +723,9 @@ async function doAuto(){const o=document.getElementById("au_out");
  d.candidates.forEach((c,i)=>{const a=c.assay,cn=c.conservation,ds=c.discrimination;
   const rows=[["Fwd",a.forward,a.f_tm,"F"],["Rev",a.reverse,a.r_tm,"R"]];
   if(a.probe)rows.push(["Probe",a.probe,(a.probe_info?a.probe_info.tm:0),"P"]);
-  h+=`<div class="card" style="margin-top:10px"><b>${i==0?'★ best':'alt '+i}</b> · score ${c.score} · amplicon ${a.amplicon} nt${a.probe?'':' · <span class="note">primers only</span>'}
+  h+=`<div class="card" style="margin-top:10px"><b>${i==0?'★ best':'alt '+i}</b> · score ${c.score} · amplicon ${a.amplicon} nt${a.amplicon_tm!=null?' · Tm ≈ '+a.amplicon_tm+' °C':''}${a.probe?'':' · <span class="note">primers only</span>'}
    <table><tr><th></th><th>sequence</th><th>Tm</th><th title="Average % of bases matching across your whole target set. Higher = the oligo is conserved and binds every target.">target&nbsp;match&nbsp;↑</th><th title="Lowest % match among the last 5 bases — the 3′ end. Polymerase extends from the 3′ end, so any mismatch here can stop priming. Keep this high.">3′-end&nbsp;match&nbsp;↑</th>${ds?'<th title="Closest identity to the off-target set / fewest mismatches at any off-target site. You WANT the oligo to differ from off-targets, so lower % and more mismatches is better.">off-target&nbsp;↓</th>':''}</tr>`+
-   rows.map(([lab,seq,tm,k])=>{const cc=cn[k]||{};const od=ds&&ds[k]&&ds[k].n?ds[k]:null;const dcls=od?(od.max_ident>=90?'FAIL':(od.max_ident>=80?'WARN':'PASS')):'';const dd=od?`${od.max_ident}% / ${od.min_mismatch}mm`:(ds?'—':'');
+   rows.map(([lab,seq,tm,k])=>{const cc=cn[k]||{};const od=ds&&ds[k]&&ds[k].n?ds[k]:null;const dcls=od?(od.max_ident>=90?'FAIL':(od.max_ident>=80?'WARN':'PASS')):'';const dd=od?`${od.max_ident}% / ${od.min_mismatch}mm${od.indel_masked?' <span title="matches closely once a small indel is allowed — ungapped screen understates; confirm in BLAST">⚠</span>':''}`:(ds?'—':'');
      return `<tr><td>${lab}</td><td class="mono">${seq}</td><td>${tm?tm.toFixed(1):'—'}</td><td class="${cc.mean_ident<90?'WARN':'PASS'}">${cc.mean_ident!=null?cc.mean_ident:'—'}%</td><td class="${cc.worst_3prime<90?'FAIL':'PASS'}">${cc.worst_3prime!=null?cc.worst_3prime:'—'}%</td>${ds?('<td class="'+dcls+'">'+dd+'</td>'):''}</tr>`;}).join("")+
    `</table><div class="legend">↑ higher is better &nbsp;·&nbsp; ↓ lower is better &nbsp;·&nbsp; <b class="PASS">green</b> = good, <b class="WARN">amber</b> = check, <b class="FAIL">red</b> = problem &nbsp;·&nbsp; off-target shows closest identity&nbsp;/&nbsp;mismatches (<b>mm</b>)</div>`+
    ampliconMap(a)+
@@ -768,9 +773,9 @@ function exportPanel(){if(!PANEL.length){toast("Nothing to export — the workbe
 function importPanel(inp){const f=inp&&inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{let arr;try{arr=JSON.parse(rd.result);}catch(e){toast("That file isn't valid JSON.","err");inp.value="";return;}if(!Array.isArray(arr)){toast("Expected a panel file — a JSON array of assays (use Export panel to make one).","err");inp.value="";return;}if(PANEL.length&&!confirm("Replace the current workbench with "+arr.length+" imported assay(s)?")){inp.value="";return;}PANEL=arr.map(a=>{a=a||{};if(!a.id)a.id=uid();return a;});CURRENT_ID=PANEL.length?PANEL[0].id:null;savePanel();renderPanel();gotab("work");toast("Imported "+PANEL.length+" assay(s).","ok");inp.value="";};rd.readAsText(f);}
 function uid(){return "a"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 function addAssay(a){a.id=uid();a.status=a.status||"designed";PANEL.push(a);CURRENT_ID=a.id;savePanel();renderPanel();gotab("work");toast('Added '+(a.name||a.gene||"assay")+' to the Workbench','ok');}
-function autoAdd(){if(!LAST_AUTO)return;const a=LAST_AUTO.assay;addAssay({name:(LAST_AUTO.query||"assay").slice(0,28),gene:LAST_AUTO.query||"",organism:"",forward:a.forward,reverse:a.reverse,probe:a.probe,amplicon:a.amplicon,f_tm:a.f_tm,r_tm:a.r_tm,probe_tm:a.probe_info?a.probe_info.tm:null,chemistry:LAST_AUTO.pretty||"",accession:LAST_AUTO.acc||"",gblock:a.gblock||null});}
+function autoAdd(){if(!LAST_AUTO)return;const a=LAST_AUTO.assay;addAssay({name:(LAST_AUTO.query||"assay").slice(0,28),gene:LAST_AUTO.query||"",organism:"",forward:a.forward,reverse:a.reverse,probe:a.probe,amplicon:a.amplicon,amplicon_tm:a.amplicon_tm,f_tm:a.f_tm,r_tm:a.r_tm,probe_tm:a.probe_info?a.probe_info.tm:null,chemistry:LAST_AUTO.pretty||"",accession:LAST_AUTO.acc||"",gblock:a.gblock||null});}
 function gblockToOrder(name,seq){addGbRow(name,seq);gotab("order");toast("gBlock added to the Order tab as a standard.","ok");}
-function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||"",gblock:d.gblock});}
+function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,amplicon_tm:d.amplicon_tm,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||"",gblock:d.gblock});}
 function suggestProtocol(a){
  const tms=[a.f_tm,a.r_tm].filter(t=>t!=null&&isFinite(t)).map(Number);
  if(a.probe)return "TaqMan two-step — 95 °C 15 s / 60 °C 60 s, ×40–45 (read at 60 °C); probe Tm should sit ~8–10 °C above the primers.";
@@ -848,12 +853,13 @@ async function checkAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;cons
 function attachStdToCurrent(){const a=curAssay();if(!a){toast("Pick an assay in the Workbench (tick its radio), then attach.","warn");return;}if(!LAST_STD){toast("Run a standard curve first (Std curve tab).","warn");return;}const d=LAST_STD;a.validation={efficiency_pct:d.efficiency_pct,r2:d.r2,slope:d.slope,lod:(d.lod_practical!=null?d.lod_practical:null)};a.status="validated";savePanel();renderPanel();toast("Attached efficiency "+d.efficiency_pct+"% to "+(a.name||"current assay")+".","ok");}
 async function genReport(){if(!PANEL.length){toast("Add some assays to the workbench first.","warn");return;}const d=await api("/api/report",{panel:PANEL,meta:{title:"OligoForge panel"}});if(d.error){toast(d.error,"err");return;}download("oligoforge_panel_report.html",d.html);setTimeout(()=>download("oligoforge_panel_miqe.csv",d.csv),350);toast("Report downloaded — HTML + CSV.","ok");}
 async function checkMultiplex(){if(PANEL.length<2){toast("Add at least 2 assays to check multiplexing.","warn");return;}
- const assays=PANEL.map(a=>({name:a.name||"assay",dye:a.dye||"",oligos:[{name:"F",seq:a.forward},{name:"R",seq:a.reverse}].concat(a.probe?[{name:"P",seq:a.probe}]:[])}));
+ const assays=PANEL.map(a=>({name:a.name||"assay",dye:a.dye||"",amplicon_tm:a.amplicon_tm,sybr:!a.probe,oligos:[{name:"F",seq:a.forward},{name:"R",seq:a.reverse}].concat(a.probe?[{name:"P",seq:a.probe}]:[])}));
  const o=document.getElementById("wk_mx");o.innerHTML="\u2026";const d=await api("/api/multiplex",{assays});
  if(d.error){o.innerHTML=err(d.error);return;}
  let h=`<small class="note">${d.n_assays} assays, ${d.n_oligos} oligos; cross-assay dimers \u2264 ${d.threshold} kcal/mol flagged.</small>`;
  h+=d.channel_conflicts.length?`<div class="err">channel conflicts: `+d.channel_conflicts.map(c=>`${esc(c.dye)} \u2192 ${c.assays.map(esc).join(", ")}`).join("; ")+`</div>`:`<div class="ok">no detection-channel conflicts</div>`;
  h+=d.cross_dimers.length?`<table><tr><th>\u0394G</th><th>oligo A</th><th>oligo B</th></tr>`+d.cross_dimers.map(x=>`<tr><td class="FAIL">${x.dg}</td><td>${esc(x.assay_a)}\u00b7${x.oligo_a}</td><td>${esc(x.assay_b)}\u00b7${x.oligo_b}</td></tr>`).join("")+`</table>`:`<div class="ok">no cross-assay dimers below threshold</div>`;
+ if(d.n_sybr>=2)h+=(d.melt_overlaps&&d.melt_overlaps.length)?`<div class="err">SYBR melt overlap (amplicon Tm < ${d.amp_tm_gap} \u00b0C apart — melt peaks won\u2019t resolve): `+d.melt_overlaps.map(m=>`${esc(m.assay_a)} (${m.tm_a}) \u2248 ${esc(m.assay_b)} (${m.tm_b})`).join("; ")+`</div>`:`<div class="ok">SYBR amplicon Tms are separated (\u2265 ${d.amp_tm_gap} \u00b0C apart)</div>`;
  o.innerHTML=h;}
 async function applyConditions(){const b={mv_conc:parseFloat(cond_mv.value)||50,dv_conc:parseFloat(cond_dv.value)||3,dntp_conc:parseFloat(cond_dntp.value)||0.8,dna_conc:parseFloat(cond_dna.value)||200};
  await api("/api/conditions",b);try{localStorage.setItem("of_cond",JSON.stringify(b));}catch(e){}

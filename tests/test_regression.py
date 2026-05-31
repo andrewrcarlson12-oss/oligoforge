@@ -1,7 +1,7 @@
 """Hard regression asserts. Offline (no network). Run from repo root:  python tests/test_regression.py
 Pins the locked science so a code change that shifts a number fails loudly."""
 import sys; sys.path.insert(0, ".")
-from oligoforge import thermo as T, design as D, profiles as P, conservation as C, specificity as SP
+from oligoforge import thermo as T, design as D, profiles as P, conservation as C, specificity as SP, multiplex as MX
 
 fails = []
 def check(name, cond, detail=""):
@@ -131,5 +131,19 @@ except Exception as _e:
     check("api_key wiring", False, str(_e))
 
 print()
+
+# --- v1.5.4: gapped cross-check + multiplex melt overlap ---
+_oli="ACGTACGTACGTACGT"
+_di=C.discrimination(_oli, [_oli[:8]+"T"+_oli[8:]])   # 1-bp insertion, otherwise identical
+check("gapped cross-check flags indel-masked off-target", _di.get("indel_masked",0)>=1, _di.get("indel_masked"))
+_ds2=C.discrimination(_oli, ["ACGTACGTAAGTAAGT"])      # substitutions only, no indel
+check("no false indel flag on substitutions", _ds2.get("indel_masked",0)==0, _ds2.get("indel_masked"))
+_mxm=MX.check([{"name":"A","sybr":True,"amplicon_tm":78.0,"oligos":[{"name":"F","seq":"ACGTACGTACGTACGT"},{"name":"R","seq":"TTTTGGGGCCCCAAAA"}]},
+               {"name":"B","sybr":True,"amplicon_tm":78.4,"oligos":[{"name":"F","seq":"GGGGCCCCAAAATTTT"},{"name":"R","seq":"CCCCAAAATTTTGGGG"}]}])
+check("multiplex flags SYBR melt overlap", len(_mxm.get("melt_overlaps",[]))==1, _mxm.get("melt_overlaps"))
+_mxs=MX.check([{"name":"A","sybr":True,"amplicon_tm":78.0,"oligos":[{"name":"F","seq":"ACGTACGTACGTACGT"}]},
+               {"name":"B","sybr":True,"amplicon_tm":84.0,"oligos":[{"name":"F","seq":"GGGGCCCCAAAATTTT"}]}])
+check("multiplex passes well-separated SYBR amplicons", len(_mxs.get("melt_overlaps",[]))==0, _mxs.get("melt_overlaps"))
+
 if fails: print("REGRESSION FAILURES:", fails); sys.exit(1)
 print("ALL REGRESSION ASSERTS PASS")

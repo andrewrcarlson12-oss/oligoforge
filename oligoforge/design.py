@@ -93,6 +93,7 @@ def design_assay(template, c):
         p = pairs[0]
         gb, gs, ge = build_gblock(template, p["fstart"], p["rend"])
         return dict(forward=p["f"], reverse=p["r"], probe=None, amplicon=p["amp"],
+                    amplicon_tm=round(T.amplicon_tm(template.upper()[p["fstart"]:p["rend"]]), 1),
                     pair_tm_gap=p["gap"], f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]),
                     probe_info=None, gblock=gb, gblock_span=(gs, ge),
                     f_xy=(p["fstart"], p["fend"]), r_xy=(p["rstart"], p["rend"]))
@@ -102,6 +103,7 @@ def design_assay(template, c):
             gb, gs, ge = build_gblock(template, p["fstart"], p["rend"])
             return dict(forward=p["f"], reverse=p["r"], probe=probe["probe"],
                         amplicon=p["amp"], pair_tm_gap=p["gap"],
+                        amplicon_tm=round(T.amplicon_tm(template.upper()[p["fstart"]:p["rend"]]), 1),
                         f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]), probe_info=probe,
                         gblock=gb, gblock_span=(gs, ge),
                         f_xy=(p["fstart"], p["fend"]), r_xy=(p["rstart"], p["rend"]))

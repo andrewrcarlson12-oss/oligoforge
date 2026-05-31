@@ -31,6 +31,7 @@ def _design_one(template, profile):
             return None
         p = pairs[0]
         return dict(forward=p["f"], reverse=p["r"], probe=None, amplicon=p["amp"],
+                    amplicon_tm=round(T.amplicon_tm(template.upper()[p["fstart"]:p["rend"]]), 1),
                     f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]), probe_info=None,
                     f_xy=(p["fstart"], p["fend"]), r_xy=(p["rstart"], p["rend"]))
     return D.design_assay(template, profile)

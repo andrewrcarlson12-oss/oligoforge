@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
 
-app = FastAPI(title="OligoForge", version="1.5.2")
+app = FastAPI(title="OligoForge", version="1.5.4")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -171,7 +171,8 @@ def design(r: DesignReq):
         return JSONResponse({"error": "no clean assay found in this template under that profile"}, status_code=200)
     pi = a.get("probe_info")
     return dict(forward=a["forward"], reverse=a["reverse"], probe=a["probe"],
-                amplicon=a["amplicon"], pair_tm_gap=round(a["pair_tm_gap"], 1),
+                amplicon=a["amplicon"], amplicon_tm=a.get("amplicon_tm"),
+                pair_tm_gap=round(a["pair_tm_gap"], 1),
                 f_tm=round(a["f_tm"], 1), r_tm=round(a["r_tm"], 1),
                 probe_tm=round(pi["tm"], 1) if pi else None,
                 probe_offset=round(pi["offset"], 1) if pi else None,

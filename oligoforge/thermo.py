@@ -71,6 +71,21 @@ def gc_percent(seq):
     return 100.0 * (seq.count("G") + seq.count("C")) / len(seq) if seq else 0.0
 
 
+def amplicon_tm(seq):
+    """Estimated melt Tm of a PCR product. This is the empirical salt-adjusted
+    formula Tm = 81.5 + 16.6*log10[Na+] + 0.41*%GC - 600/length, NOT a
+    nearest-neighbor calc — a rough predictor for the SYBR melt-curve peak, to be
+    confirmed against the observed melt. Tracks the reaction monovalent salt set
+    via set_conditions()."""
+    import math
+    seq = seq.upper().replace("U", "T")
+    n = len(seq)
+    if n < 1:
+        return 0.0
+    na = max(COND.get("mv_conc", 50.0), 1.0) / 1000.0
+    return 81.5 + 16.6 * math.log10(na) + 0.41 * gc_percent(seq) - 600.0 / n
+
+
 @lru_cache(maxsize=8192)
 def tm(seq):
     return primer3.calc_tm(_resolve(seq), tm_method="santalucia",

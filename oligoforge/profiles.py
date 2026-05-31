@@ -116,6 +116,10 @@ def lint_oligo(seq, role, profile):
     def warn(name, ok, detail):
         out.append((name, "PASS" if ok else "WARN", detail))
 
+    _deg = T.has_degenerate(seq)
+    warn("no degenerate bases", not _deg,
+         "contains IUPAC degeneracy (N/R/Y…); Tm & structure values are approximate" if _deg else "none")
+
     if role == "probe":
         chk("length", profile["probe_len_min"] <= len(seq) <= profile["probe_len_max"],
             f"{len(seq)} nt (allowed {profile['probe_len_min']}-{profile['probe_len_max']})")
@@ -123,6 +127,15 @@ def lint_oligo(seq, role, profile):
         warn("no G in first 3", "G" not in seq[:3], f"first3={seq[:3]}")
         chk("more C than G", seq.count("C") >= seq.count("G"),
             f"C/G = {seq.count('C')}/{seq.count('G')}")
+        _ptm = T.tm(seq)
+        _lna_mgb = any(x in profile.get("name", "") for x in ("LNA", "Affinity", "MGB"))
+        if _lna_mgb:
+            out.append(("probe Tm (as DNA)", "PASS",
+                        f"{_ptm:.1f} C — {profile.get('name','')} chemistry raises the effective Tm; confirm in OligoAnalyzer"))
+        else:
+            _floor = profile.get("tm_min", 59.0) + profile.get("probe_offset_min", 6.0)
+            warn("probe Tm above primers", _ptm >= _floor,
+                 f"{_ptm:.1f} C (want >= {_floor:.0f} C, ~{profile.get('probe_offset_min',6):.0f}+ over the {profile.get('tm_min',59):.0f} C primer floor)")
         hdg, htm = T.hairpin(seq)
         warn("hairpin", hdg > profile["probe_hairpin_min"], f"dG={hdg:.2f} (Tm {htm:.0f})")
         warn("self-dimer", T.self_dimer(seq) > profile["self_dimer_min"], f"dG={T.self_dimer(seq):.2f}")

@@ -8,7 +8,7 @@ and within-assay dimers are out of scope here (use QC / the panel matrix for tho
 from . import thermo as T
 
 
-def check(assays, dimer_threshold=-9.0):
+def check(assays, dimer_threshold=-9.0, amp_tm_gap=2.0):
     by_dye = {}
     for a in assays:
         dye = (a.get("dye") or "").strip()
@@ -34,5 +34,25 @@ def check(assays, dimer_threshold=-9.0):
             if dg <= dimer_threshold:
                 cross.append(dict(assay_a=a1, oligo_a=n1, assay_b=a2, oligo_b=n2, dg=round(dg, 2)))
     cross.sort(key=lambda x: x["dg"])
+
+    # SYBR melt overlap: SYBR assays are told apart by melt-peak Tm, so two SYBR
+    # amplicons with near-equal predicted Tm can't be resolved in one reaction.
+    def _is_sybr(a):
+        if a.get("sybr") is not None:
+            return bool(a["sybr"])
+        return not any((o.get("name") == "P") for o in a.get("oligos", []))
+    sybr = [a for a in assays if _is_sybr(a) and a.get("amplicon_tm") is not None]
+    melt = []
+    for i in range(len(sybr)):
+        for j in range(i + 1, len(sybr)):
+            d = abs(float(sybr[i]["amplicon_tm"]) - float(sybr[j]["amplicon_tm"]))
+            if d < amp_tm_gap:
+                melt.append(dict(assay_a=sybr[i].get("name") or "(unnamed)",
+                                 assay_b=sybr[j].get("name") or "(unnamed)",
+                                 tm_a=round(float(sybr[i]["amplicon_tm"]), 1),
+                                 tm_b=round(float(sybr[j]["amplicon_tm"]), 1),
+                                 delta=round(d, 1)))
+    melt.sort(key=lambda x: x["delta"])
     return dict(n_assays=len(assays), n_oligos=len(flat), threshold=dimer_threshold,
-                channel_conflicts=conflicts, cross_dimers=cross[:50], n_flagged=len(cross))
+                channel_conflicts=conflicts, cross_dimers=cross[:50], n_flagged=len(cross),
+                n_sybr=len(sybr), amp_tm_gap=amp_tm_gap, melt_overlaps=melt)

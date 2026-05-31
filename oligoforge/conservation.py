@@ -79,6 +79,28 @@ def conservation(oligo, sequences, min_ident=0.6):
                 per_pos=per_pos)
 
 
+def _gapped_ident(oligo, window):
+    """Best LOCAL gapped identity (fraction over the oligo) of the oligo against a
+    short subject window, plus the gap count. Used as a cross-check on the ungapped
+    placement: an off-target that differs only by a small in-footprint indel matches
+    closely once a gap is allowed, which the ungapped scan over-counts as mismatches
+    and so over-states discrimination. Returns (pct_ident, n_gaps)."""
+    o = oligo.upper().replace("U", "T")
+    w = (window or "").upper().replace("U", "T")
+    if not o or not w:
+        return 0.0, 0
+    try:
+        from Bio.Align import PairwiseAligner
+        al = PairwiseAligner(mode="local")
+        al.match_score = 2; al.mismatch_score = -1
+        al.open_gap_score = -3; al.extend_gap_score = -1
+        a = al.align(w, o)[0]
+        c = a.counts()
+        return round(100 * c.identities / len(o), 1), c.gaps
+    except Exception:
+        return 0.0, 0
+
+
 def discrimination(oligo, off_sequences):
     """How well the oligo MISmatches an off-target (homologous) set.
     Higher min_mismatch / lower identity = cleaner discrimination."""
@@ -91,15 +113,30 @@ def discrimination(oligo, off_sequences):
             continue
         mm = [k + 1 for k, (a, b) in enumerate(zip(o, p["window"])) if not _match(a, b)]
         mm3 = [m for m in mm if m > L - 5]
+        tstr = seq.upper().replace("U", "T")
+        tstr = tstr if p["strand"] == "+" else _rc(tstr)
+        win = tstr[max(0, p["offset"] - 3): p["offset"] + L + 3]
+        gi, gg = _gapped_ident(o, win)
         rows.append(dict(ident=round(100 * p["ident"], 1), n_mismatch=len(mm),
-                         mismatch_pos=mm, n_3prime_mismatch=len(mm3)))
+                         mismatch_pos=mm, n_3prime_mismatch=len(mm3),
+                         gapped_ident=gi, gapped_gaps=gg))
     if not rows:
         return dict(n=0, note="oligo not located in any off-target sequence")
+    offmis = [0] * L
+    for r in rows:
+        for m in r["mismatch_pos"]:        # m is 1-based oligo position
+            offmis[m - 1] += 1
+    off_mismatch_frac = [round(c / len(rows), 3) for c in offmis]
+    masked = [r for r in rows if r["gapped_gaps"] > 0 and r["gapped_ident"] >= 85.0
+              and r["gapped_ident"] - r["ident"] >= 10.0]
     return dict(n=len(rows),
                 median_ident=round(_st.median(r["ident"] for r in rows), 1),
                 max_ident=max(r["ident"] for r in rows),
                 min_mismatch=min(r["n_mismatch"] for r in rows),
                 min_3prime_mismatch=min(r["n_3prime_mismatch"] for r in rows),
+                off_mismatch_frac=off_mismatch_frac,
+                indel_masked=len(masked),
+                gapped_max_ident=max((r["gapped_ident"] for r in rows), default=0.0),
                 rows=rows[:25])
 
 
