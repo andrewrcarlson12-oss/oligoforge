@@ -165,9 +165,57 @@ def _annotate(out, ref, prefer_junction):
     return out
 
 
+def design_nested(reference, profile, inner_assay, outer_flank_max=600, min_gap=8,
+                  outer_amp_max=1400, topk=40):
+    """Fully-nested OUTER pair that flanks a given inner (diagnostic) assay on the same
+    reference: outer forward upstream of the inner forward, outer reverse downstream of the
+    inner reverse, so a second-round reaction only amplifies a correct first-round product
+    (the basis of the haemosporidian MalAvi screen). Inner-first, so the diagnostic assay
+    keeps its full scoring; outer primer quality is gated by the SAME profile. Returns
+    {"outer": {...}} or None when there isn't enough flanking sequence."""
+    if not reference or not inner_assay:
+        return None
+    span = _amplicon_on(reference, inner_assay["forward"], inner_assay.get("amplicon"))
+    if not span:
+        return None
+    I_fs, I_re = span
+    L = len(reference)
+    up = reference[max(0, I_fs - outer_flank_max):I_fs]
+    dn = reference[I_re:min(L, I_re + outer_flank_max)]
+    U0 = max(0, I_fs - outer_flank_max)
+    if len(up) < profile["len_min"] or len(dn) < profile["len_min"]:
+        return None
+    fwd, _ = D.enumerate_primers(up, profile)
+    _, rev = D.enumerate_primers(dn, profile)
+    topt = profile["tm_opt"]
+    F = sorted(((U0 + i, U0 + j, w, T.tm(w)) for (i, j, w) in fwd if (U0 + j) <= I_fs - min_gap),
+               key=lambda x: abs(x[3] - topt))[:topk]
+    R = sorted(((I_re + a, I_re + b, w, T.tm(w)) for (a, b, w) in rev if (I_re + a) >= I_re + min_gap),
+               key=lambda x: abs(x[3] - topt))[:topk]
+    inner_amp = I_re - I_fs
+    best = None
+    for (fs, fe, f, ftm) in F:
+        for (rs, re, r, rtm) in R:
+            amp = re - fs
+            if amp < inner_amp + 2 * min_gap or amp > outer_amp_max:
+                continue
+            gap = abs(ftm - rtm)
+            if gap > profile["pair_tm_gap_max"]:
+                continue
+            if T.hetero_dimer(f, r) <= profile["pair_dimer_min"]:
+                continue
+            score = abs((ftm + rtm) / 2 - topt) + gap
+            if best is None or score < best["score"]:
+                best = dict(score=round(score, 2), forward=f, reverse=r, amplicon=amp,
+                            f_tm=round(ftm, 1), r_tm=round(rtm, 1), pair_tm_gap=round(gap, 1),
+                            f_outside=I_fs - fe, r_outside=rs - I_re)
+    return dict(outer=best) if best else None
+
+
 def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=20,
                       min_ident=0.6, run_blast=False, blast_mode="remote",
-                      blast_db="nt", blast_db_path=None, organism=None, prefer_junction=False):
+                      blast_db="nt", blast_db_path=None, organism=None, prefer_junction=False,
+                      nested=False):
     """Fetch -> design -> (optional) in-silico-PCR the winning pair.
 
     profile_key may be a specific profile, or "auto": Auto tries the IDT-orderable
@@ -216,6 +264,20 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
         _desc = next((a for a, sq in _pairs if sq == _ref), None) if (_ref and _pairs) else None
         out["source_accession"] = _desc.split()[0] if _desc else None
         _annotate(out, _ref, prefer_junction)
+        if nested:
+            _prof = PROF.PROFILES.get(out.get("profile_used")) or {}
+            try:
+                nz = design_nested(_ref, _prof, out["candidates"][0]["assay"]) if (_ref and _prof) else None
+            except Exception:
+                nz = None
+            if nz and nz.get("outer"):
+                _inner = out["candidates"][0]["assay"]
+                out["nested"] = dict(outer=nz["outer"], inner_amplicon=_inner["amplicon"],
+                                     inner_forward=_inner["forward"], inner_reverse=_inner["reverse"])
+            else:
+                out["nested"] = dict(note="couldn't place a flanking outer pair — the reference needs "
+                                          "roughly 150+ bp of usable sequence beyond the inner amplicon "
+                                          "on each side. The inner assay above runs fine on its own.")
     if run_blast and out.get("candidates"):
         a = out["candidates"][0]["assay"]
         try:

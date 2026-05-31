@@ -400,6 +400,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
     <div class="row" style="margin-top:8px">
       <div><label><input type="checkbox" id="au_blast"> also BLAST the winning pair (in-silico PCR)</label></div>
       <div><label><input type="checkbox" id="au_junc"> prefer exon-junction-spanning (RT-qPCR gDNA control)</label></div>
+      <div><label><input type="checkbox" id="au_nested"> design nested PCR (outer + inner) for low-template sensitivity</label></div>
       <div><label>BLAST</label><select id="au_bmode"><option value="remote">remote (NCBI · slow)</option><option value="local">local (blastn)</option></select></div>
       <div><label>organism filter</label><input id="au_borg" placeholder="optional, e.g. Genus" style="width:170px"></div>
       <div><label>db / db path</label><input id="au_bdb" placeholder="nt, or local genome path" style="width:170px"></div>
@@ -484,7 +485,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.9.2</footer>
+<footer>OligoForge v1.10.0</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -762,6 +763,14 @@ function candExtras(c){let h="";
  if(st&&st.mfe!=null){const sites=[["F",st.f_paired],["R",st.r_paired],["P",st.p_paired]].filter(x=>x[1]!=null);const bad=sites.filter(x=>x[1]>=0.5).map(x=>x[0]);
   h+=`<div style="margin-top:4px"><span class="amp-cap" style="display:inline">structure</span> amplicon ΔG <b class="${st.mfe_per_nt<=-0.4?'WARN':'PASS'}">${st.mfe} kcal/mol</b>`+(sites.length?` · binding-site paired `+sites.map(x=>`${x[0]} <b class="${x[1]>=0.5?'WARN':'PASS'}">${Math.round(x[1]*100)}%</b>`).join(" · "):"")+(bad.length?` <span class="hint">— structure over ${bad.join("/")} may hinder binding</span>`:"")+` <span class="hint">(ViennaRNA${st.dna?", DNA params":", RNA approx"})</span></div>`;}
  return h;}
+function nestedHtml(d){if(!d.nested)return"";const nz=d.nested;
+ if(nz.note)return `<div class="card" style="margin-top:10px;border-color:var(--edge)"><b>Nested PCR</b> <span class="hint">${nz.note}</span></div>`;
+ const o=nz.outer;
+ return `<div class="card" style="margin-top:10px;border-color:var(--acc-soft)"><b>Nested PCR · first-round (outer) pair</b> <span class="hint">run this conventional PCR first, then use 1–2 µL of the product as template for the ★ best assay above</span>
+  <table><tr><th></th><th>sequence</th><th>Tm</th><th>len</th></tr>
+  <tr><td>outer F</td><td class="mono">${o.forward}</td><td>${o.f_tm}</td><td>${o.forward.length}</td></tr>
+  <tr><td>outer R</td><td class="mono">${o.reverse}</td><td>${o.r_tm}</td><td>${o.reverse.length}</td></tr></table>
+  <div class="legend">outer amplicon <b>${o.amplicon} nt</b> · inner (2nd-round) amplicon <b>${nz.inner_amplicon} nt</b> · inner primers sit ${o.f_outside}/${o.r_outside} nt inside the outer ends · pair ΔTm ${o.pair_tm_gap} °C · separate tubes — design only, confirm both pairs in OligoAnalyzer</div></div>`;}
 async function doAuto(){const o=document.getElementById("au_out");
  const wantBlast=document.getElementById("au_blast").checked;
  const bmode=document.getElementById("au_bmode").value, bdb=document.getElementById("au_bdb").value.trim();
@@ -774,6 +783,7 @@ async function doAuto(){const o=document.getElementById("au_out");
    blast_db:bmode==="local"?"nt":(bdb||"nt"), blast_db_path:bmode==="local"?(bdb||null):null,
    organism:document.getElementById("au_borg").value.trim()||null,
    prefer_junction:document.getElementById("au_junc").checked,
+   nested:document.getElementById("au_nested").checked,
    email:document.getElementById("email").value});
  if(d.error){o.innerHTML=err(d.error)+(d.tried?`<small class="note">tried: ${d.tried.join(", ")}</small>`:"");return;}
  LAST_AUTO={assay:d.candidates[0].assay,pretty:d.profile_pretty,query:d.target_query,acc:d.source_accession};
@@ -792,6 +802,7 @@ async function doAuto(){const o=document.getElementById("au_out");
    ampliconMap(a)+
    (i===0?`<div style="margin-top:8px"><button class="ghost" onclick='autoAdd()'>★ add to workbench</button> <button class="ghost" onclick='autoToOrder(${JSON.stringify(a.forward)},${JSON.stringify(a.reverse)},${JSON.stringify(a.probe)},"${probeKind}")'>→ send to Order tab</button></div>`:"")+
    `</div>`;});
+ h+=nestedHtml(d);
  if(d.specificity){const sp=d.specificity;
   if(sp.error)h+=`<div class="card" style="margin-top:8px"><b>in-silico PCR</b> <span class="note">${sp.error}</span></div>`;
   else h+=`<div class="card" style="margin-top:8px"><b>in-silico PCR on the winner</b> — F ${sp.forward_hits} hits, R ${sp.reverse_hits} hits, <b>${sp.n_products}</b> predicted product(s)`+

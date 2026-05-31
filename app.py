@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
 
-app = FastAPI(title="OligoForge", version="1.9.2")
+app = FastAPI(title="OligoForge", version="1.10.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -512,13 +512,14 @@ class AutoDesignReq(BaseModel):
     min_ident: float = 0.6
     run_blast: bool = False; blast_mode: str = "remote"
     blast_db: str = "nt"; blast_db_path: Optional[str] = None; organism: Optional[str] = None
-    email: Optional[str] = None; ncbi_key: Optional[str] = None; prefer_junction: bool = False
+    email: Optional[str] = None; ncbi_key: Optional[str] = None; prefer_junction: bool = False; nested: bool = False
 @app.post("/api/autodesign")
 def api_autodesign(r: AutoDesignReq):
     _set_email(r.email, r.ncbi_key)
     try:
         return AD.design_from_query(r.target_query, r.profile, r.off_query, min(r.n_fetch, 30),
                                     r.min_ident, r.run_blast, r.blast_mode, r.blast_db,
-                                    r.blast_db_path, r.organism, prefer_junction=r.prefer_junction)
+                                    r.blast_db_path, r.organism, prefer_junction=r.prefer_junction,
+                                    nested=r.nested)
     except Exception as e:
         return JSONResponse({"error": f"autodesign failed: {e}"}, status_code=200)
