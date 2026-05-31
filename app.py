@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
 
-app = FastAPI(title="OligoForge", version="1.6.1")
+app = FastAPI(title="OligoForge", version="1.8.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -423,7 +423,7 @@ def api_lna_tm(r: LnaReq):
 from oligoforge import refgenes as RG
 class RefGenesReq(BaseModel):
     text: str
-from oligoforge import report as RPT, multiplex as MX, refmarkers as RM
+from oligoforge import report as RPT, multiplex as MX, refmarkers as RM, markerscan as MS
 class ReportReq(BaseModel):
     panel: List[dict]; meta: Optional[dict] = None
 @app.post("/api/report")
@@ -436,12 +436,30 @@ def api_report(r: ReportReq):
 class MultiplexReq(BaseModel):
     assays: List[dict]; dimer_threshold: float = -9.0
 class MarkerReq(BaseModel):
-    organism: str; email: Optional[str] = None; ncbi_key: Optional[str] = None
+    organism: str; exclude: Optional[str] = None; intent: Optional[str] = "any"
+    email: Optional[str] = None; ncbi_key: Optional[str] = None
+@app.post("/api/scan_markers")
+def api_scan_markers(r: MarkerReq):
+    _set_email(r.email, r.ncbi_key)
+    try:
+        base_info = RM.suggest(r.organism, r.exclude, r.intent)
+        sc = MS.scan(base_info["resolved"], base_info["markers"], r.exclude)
+        by = {x["gene"]: x for x in sc["results"]}
+        for m in base_info["markers"]:
+            d = by.get(m["gene"])
+            if d:
+                m.update(count=d["count"], n_seqs=d["n"], median_len=d["median_len"],
+                         min_len=d["min_len"], max_len=d["max_len"], scanned=True)
+        base_info["scanned"] = True; base_info["n_scanned"] = len(sc["results"])
+        return base_info
+    except Exception as e:
+        return JSONResponse({"error": "scan_markers failed: %s" % e}, status_code=200)
+
 @app.post("/api/suggest_genes")
 def api_suggest_genes(r: MarkerReq):
     _set_email(r.email, r.ncbi_key)
     try:
-        return RM.suggest(r.organism)
+        return RM.suggest(r.organism, r.exclude, r.intent)
     except Exception as e:
         return JSONResponse({"error": "suggest_genes failed: %s" % e}, status_code=200)
 

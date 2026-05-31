@@ -128,3 +128,13 @@ def taxonomy_lineage(name):
                 rec.get("Lineage", "") or "")
     except Exception:
         return None
+
+
+def count_hits(query):
+    """Number of nucleotide records matching a query (availability signal). 0 on failure."""
+    try:
+        h = Entrez.esearch(db="nucleotide", term=query, retmax=0)
+        r = Entrez.read(h); h.close()
+        return int(r.get("Count", 0))
+    except Exception:
+        return None

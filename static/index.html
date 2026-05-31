@@ -7,13 +7,13 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
- --bg:#0a0e15; --panel:#0f141d; --panel2:#141b26; --panel3:#19212e; --line:#222c3a; --line2:#2f3c4d;
- --ink:#e9eff7; --ink2:#c2cdda; --dim:#7e8b9d;
- --acc:#5cc8ff; --acc-d:#33b2f3; --acc2:#6ee7a8;
- --pass:#46c25c; --warn:#e2a83a; --fail:#fb6d63;
+ --bg:#090d14; --panel:#0e131c; --panel2:#131a25; --panel3:#18202d; --line:#212b39; --line2:#30404f;
+ --ink:#eaf1f8; --ink2:#bdcbdc; --dim:#8694a7;
+ --acc:#5cc8ff; --acc-d:#33b2f3; --acc2:#6ee7a8; --acc-soft:rgba(92,200,255,.13);
+ --pass:#4ccb63; --warn:#e7ad3e; --fail:#fb6d63;
  --ui:'IBM Plex Sans',ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
- --r:12px; --r2:9px; --sh:0 14px 38px -20px rgba(0,0,0,.8); --sh2:0 4px 14px -8px rgba(0,0,0,.6);
+ --r:13px; --r2:9px; --sh:0 18px 46px -22px rgba(0,0,0,.86); --sh2:0 5px 16px -9px rgba(0,0,0,.62); --edge:inset 0 1px 0 rgba(255,255,255,.05);
 }
 *{box-sizing:border-box;scrollbar-color:#2c3744 transparent;scrollbar-width:thin}
 ::selection{background:rgba(92,200,255,.28)}
@@ -22,16 +22,17 @@
 html,body{margin:0}
 body{color:var(--ink);font:14px/1.55 var(--ui);min-height:100vh;-webkit-font-smoothing:antialiased;
  background:
-  radial-gradient(1200px 560px at 78% -10%,rgba(92,200,255,.07),transparent 60%),
-  radial-gradient(900px 520px at -6% 110%,rgba(110,231,168,.05),transparent 55%),
-  linear-gradient(rgba(92,200,255,.018) 1px,transparent 1px) 0 0/100% 34px,
-  linear-gradient(90deg,rgba(92,200,255,.018) 1px,transparent 1px) 0 0/34px 100%,
-  var(--bg)}
+  radial-gradient(1300px 600px at 82% -12%,rgba(92,200,255,.085),transparent 60%),
+  radial-gradient(1000px 560px at -8% 112%,rgba(110,231,168,.055),transparent 55%),
+  radial-gradient(1100px 1100px at 50% 38%,transparent 68%,rgba(0,0,0,.30)),
+  linear-gradient(rgba(120,180,230,.022) 1px,transparent 1px) 0 0/100% 32px,
+  linear-gradient(90deg,rgba(120,180,230,.022) 1px,transparent 1px) 0 0/32px 100%,
+  var(--bg);background-attachment:fixed}
 a{color:var(--acc)}
 /* header */
 header{display:flex;align-items:center;gap:18px;padding:13px 22px;position:sticky;top:0;z-index:30;flex-wrap:wrap;row-gap:10px;
  background:linear-gradient(180deg,rgba(15,20,29,.94),rgba(11,15,22,.92));backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-header::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--acc),var(--acc2));opacity:.95}
+header::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--acc2),var(--acc) 45%,var(--acc-d));opacity:.95;box-shadow:0 0 12px rgba(92,200,255,.4)}
 .brand{display:flex;align-items:center;gap:10px}
 header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.3px}
 header h1 b{color:var(--acc);font-weight:700}
@@ -41,18 +42,18 @@ header .email{margin-left:auto;display:flex;align-items:center;gap:7px;font-size
 .cond .u{font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-right:-6px;font-weight:600}
 .cond input{width:62px;padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px}
 /* inputs */
-input,select,textarea{background:var(--panel3);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;box-shadow:inset 0 1px 2px rgba(0,0,0,.25);transition:border-color .13s,box-shadow .13s,background .13s}
+input,select,textarea{background:linear-gradient(180deg,#161e2a,#18202d);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;box-shadow:inset 0 1px 2px rgba(0,0,0,.3);transition:border-color .13s,box-shadow .13s,background .13s}
 input:hover,select:hover,textarea:hover{border-color:var(--line2)}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(92,200,255,.16),inset 0 1px 2px rgba(0,0,0,.2)}
 textarea{width:100%;font-family:var(--mono);resize:vertical;line-height:1.5}
 input.seq{font-family:var(--mono);letter-spacing:.3px}
 label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:5px;font-weight:600}
 /* buttons */
-button{background:linear-gradient(180deg,#6fd2ff,#2fb1f3);color:#04222f;border:0;border-radius:8px;padding:9px 15px;font-weight:600;cursor:pointer;font-size:13px;font-family:var(--ui);letter-spacing:.2px;box-shadow:0 1px 0 rgba(0,0,0,.35),0 8px 18px -10px rgba(92,200,255,.55);transition:transform .07s,filter .13s,box-shadow .13s}
-button:hover{filter:brightness(1.06)}
+button{background:linear-gradient(180deg,#7ad6ff,#34b3f4);color:#042230;border:0;border-radius:9px;padding:9px 15px;font-weight:600;cursor:pointer;font-size:13px;font-family:var(--ui);letter-spacing:.2px;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 1px 2px rgba(0,0,0,.4),0 10px 22px -12px rgba(92,200,255,.6);transition:transform .07s,filter .13s,box-shadow .13s}
+button:hover{filter:brightness(1.07) saturate(1.05)}
 button:active{transform:translateY(1px)}
-button.ghost{background:rgba(255,255,255,.015);border:1px solid var(--line);color:var(--ink2);font-weight:500;box-shadow:none}
-button.ghost:hover{background:rgba(92,200,255,.09);border-color:var(--line2);color:var(--ink)}
+button.ghost{background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(255,255,255,.008));border:1px solid var(--line);color:var(--ink2);font-weight:500;box-shadow:none}
+button.ghost:hover{background:var(--acc-soft);border-color:rgba(92,200,255,.34);color:var(--ink)}
 /* nav */
 nav{display:flex;align-items:center;gap:5px;padding:10px 18px;flex-wrap:wrap;row-gap:8px;background:linear-gradient(180deg,rgba(13,18,26,.96),rgba(10,14,21,.96));border-bottom:1px solid var(--line)}
 .navgroup{display:inline-flex;align-items:center;font-size:9.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--dim);opacity:.75;margin:0 8px 0 6px;padding-left:12px;border-left:1px solid var(--line);height:18px}
@@ -67,19 +68,27 @@ main{padding:24px 22px 40px;max-width:1120px;margin:0 auto}
 section{display:none}
 section.on{display:block;animation:ofIn .22s ease}
 @keyframes ofIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+section.on>.card{animation:ofRise .42s cubic-bezier(.2,.7,.2,1) both}
+section.on>.card:nth-child(2){animation-delay:.06s}
+section.on>.card:nth-child(3){animation-delay:.11s}
+section.on>.card:nth-child(4){animation-delay:.16s}
+section.on>.card:nth-child(n+5){animation-delay:.2s}
+@keyframes ofRise{from{opacity:0;transform:translateY(11px)}to{opacity:1;transform:none}}
 /* cards */
-.card{background:linear-gradient(180deg,#121823,#0e131c);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin-bottom:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),var(--sh)}
+.card{position:relative;background:linear-gradient(180deg,#131a26,#0e131c);border:1px solid var(--line);border-radius:var(--r);padding:19px 21px;margin-bottom:16px;box-shadow:var(--edge),var(--sh)}
+.card::before{content:"";position:absolute;inset:0 14% auto;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent);pointer-events:none}
 .row{display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
-h2{font-size:16px;margin:0 0 5px;font-weight:650;letter-spacing:.2px}
-h3{font-size:15px;margin:0 0 5px;font-weight:650}
+h2{font-size:16px;margin:0 0 5px;font-weight:650;letter-spacing:-.1px;color:#f1f6fb}
+h3{font-size:14.5px;margin:0 0 5px;font-weight:650;letter-spacing:-.05px}
 .hint{color:var(--dim);font-size:12.5px;margin:0 0 15px;line-height:1.6;max-width:82ch}
 /* tables */
 table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
-th,td{text-align:left;padding:7px 10px;border-bottom:1px solid rgba(34,44,58,.7)}
-th{color:var(--dim);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.02)}
+th,td{text-align:left;padding:8px 11px;border-bottom:1px solid rgba(33,43,57,.75)}
+td{font-variant-numeric:tabular-nums}
+th{color:var(--dim);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.7px;background:rgba(140,190,235,.045);border-bottom:1px solid var(--line)}
 tbody tr:hover td,table tr:hover td{background:rgba(92,200,255,.045)}
 tr:last-child td{border-bottom:0}
-td.mono,.mono{font-family:var(--mono);letter-spacing:.2px}
+td.mono,.mono{font-family:var(--mono);letter-spacing:.2px;font-variant-numeric:tabular-nums}
 /* status + pills */
 .PASS{color:var(--pass)}.WARN{color:var(--warn)}.FAIL{color:var(--fail)}
 .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
@@ -88,8 +97,8 @@ td.mono,.mono{font-family:var(--mono);letter-spacing:.2px}
 .b-FAIL{background:rgba(251,109,99,.16);color:var(--fail);border:1px solid rgba(251,109,99,.4);border-radius:20px}
 /* kv tiles */
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin:12px 0}
-.kv div{background:linear-gradient(180deg,#19222e,#131a24);border:1px solid var(--line);border-left:2px solid rgba(92,200,255,.6);border-radius:9px;padding:10px 12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
-.kv b{display:block;font-size:18px;font-family:var(--mono);letter-spacing:.3px;color:#dbe9f6}
+.kv div{background:linear-gradient(180deg,#1a2531,#121a24);border:1px solid var(--line);border-left:2px solid var(--acc);border-radius:10px;padding:11px 13px;box-shadow:var(--edge)}
+.kv b{display:block;font-size:19px;font-family:var(--mono);letter-spacing:.2px;color:#e6f1fb;font-variant-numeric:tabular-nums}
 .kv span{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px}
 /* misc */
 .err{color:var(--fail);font-size:13px;margin-top:8px;background:rgba(251,109,99,.08);border:1px solid rgba(251,109,99,.28);border-radius:8px;padding:9px 12px}
@@ -187,10 +196,11 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
 .ph{display:flex;align-items:center;gap:11px;color:var(--dim);font-size:12.5px;line-height:1.5;background:rgba(255,255,255,.012);border:1px dashed var(--line2);border-radius:10px;padding:15px 17px;margin-top:4px}
 .ph::before{content:"";flex:none;width:24px;height:24px;border-radius:7px;background:linear-gradient(150deg,rgba(92,200,255,.28),rgba(110,231,168,.16));border:1px solid var(--line2);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
 .legend{margin-top:7px;font-size:11px;color:var(--dim);line-height:1.7}
-.gfbox{background:rgba(110,231,168,.05);border:1px solid var(--line2);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.gfbox{background:linear-gradient(180deg,rgba(110,231,168,.07),rgba(110,231,168,.02));border:1px solid rgba(110,231,168,.22);border-radius:11px;padding:13px 15px;margin-bottom:12px;box-shadow:var(--edge)}
 .gf-chips{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0}
 .gf-chip{padding:5px 11px;font-size:12px}
 .gf-chip b{font-weight:600}
+.gf-rel{border-color:var(--line2);opacity:.92}
 .ma-det>summary{cursor:pointer;color:var(--acc2);font-size:12.5px;font-weight:600;list-style:none;user-select:none}
 .ma-det>summary::-webkit-details-marker{display:none}
 .ma-det>summary:hover{text-decoration:underline}
@@ -360,10 +370,12 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
     <div class="card">
     <div class="gfbox">
       <b>Not sure which gene?</b> <span class="hint">Enter a species or genus — get the standard qPCR markers to try.</span>
-      <div class="row" style="margin-top:6px">
-        <input id="gf_org" class="seq" placeholder="e.g. Plasmodium" style="flex:1;text-transform:none">
+      <div class="row" style="margin-top:6px;align-items:flex-end">
+        <div style="flex:1"><label>organism / genus</label><input id="gf_org" class="seq" placeholder="e.g. Haemoproteus" style="width:100%;text-transform:none"></div>
+        <div><label>goal</label><select id="gf_intent"><option value="any">no preference</option><option value="detect">detect / quantify</option><option value="genotype">tell species/lineages apart</option></select></div>
         <button onclick="suggestGenes()">Suggest genes</button>
       </div>
+      <div class="row" style="margin-top:6px"><div style="flex:1"><label>…but NOT in (optional — sets the off-target to discriminate against)</label><input id="gf_excl" class="seq" placeholder="e.g. Plasmodium" style="width:100%;text-transform:none"></div></div>
       <div id="gf_out"></div>
     </div>
     <p class="hint">A screen, not a final answer — confirm winners in OligoAnalyzer. AT-rich parasite mtDNA needs a low-Tm parasite profile. Without BLAST this is one NCBI fetch plus design (usually under a minute; it gives up at 120 s rather than hanging). Ticking BLAST adds a remote NCBI search that can take several minutes; fewer sequences is faster.</p>
@@ -471,7 +483,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.6.1</footer>
+<footer>OligoForge v1.8.0</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -897,17 +909,49 @@ function renderPanel(){const o=document.getElementById("wk_out");if(!o)return;
   </div>`;}).join("");}
 async function suggestGenes(){const o=document.getElementById("gf_out");const q=(document.getElementById("gf_org").value||"").trim();
  if(!q){o.innerHTML=err("enter a species or genus");return;}
+ const intent=(document.getElementById("gf_intent")||{}).value||"any";const excl=((document.getElementById("gf_excl")||{}).value||"").trim();
  o.innerHTML='<div class="working">resolving taxon + markers\u2026</div><div class="ofbar"></div>';
- const d=await api("/api/suggest_genes",{organism:q,email:email.value});
+ const d=await api("/api/suggest_genes",{organism:q,exclude:excl,intent:intent,email:email.value});
  if(d.error){o.innerHTML=err(d.error);return;}
+ o.innerHTML=gfRender(d);}
+async function scanMarkers(){const o=document.getElementById("gf_out");const q=(document.getElementById("gf_org").value||"").trim();
+ if(!q){o.innerHTML=err("enter a species or genus");return;}
+ const intent=(document.getElementById("gf_intent")||{}).value||"any";const excl=((document.getElementById("gf_excl")||{}).value||"").trim();
+ o.innerHTML='<div class="working">measuring from GenBank \u2014 fetching sequences for each marker, this can take a bit\u2026</div><div class="ofbar"></div>';
+ const d=await api("/api/scan_markers",{organism:q,exclude:excl,intent:intent,email:email.value});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ o.innerHTML=gfRender(d);}
+function fmtNum(n){try{return Number(n).toLocaleString();}catch(e){return ""+n;}}
+function gfRender(d){
  let h=`<div class="note" style="margin-top:8px">${d.resolved_ok?`resolved <b>${esc(d.resolved)}</b>${d.rank?` (${esc(d.rank)})`:""} \u2014 ${esc(d.group)}`:`couldn\u2019t resolve via NCBI \u2014 matched on name as <b>${esc(d.group)}</b>`}${d.lineage?`<br><span style="opacity:.65">${esc(d.lineage)}</span>`:""}</div>`;
+ if(d.relatives&&d.relatives.length){h+=`<div style="margin-top:6px"><span class="hint">common relatives to exclude:</span> `+d.relatives.map(rl=>`<button class="ghost gf-chip gf-rel" onclick='setExcl(${JSON.stringify(rl)})'>not in ${esc(rl)}</button>`).join(" ")+`</div>`;}
+ if(d.exclude)h+=`<div class="note" style="margin-top:4px">discriminating against <b>${esc(d.exclude)}</b> \u2014 clicking a marker sets it as the off-target so the design scores how cleanly they separate.</div>`;
  if(d.markers&&d.markers.length){
-  h+=`<div class="gf-chips">`+d.markers.map(m=>`<button class="ghost gf-chip" title="${esc(m.good_for)} \u00b7 ${esc(m.copies)}" onclick='useMarker(${JSON.stringify(m.query)},${JSON.stringify(m.chemistry)})'><b>${esc(m.gene)}</b> <span class="hint">${esc(m.level)}</span></button>`).join("")+`</div>`;
-  h+=`<table><tr><th>marker</th><th>good for</th><th>copies</th><th>chemistry</th></tr>`+d.markers.map(m=>`<tr><td><b>${esc(m.gene)}</b><br><span class="hint">${esc(m.name)}</span></td><td>${esc(m.good_for)}</td><td>${esc(m.copies)}</td><td class="mono">${esc(m.chemistry)}</td></tr>`).join("")+`</table>`;
+  const sc=d.scanned;
+  h+=`<div class="gf-chips">`+d.markers.map(m=>`<button class="ghost gf-chip" title="${esc(m.good_for)} \u00b7 ${esc(m.copies)}${m.region?" \u00b7 "+esc(m.region):""}" onclick='useMarker(${JSON.stringify(m.query)},${JSON.stringify(m.chemistry)},${JSON.stringify(m.qwords)})'><b>${esc(m.gene)}</b> <span class="hint">${esc(m.conservation)}</span></button>`).join("")+`</div>`;
+  h+=`<table><tr><th>marker</th><th>best for</th><th>group vs species</th><th>sensitivity</th>`+(sc?`<th title="GenBank nucleotide records matching the query">records</th><th>med len</th><th>length range</th>`:`<th>typical region</th>`)+`<th>chem</th></tr>`+
+   d.markers.map(m=>{
+    const head=`<td><b>${esc(m.gene)}</b><br><span class="hint">${esc(m.name)}</span></td><td>${esc(m.good_for)}</td><td>${esc(m.conservation)} \u00b7 ${esc(m.level)}</td><td>${esc(m.copies)}</td>`;
+    let mid;
+    if(sc){
+     const c=(m.count==null)?"\u2014":(m.count===0?`<b class="WARN">0</b>`:fmtNum(m.count));
+     const rng=(m.min_len!=null&&m.max_len!=null)?`${m.min_len}\u2013${m.max_len} bp`:"\u2014";
+     mid=`<td>${c}</td><td>${m.median_len!=null?m.median_len:"\u2014"}</td><td class="hint">${rng}</td>`;
+    }else{mid=`<td>${m.region?esc(m.region):"\u2014"}</td>`;}
+    return `<tr>${head}${mid}<td class="mono">${esc(m.chemistry)}</td></tr>`;
+   }).join("")+`</table>`;
  }
  if(d.note)h+=`<small class="note">${esc(d.note)}</small>`;
- o.innerHTML=h;}
-function useMarker(query,chem){fld("au_q",query);const ps=document.getElementById("au_prof");if(ps&&chem){try{ps.value=chem;}catch(e){}}const qel=document.getElementById("au_q");if(qel&&qel.focus)qel.focus();toast("Filled the target query"+(chem?" + chemistry":"")+" \u2014 set an off-target if you want discrimination, then Design.","ok");}
+ if(d.markers&&d.markers.length&&!d.scanned)h+=`<div style="margin-top:8px"><button class="ghost" onclick="scanMarkers()">Measure from GenBank</button> <span class="hint">fetches sequences per marker (slower) \u2014 shows how much data exists and the typical length</span></div>`;
+ if(d.scanned)h+=`<small class="note"><b>records</b> = GenBank sequences matching that query \u2014 a hard availability signal for this taxon (\u201c0\u201d usually means it isn\u2019t sequenced under that name; prefer a marker with data). <b>length</b> is the typical amplifiable size. For measured conservation and how cleanly a marker separates from a relative, click it (fills the target${d.exclude?" and off-target":""}) and run Design \u2014 the Conservation tab measures that per-position on the aligned sequences.</small>`;
+ return h;
+}
+function setExcl(t){fld("gf_excl",t);suggestGenes();}
+function useMarker(query,chem,qwords){fld("au_q",query);const ps=document.getElementById("au_prof");if(ps&&chem){try{ps.value=chem;}catch(e){}}
+ const excl=((document.getElementById("gf_excl")||{}).value||"").trim();let msg="Filled the target query"+(chem?" + chemistry":"");
+ if(excl&&qwords){fld("au_off",(excl+" "+qwords).trim());msg+=" + off-target ("+excl+")";}
+ const qel=document.getElementById("au_q");if(qel&&qel.focus)qel.focus();
+ toast(msg+" \u2014 then Design.","ok");}
 function toPair(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("p_f",a.forward);fld("p_r",a.reverse);fld("p_amp",a.amplicon);gotab("pair");doPair();}
 function toEpcr(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("ep_f",a.forward);fld("ep_r",a.reverse);fld("ep_org",a.organism);gotab("epcr");
  const o=document.getElementById("ep_out");const s=a.checks&&a.checks.specificity;
