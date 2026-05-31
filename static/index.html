@@ -483,7 +483,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.8.0</footer>
+<footer>OligoForge v1.8.1</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -709,7 +709,7 @@ async function fetchNuc(boxId,qId,nId){const box=document.getElementById(boxId);
 async function doCons(){const o=document.getElementById("cons_out");o.innerHTML="…";
  const oligos={};[...document.querySelectorAll("#consrows .seqrow")].forEach(r=>{const i=r.querySelectorAll("input");if(i[0].value&&i[1].value)oligos[i[0].value]=i[1].value;});
  const targets=parseFasta(document.getElementById("cons_targets").value);const off=parseFasta(document.getElementById("cons_offs").value);
- if(!Object.keys(oligos).length||!targets.length){o.innerHTML=err("need at least one oligo and one target sequence (paste FASTA or fetch)");return;}
+ if(!Object.keys(oligos).length||!targets.length){o.innerHTML=err("Add oligos and at least one target sequence — fetch above or paste FASTA, then Analyze.");return;}
  const d=await api("/api/conservation",{oligos,targets,off_targets:off,min_ident:parseFloat(document.getElementById("cons_mi").value)||0.6});if(d.error){o.innerHTML=err(d.error);return;}
  let h="";for(const lab in d){const cn=d[lab].conservation,ds=d[lab].discrimination;const weak=cn.per_pos.filter(p=>p.pct_match<90);
   h+=`<div class="card" style="margin-top:10px"><b>${lab}</b> <span class="mono">${oligos[lab]}</span>
@@ -719,9 +719,9 @@ async function doCons(){const o=document.getElementById("cons_out");o.innerHTML=
   const diagSet=new Set(diag.map(p=>p.pos));
   h+=`<table><tr><th>pos</th>`+cn.per_pos.map(p=>`<th>${p.oligo}</th>`).join("")+`</tr><tr><td>%</td>`+cn.per_pos.map(p=>`<td class="${p.pct_match<90?'FAIL':(p.pct_match<100?'WARN':'PASS')}">${p.pct_match}</td>`).join("")+`</tr>`+(diagSet.size?`<tr><td title="conserved in your target AND different from the off-target set — anchor a 3′ end or probe here">◆</td>`+cn.per_pos.map(p=>`<td style="color:var(--acc2)">${diagSet.has(p.pos)?'◆':''}</td>`).join("")+`</tr>`:``)+`</table>`;
   if(weak.length)h+=`<small class="note">weak: ${weak.map(p=>`pos ${p.pos} ${p.oligo}→${p.major} (${p.pct_match}%)`).join(", ")}</small>`;
-  if(ds&&ds.n){h+=`<div style="margin-top:6px">vs off-target set — you want the oligo to <b>differ</b> here, so <b>lower</b> identity and <b>more</b> mismatches is better: median identity <b class="${ds.median_ident>=90?'FAIL':(ds.median_ident>=80?'WARN':'PASS')}">${ds.median_ident}%</b> over ${ds.n} sequence(s); the closest off-target site differs by <b>${ds.min_mismatch}</b> mismatch(es), <b>${ds.min_3prime_mismatch}</b> of them within the 3′ end. More 3′ mismatches = cleaner discrimination.</div>`;
+  if(ds&&ds.n){h+=`<div style="margin-top:6px">off-target: median identity <b class="${ds.median_ident>=90?'FAIL':(ds.median_ident>=80?'WARN':'PASS')}">${ds.median_ident}%</b> over ${ds.n} seq(s) · closest differs by <b>${ds.min_mismatch}</b> mismatch(es), <b>${ds.min_3prime_mismatch}</b> in the 3′ end <span class="hint">(lower identity + more 3′ mismatches = cleaner separation)</span></div>`;
    if(ds.indel_masked)h+=`<div style="margin-top:4px;color:var(--warn)">⚠ ${ds.indel_masked} off-target${ds.indel_masked>1?'s':''} match closely once a small indel is allowed (gapped identity up to ${ds.gapped_max_ident}%) — the ungapped screen understates this. Confirm in BLAST.</div>`;
-   h+=(diagSet.size?`<div style="margin-top:5px"><b style="color:var(--acc2)">◆ diagnostic positions ${diag.map(p=>p.pos).join(", ")}</b>: conserved across your target but differing in ≥70% of off-targets — put a primer 3′ end or the probe over these for species-level specificity. <span class="note">(Oligo-anchored & ungapped; confirm in an alignment.)</span></div>`:`<div class="note" style="margin-top:5px">No position is both conserved in your target and divergent across the off-target set, so this oligo won't separate them on its own — shift the oligo, or place a probe over a known diagnostic base.</div>`);}
+   h+=(diagSet.size?`<div style="margin-top:5px"><b style="color:var(--acc2)">◆ diagnostic positions ${diag.map(p=>p.pos).join(", ")}</b> — conserved in target, divergent in off-targets; anchor a 3′ end or the probe here <span class="hint">(ungapped; confirm in an alignment)</span></div>`:`<div class="note" style="margin-top:5px">No position is both conserved in target and divergent in off-targets — this oligo won't separate them alone; shift it or place the probe over a known diagnostic base.</div>`);}
   else if(ds)h+=`<small class="note">${ds.note}</small>`;
   h+=`</div>`;}
  o.innerHTML=h;}
@@ -861,14 +861,14 @@ function assayResultsHtml(a){
   else iv=`<b class="${it.ok?"PASS":"FAIL"}">${it.ok?"✓ ":"✗ "}${esc(it.verdict||"")}</b> <a class="lnk" onclick="toIntron('${a.id}')">tab ↗</a>`;
   h+=`<div class="resrow"><span class="reslab">intron / gDNA</span><span class="resval">${iv}</span></div>`;}
  if(va&&va.efficiency_pct!=null)h+=`<div class="resrow"><span class="reslab">std curve</span><span class="resval">eff ${va.efficiency_pct}% · R² ${va.r2} · slope ${va.slope}${va.lod!=null?` · LOD ${va.lod}`:""}</span></div>`;
- if(gb)h+=`<div class="resrow"><span class="reslab">gBlock</span><span class="resval">${gb.length} bp standard <a class="lnk" onclick='copyText(${JSON.stringify(gb)})'>copy</a> <a class="lnk" onclick='gblockToOrder(${JSON.stringify((a.name||"assay")+"_gBlock")},${JSON.stringify(gb)})'>→ Order tab</a></span></div>`;
+ if(gb)h+=`<div class="resrow"><span class="reslab">gBlock</span><span class="resval">${gb.length} bp standard <a class="lnk" onclick='copyText(${JSON.stringify(gb)})'>copy</a> <a class="lnk" onclick="toOrderAssay('${a.id}')">→ Order (F/R/probe + gBlock)</a></span></div>`;
  return h+`</div>`;
 }
 async function wbPair(id){const a=PANEL.find(x=>x.id===id);if(!a)return;a.results=a.results||{};a.results.pair={running:true};savePanel();renderPanel();
  const d=await api("/api/pair",{forward:a.forward,reverse:a.reverse,amplicon:a.amplicon||null,profile:(a.probe?"idt_taqman":"sybr_generic")});
  if(d.error){a.results.pair={error:d.error};}else{a.results.pair={f_tm:d.f_tm,r_tm:d.r_tm,pair_gap:d.pair_gap,fxr:d.fxr,f_self:d.f_self,r_self:d.r_self};a.f_tm=d.f_tm;a.r_tm=d.r_tm;}savePanel();renderPanel();
  toast(d.error?d.error:"Primer QC saved to "+(a.name||"assay")+".",d.error?"err":"ok");}
-async function wbIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;if(!a.gene||!a.organism){toast("Set this assay's gene and organism first — the intron check needs both.","warn");return;}a.results=a.results||{};a.results.intron={running:true};savePanel();renderPanel();
+async function wbIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;if(!a.accession&&(!a.gene||!a.organism)){toast("Set this assay's gene + organism, or use one designed from a RefSeq (Target -> assay) so its accession can locate the exon structure.","warn");return;}a.results=a.results||{};a.results.intron={running:true};savePanel();renderPanel();
  const d=await api("/api/intron",{gene:a.gene,organism:a.organism,mrna_acc:a.accession||null,forward:a.forward,reverse:a.reverse});
  if(d.error){a.results.intron={error:d.error};}
  else if(d.ok==null){a.results.intron={ok:null,info:d.info};}
@@ -922,16 +922,17 @@ async function scanMarkers(){const o=document.getElementById("gf_out");const q=(
  if(d.error){o.innerHTML=err(d.error);return;}
  o.innerHTML=gfRender(d);}
 function fmtNum(n){try{return Number(n).toLocaleString();}catch(e){return ""+n;}}
-function gfRender(d){
+function gfFit(c,goal){if(goal==="separate")return c==="variable"?"PASS":(c==="moderate"?"WARN":"FAIL");if(goal==="detect")return c==="conserved"?"PASS":"WARN";return "";}
+function gfRender(d){const _i=(document.getElementById("gf_intent")||{}).value||"any";const goal=d.exclude?"separate":(_i==="genotype"?"separate":(_i==="detect"?"detect":""));
  let h=`<div class="note" style="margin-top:8px">${d.resolved_ok?`resolved <b>${esc(d.resolved)}</b>${d.rank?` (${esc(d.rank)})`:""} \u2014 ${esc(d.group)}`:`couldn\u2019t resolve via NCBI \u2014 matched on name as <b>${esc(d.group)}</b>`}${d.lineage?`<br><span style="opacity:.65">${esc(d.lineage)}</span>`:""}</div>`;
  if(d.relatives&&d.relatives.length){h+=`<div style="margin-top:6px"><span class="hint">common relatives to exclude:</span> `+d.relatives.map(rl=>`<button class="ghost gf-chip gf-rel" onclick='setExcl(${JSON.stringify(rl)})'>not in ${esc(rl)}</button>`).join(" ")+`</div>`;}
- if(d.exclude)h+=`<div class="note" style="margin-top:4px">discriminating against <b>${esc(d.exclude)}</b> \u2014 clicking a marker sets it as the off-target so the design scores how cleanly they separate.</div>`;
+ if(d.exclude)h+=`<div class="note" style="margin-top:4px">discriminating against <b>${esc(d.exclude)}</b> \u2014 a <b class="FAIL">conserved</b> marker is nearly identical in both, so it can\u2019t separate them; pick a <b class="PASS">variable</b> one (green). Clicking a marker sets it as the off-target so the design scores the separation.</div>`;
  if(d.markers&&d.markers.length){
   const sc=d.scanned;
-  h+=`<div class="gf-chips">`+d.markers.map(m=>`<button class="ghost gf-chip" title="${esc(m.good_for)} \u00b7 ${esc(m.copies)}${m.region?" \u00b7 "+esc(m.region):""}" onclick='useMarker(${JSON.stringify(m.query)},${JSON.stringify(m.chemistry)},${JSON.stringify(m.qwords)})'><b>${esc(m.gene)}</b> <span class="hint">${esc(m.conservation)}</span></button>`).join("")+`</div>`;
+  h+=`<div class="gf-chips">`+d.markers.map(m=>`<button class="ghost gf-chip" title="${esc(m.good_for)} \u00b7 ${esc(m.copies)}${m.region?" \u00b7 "+esc(m.region):""}" onclick='useMarker(${JSON.stringify(m.query)},${JSON.stringify(m.chemistry)},${JSON.stringify(m.qwords)})'><b>${esc(m.gene)}</b> <span class="hint ${gfFit(m.conservation,goal)}">${esc(m.conservation)}</span></button>`).join("")+`</div>`;
   h+=`<table><tr><th>marker</th><th>best for</th><th>group vs species</th><th>sensitivity</th>`+(sc?`<th title="GenBank nucleotide records matching the query">records</th><th>med len</th><th>length range</th>`:`<th>typical region</th>`)+`<th>chem</th></tr>`+
    d.markers.map(m=>{
-    const head=`<td><b>${esc(m.gene)}</b><br><span class="hint">${esc(m.name)}</span></td><td>${esc(m.good_for)}</td><td>${esc(m.conservation)} \u00b7 ${esc(m.level)}</td><td>${esc(m.copies)}</td>`;
+    const head=`<td><b>${esc(m.gene)}</b><br><span class="hint">${esc(m.name)}</span></td><td>${esc(m.good_for)}</td><td><b class="${gfFit(m.conservation,goal)}">${esc(m.conservation)}</b> \u00b7 ${esc(m.level)}</td><td>${esc(m.copies)}</td>`;
     let mid;
     if(sc){
      const c=(m.count==null)?"\u2014":(m.count===0?`<b class="WARN">0</b>`:fmtNum(m.count));
@@ -940,6 +941,7 @@ function gfRender(d){
     }else{mid=`<td>${m.region?esc(m.region):"\u2014"}</td>`;}
     return `<tr>${head}${mid}<td class="mono">${esc(m.chemistry)}</td></tr>`;
    }).join("")+`</table>`;
+  if(goal&&!d.exclude)h+=`<small class="note">colour = fit for <b>${_i==="detect"?"detection":"telling species apart"}</b>: ${_i==="detect"?'<b class="PASS">conserved</b> catches the whole group; a <b class="WARN">variable</b> marker can miss divergent members':'<b class="PASS">variable</b> separates close relatives; a <b class="FAIL">conserved</b> marker is too similar in all of them'}.</small>`;
  }
  if(d.note)h+=`<small class="note">${esc(d.note)}</small>`;
  if(d.markers&&d.markers.length&&!d.scanned)h+=`<div style="margin-top:8px"><button class="ghost" onclick="scanMarkers()">Measure from GenBank</button> <span class="hint">fetches sequences per marker (slower) \u2014 shows how much data exists and the typical length</span></div>`;
@@ -963,8 +965,10 @@ function toIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("i_gene"
  if(sv&&sv.verdict){renderIntron(sv,o);}
  else if(a.gene&&a.organism){doIntron();}
  else{o.innerHTML=`<div class="ph">Loaded ${esc(a.name||"assay")} primers. Set the gene and organism (above, or on the Workbench card), then this locates the amplicon and checks the exon junctions.</div>`;}}
-function toConsAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("consrows").innerHTML="";addConsRow((a.name||"a")+"_F",a.forward);addConsRow((a.name||"a")+"_R",a.reverse);if(a.probe)addConsRow((a.name||"a")+"_P",a.probe);if(a.gene&&a.organism)fld("cons_tq",a.organism+"[Organism] AND "+a.gene+"[Gene]");gotab("cons");toast("Filled "+(a.name||"assay")+"'s oligos. Add target sequences (Fetch or paste FASTA), then Analyze.","ok");}
-function toOrderAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("orderrows").innerHTML="";const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);if(a.gblock){const gb=document.getElementById("gbrows");if(gb)gb.innerHTML="";addGbRow((a.name||"assay")+"_gBlock",a.gblock);}gotab("order");}
+async function toConsAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("consrows").innerHTML="";addConsRow((a.name||"a")+"_F",a.forward);addConsRow((a.name||"a")+"_R",a.reverse);if(a.probe)addConsRow((a.name||"a")+"_P",a.probe);gotab("cons");const o=document.getElementById("cons_out");const gw=(a.gene||"").replace(/\(.*?\)/g,"").trim();
+ if(gw&&a.organism){fld("cons_tq",a.organism+"[Organism] AND "+gw);o.innerHTML='<div class="working">fetching target sequences for '+esc(a.name||"assay")+' from NCBI…</div><div class="ofbar"></div>';await fetchNuc("cons_targets","cons_tq","cons_tn");const t=document.getElementById("cons_targets").value||"";if(t&&t.indexOf(">ERROR")!==0){doCons();}else{o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'’s oligos but couldn’t auto-fetch targets — adjust the query above and click fetch, or paste target FASTA, then Analyze.</div>';}}
+ else{o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'’s oligos. Set its gene + organism to auto-fetch targets, or paste target FASTA, then Analyze.</div>';}}
+function toOrderAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("orderrows").innerHTML="";const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);if(a.gblock){const gb=document.getElementById("gbrows");if(gb)gb.innerHTML="";addGbRow((a.name||"assay")+"_gBlock",a.gblock);}gotab("order");toast("Filled "+(a.name||"assay")+"'s F/R"+(a.probe?" + probe":"")+(a.gblock?" + gBlock":"")+" into the Order tab.","ok");}
 async function checkAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;const c=document.getElementById("wk_status_"+id);if(c)c.textContent="checking\u2026";
  const md=document.getElementById("ep_mode")?document.getElementById("ep_mode").value:"remote";
  const d=await api("/api/epcr",{forward:a.forward,reverse:a.reverse,mode:md,db:"nt",organism:a.organism||null,email:email.value});

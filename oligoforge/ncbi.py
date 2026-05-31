@@ -83,6 +83,25 @@ def gene_id(gene, organism):
     return None
 
 
+def gene_id_from_accession(acc):
+    """Entrez Gene ID linked to a nucleotide accession, via elink (organism-independent).
+    This lets the intron check work for a non-model organism that has a RefSeq mRNA but no
+    Gene record searchable under the typed organism name. None on failure."""
+    if not acc:
+        return None
+    try:
+        h = Entrez.elink(dbfrom="nucleotide", db="gene", id=acc.strip())
+        recs = Entrez.read(h); h.close()
+        for r in recs:
+            for ls in r.get("LinkSetDb", []):
+                links = ls.get("Link", [])
+                if links:
+                    return links[0]["Id"]
+    except Exception:
+        pass
+    return None
+
+
 def search_fetch_fasta(query, n=10):
     """esearch + efetch a nucleotide query -> [(description, sequence), ...].
     Caps the request count and skips oversized records (genomic contigs /

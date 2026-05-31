@@ -42,10 +42,16 @@ def exon_junctions_mrna(gene, organism, mrna_acc=None):
     """Exon-junction positions in mRNA coordinates from NCBI gene_table.
     Sections are anchored to their transcript accession so the right isoform
     is parsed. Junctions = cumulative spliced-exon lengths."""
-    from .ncbi import gene_id
-    gid = gene_id(gene, organism)
+    from .ncbi import gene_id, gene_id_from_accession
+    gid = gene_id_from_accession(mrna_acc) if mrna_acc else None
     if not gid:
-        return None, "gene not found", None
+        gid = gene_id(gene, organism)
+    if not gid:
+        where = (" in " + organism) if organism else ""
+        return None, ("NCBI has no gene/exon annotation for %s%s (common for non-model "
+                      "species). Give a RefSeq mRNA accession from this or a closely related "
+                      "annotated species, or mark the gDNA control as handled." %
+                      (gene or "this gene", where)), None
     h = Entrez.efetch(db="gene", id=gid, rettype="gene_table", retmode="text")
     txt = h.read(); h.close()
 
