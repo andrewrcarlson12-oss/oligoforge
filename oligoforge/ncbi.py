@@ -5,14 +5,16 @@ import time, difflib, socket, os
 from Bio import Entrez, SeqIO
 
 # Bound every NCBI HTTP call so a genuinely stalled connection eventually fails
-# instead of hanging forever — but generously, because an efetch of several or
-# large records can legitimately take a while. Override with the env var
-# OLIGOFORGE_NCBI_TIMEOUT (seconds). Async server sockets are non-blocking and
-# ignore this.
+# instead of hanging forever — but generously, because a remote blastn against
+# nt is queued server-side at NCBI and a single poll can legitimately take
+# several minutes (and a large efetch can too). 600 s is the default so BLAST
+# from the Target->assay tab completes instead of being killed mid-poll.
+# Override with the env var OLIGOFORGE_NCBI_TIMEOUT (seconds); raise it higher
+# if your network is slow. Async server sockets are non-blocking and ignore this.
 try:
-    NCBI_TIMEOUT = float(os.environ.get("OLIGOFORGE_NCBI_TIMEOUT", "120"))
+    NCBI_TIMEOUT = float(os.environ.get("OLIGOFORGE_NCBI_TIMEOUT", "600"))
 except ValueError:
-    NCBI_TIMEOUT = 120.0
+    NCBI_TIMEOUT = 600.0
 socket.setdefaulttimeout(NCBI_TIMEOUT)
 
 Entrez.email = "set-me@example.com"   # set to your address; NCBI requires it

@@ -184,6 +184,9 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
 .amp-probe{top:9px;height:12px;font-size:8.5px;color:#04261a;background:linear-gradient(180deg,rgba(110,231,168,.62),rgba(110,231,168,.38));border:1px solid rgba(110,231,168,.78)}
 .amp-scale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:4px}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+.ph{display:flex;align-items:center;gap:11px;color:var(--dim);font-size:12.5px;line-height:1.5;background:rgba(255,255,255,.012);border:1px dashed var(--line2);border-radius:10px;padding:15px 17px;margin-top:4px}
+.ph::before{content:"";flex:none;width:24px;height:24px;border-radius:7px;background:linear-gradient(150deg,rgba(92,200,255,.28),rgba(110,231,168,.16));border:1px solid var(--line2);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.legend{margin-top:7px;font-size:11px;color:var(--dim);line-height:1.7}
 </style>
 </head>
 <body>
@@ -210,7 +213,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
       <div><label>chemistry</label><select id="qc_prof" class="profsel"></select></div>
       <button onclick="doQC()">Analyze</button>
     </div>
-    <div id="qc_out"></div>
+    <div id="qc_out"><div class="ph">Paste an oligo and run QC — Tm, GC, hairpin and self-dimer ΔG appear here.</div></div>
   </div></section>
 
   <!-- PAIR -->
@@ -223,7 +226,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
       <div><label>chemistry</label><select id="p_prof" class="profsel"></select></div>
       <button onclick="doPair()">Check</button>
     </div>
-    <div id="p_out"></div>
+    <div id="p_out"><div class="ph">Enter a forward and reverse primer to check the pair: Tm match, F×R dimer, amplicon size.</div></div>
   </div></section>
 
   <!-- MATRIX -->
@@ -231,7 +234,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
     <h2>Panel cross-dimer matrix</h2><p class="hint">Every oligo against every other. Green &gt; −6, amber −6 to −9, red ≤ −9 (kcal/mol).</p>
     <div id="seqrows"></div>
     <div class="row"><button class="ghost" onclick="addSeqRow()">+ oligo</button><button onclick="doMatrix()">Build matrix</button><span style="flex:1"></span><input id="panelname" placeholder="panel name" style="width:140px"><button class="ghost" onclick="saveOligoPanel()">Save</button><select id="panelsel" style="width:150px"></select><button class="ghost" onclick="loadPanel()">Load</button></div>
-    <div id="m_out"></div>
+    <div id="m_out"><div class="ph">Add oligos to the matrix to see the all-vs-all cross-dimer grid.</div></div>
   </div></section>
 
   <!-- DESIGN -->
@@ -239,13 +242,13 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
     <h2>Design from template</h2><p class="hint">Paste a transcript region (or pull one in the NCBI tab). Enumerate → gate → pair → probe → gBlock.</p>
     <div class="row"><div style="flex:1"><label>template (5'→3')</label><textarea id="d_tmpl" rows="4" placeholder="paste mRNA / CDS region"></textarea></div></div>
     <div class="row"><div><label>chemistry</label><select id="d_prof" class="profsel"></select></div><button onclick="doDesign()">Design assay</button></div>
-    <div id="d_out"></div>
+    <div id="d_out"><div class="ph">Paste a transcript region and Design to see the assay, its metrics, and a to-scale amplicon map.</div></div>
   </div>
   <div class="card">
     <h2>Batch design</h2><p class="hint">Paste FASTA — one ">name" header per template, sequence on following lines. Designs an assay for each.</p>
     <textarea id="b_fasta" rows="4" placeholder=">HMBS (sequence on next lines)  >SDHA ..."></textarea>
     <div class="row" style="margin-top:8px"><button onclick="doBatch()">Design all</button></div>
-    <div id="bd_out"></div>
+    <div id="bd_out"><div class="ph">Paste several name / sequence rows to batch-design assays at once.</div></div>
   </div></section>
 
 
@@ -260,7 +263,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
       <div><label><input type="checkbox" id="n_common"> isoform-common</label></div>
       <button onclick="doFetch()">Fetch</button>
     </div>
-    <div id="n_out"></div>
+    <div id="n_out"><div class="ph">Search NCBI by gene + organism to fetch sequences here.</div></div>
   </div></section>
 
   <!-- INTRON -->
@@ -276,7 +279,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
       <div><label>amp end</label><input id="i_e" type="number" placeholder="auto" style="width:80px"></div>
       <button onclick="doIntron()">Check</button>
     </div>
-    <div id="i_out"></div>
+    <div id="i_out"><div class="ph">Enter a gene and organism (and the primers) to check exon–intron placement / gDNA.</div></div>
   </div></section>
 
   <!-- BLAST -->
@@ -289,7 +292,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
       <div><label>db / db_path</label><input id="b_db" placeholder="nt" style="width:120px"></div>
       <button onclick="doBlast()">BLAST</button>
     </div>
-    <p class="hint" id="b_note"></p><div id="b_out"></div>
+    <p class="hint" id="b_note"></p><div id="b_out"><div class="ph">Run BLAST to see specificity hits here.</div></div>
   </div></section>
   <section id="quant"><div class="card">
     <h2>Standard-curve copies</h2><p class="hint">gBlock / amplicon copies per µL from concentration, plus a dilution series for the standard curve.</p>
@@ -300,7 +303,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
       <div><label>fold</label><input id="q_fold" type="number" value="10" style="width:80px"></div>
       <div><label>points</label><input id="q_pts" type="number" value="6" style="width:80px"></div>
       <button onclick="doCopies()">Compute</button>
-    </div><div id="q_out"></div>
+    </div><div id="q_out"><div class="ph">Enter a concentration and length to compute copies / µL and a dilution series.</div></div>
   </div></section>
   <section id="order"><div class="card">
     <h2>IDT order export</h2><p class="hint">IDT bulk CSV (Name, Sequence, Scale, Purification) + gBlock FASTA. ZEN probes wrap /56-FAM/…/3IABkFQ/; order them via PrimeTime for the double-quench and BOGO.</p>
@@ -308,7 +311,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
     <div class="row"><button class="ghost" onclick="addOrderRow()">+ oligo</button><button class="ghost" onclick="loadWorkbenchToOrder()">pull from workbench</button></div>
     <label style="margin-top:12px;display:block">gBlock standards</label><div id="gbrows"></div>
     <div class="row"><button class="ghost" onclick="addGbRow()">+ gBlock</button><button onclick="doOrder()">Generate order files</button></div>
-    <div id="o_out"></div>
+    <div id="o_out"><div class="ph">Add oligos — or pull from the Workbench — then generate IDT order files.</div></div>
   </div></section>
   <section id="cons"><div class="card">
     <h2>Conservation &amp; discrimination</h2>
@@ -322,7 +325,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
     <div class="row"><input id="cons_oq" placeholder="NCBI query, e.g. RelatedGenus[Organism] AND gene[Title] AND 400:1500[SLEN]" style="flex:1"><input id="cons_on" type="number" value="8" style="width:70px"><button class="ghost" onclick="fetchNuc('cons_offs','cons_oq','cons_on')">fetch</button></div>
     <textarea id="cons_offs" rows="3" placeholder="&gt;offseq ..."></textarea>
     <div class="row" style="margin-top:8px"><div><label>min ident to count</label><input id="cons_mi" type="number" value="0.6" step="0.05" style="width:90px"></div><button onclick="doCons()">Analyze</button></div>
-    <div id="cons_out"></div>
+    <div id="cons_out"><div class="ph">Add oligos plus a target set to see per-base conservation and off-target discrimination.</div></div>
   </div></section>
   <section id="epcr"><div class="card">
     <h2>In-silico PCR</h2>
@@ -332,14 +335,14 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
     <div class="row"><div><label>mode</label><select id="ep_mode"><option value="remote">remote (NCBI)</option><option value="local">local (blastn)</option></select></div><div><label>organism (optional)</label><input id="ep_org" placeholder="genus species" style="width:200px"></div></div>
     <div class="row"><div><label>db (remote)</label><input id="ep_db" value="nt" style="width:90px"></div><div><label>db path (local)</label><input id="ep_dbp" placeholder="your_genome_db" style="width:150px"></div><div><label>max product</label><input id="ep_max" type="number" value="3000" style="width:100px"></div></div>
     <div class="row" style="margin-top:8px"><button onclick="doEpcr()">Run in-silico PCR</button></div>
-    <div id="ep_out"></div>
+    <div id="ep_out"><div class="ph">Enter a primer pair to run in-silico PCR and list predicted products.</div></div>
   </div></section>
   <section id="std"><div class="card">
     <h2>Standard curve &amp; efficiency</h2>
     <p class="hint">Paste standard-curve results, one "quantity, Cq" per line (copies or ng). Repeat a quantity for replicates; leave Cq blank or NA for a non-detect. Reports efficiency, R&sup2;, dynamic range, and a practical LOD (MIQE).</p>
     <textarea id="std_in" rows="8" placeholder="1e6, 20.1&#10;1e5, 23.4&#10;1e4, 26.7&#10;1e3, 30.0&#10;1e2, 33.4&#10;1e1, 36.7"></textarea>
     <div class="row" style="margin-top:8px"><button onclick="doStd()">Fit curve</button></div>
-    <div id="std_out"></div>
+    <div id="std_out"><div class="ph">Paste your Cq dilution data to fit a standard curve: efficiency, R², slope and LOD.</div></div>
   </div></section>
   <section id="auto" class="on">
     <div class="hero">
@@ -373,14 +376,14 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
       <div><label>organism filter</label><input id="au_borg" placeholder="optional, e.g. Genus" style="width:170px"></div>
       <div><label>db / db path</label><input id="au_bdb" placeholder="nt, or local genome path" style="width:170px"></div>
     </div>
-    <div id="au_out"></div>
+    <div id="au_out"><div class="ph">Name a target and run — fetch, design, score across the set, and map an assay in one step.</div></div>
   </div></section>
   <section id="refgenes"><div class="card">
     <h3 style="margin:0 0 6px">Reference-gene stability</h3>
     <small class="note">geNorm M + pairwise V (Vandesompele 2002) and BestKeeper Cq SD/CV. Paste your SYBR-screen Cq table: one gene per line — name then one Cq per sample, space or comma separated. Needs &ge;2 genes and &ge;3 samples. MIQE wants &ge;2 validated reference genes.</small>
     <textarea id="rg_text" class="seq" rows="6" style="width:100%;text-transform:none;margin-top:8px" placeholder="RPL13 22.1 22.3 21.9 22.0 22.2&#10;YWHAZ 24.5 24.6 24.4 24.7 24.5&#10;HMBS 23.0 23.2 22.9 23.1 23.0&#10;SDHA 25.1 25.9 24.2 26.0 24.8"></textarea>
     <div class="row" style="margin-top:8px"><button onclick="doRefGenes()">Rank stability</button></div>
-    <div id="rg_out"></div>
+    <div id="rg_out"><div class="ph">Paste a Cq matrix to rank reference genes (geNorm M, pairwise V, BestKeeper).</div></div>
   </div></section>
   <section id="work"><div class="card">
     <h3 style="margin:0 0 6px">Workbench &mdash; your panel</h3>
@@ -435,7 +438,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.5.0</footer>
+<footer>OligoForge v1.5.2</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -661,10 +664,10 @@ async function doCons(){const o=document.getElementById("cons_out");o.innerHTML=
  const d=await api("/api/conservation",{oligos,targets,off_targets:off,min_ident:parseFloat(document.getElementById("cons_mi").value)||0.6});if(d.error){o.innerHTML=err(d.error);return;}
  let h="";for(const lab in d){const cn=d[lab].conservation,ds=d[lab].discrimination;const weak=cn.per_pos.filter(p=>p.pct_match<90);
   h+=`<div class="card" style="margin-top:10px"><b>${lab}</b> <span class="mono">${oligos[lab]}</span>
-   <div class="kv"><div><span>located in</span><b>${cn.n_placed}/${cn.n_input}</b></div><div><span>mean ident</span><b>${cn.mean_ident}%</b></div><div><span>worst pos</span><b>${cn.min_pct_match}%</b></div><div><span>worst 3'</span><b>${cn.worst_3prime}%</b></div></div>`;
+   <div class="kv"><div><span title="How many of your input target sequences this oligo could be located in.">located in</span><b>${cn.n_placed}/${cn.n_input}</b></div><div><span title="Average % of bases matching across the target set. Higher = the oligo binds every target.">mean match ↑</span><b class="${cn.mean_ident>=90?'PASS':(cn.mean_ident>=80?'WARN':'FAIL')}">${cn.mean_ident}%</b></div><div><span title="The single weakest base anywhere in the oligo — its lowest per-position % match across the set.">worst position</span><b class="${cn.min_pct_match>=90?'PASS':(cn.min_pct_match>=80?'WARN':'FAIL')}">${cn.min_pct_match}%</b></div><div><span title="Lowest % match in the last 5 bases (the 3′ end). Polymerase extends from the 3′ end, so a mismatch here can stop priming. Keep this high.">3′-end match ↑</span><b class="${cn.worst_3prime>=90?'PASS':(cn.worst_3prime>=80?'WARN':'FAIL')}">${cn.worst_3prime}%</b></div></div>`;
   h+=`<table><tr><th>pos</th>`+cn.per_pos.map(p=>`<th>${p.oligo}</th>`).join("")+`</tr><tr><td>%</td>`+cn.per_pos.map(p=>`<td class="${p.pct_match<90?'FAIL':(p.pct_match<100?'WARN':'PASS')}">${p.pct_match}</td>`).join("")+`</tr></table>`;
   if(weak.length)h+=`<small class="note">weak: ${weak.map(p=>`pos ${p.pos} ${p.oligo}→${p.major} (${p.pct_match}%)`).join(", ")}</small>`;
-  if(ds&&ds.n)h+=`<div style="margin-top:6px">vs off-target: located in ${ds.n}, median ident <b>${ds.median_ident}%</b>, closest match has <b>${ds.min_mismatch}</b> mismatches (${ds.min_3prime_mismatch} in 3')</div>`;
+  if(ds&&ds.n)h+=`<div style="margin-top:6px">vs off-target set — you want the oligo to <b>differ</b> here, so <b>lower</b> identity and <b>more</b> mismatches is better: median identity <b class="${ds.median_ident>=90?'FAIL':(ds.median_ident>=80?'WARN':'PASS')}">${ds.median_ident}%</b> over ${ds.n} sequence(s); the closest off-target site differs by <b>${ds.min_mismatch}</b> mismatch(es), <b>${ds.min_3prime_mismatch}</b> of them within the 3′ end. More 3′ mismatches = cleaner discrimination.</div>`;
   else if(ds)h+=`<small class="note">${ds.note}</small>`;
   h+=`</div>`;}
  o.innerHTML=h;}
@@ -684,7 +687,9 @@ async function doStd(){const o=document.getElementById("std_out");o.innerHTML="�
  const d=await api("/api/standard_curve",{points:pts});
  if(d.error){o.innerHTML=err(d.error);return;}
  LAST_STD=d;
- o.innerHTML=`<div class="kv"><div><span>efficiency</span><b class="${d.efficiency_ok?'PASS':'FAIL'}">${d.efficiency_pct}%</b></div>`+
+ const _all=d.efficiency_ok&&d.r2_ok&&d.slope_ok,_some=d.efficiency_ok||d.r2_ok;
+ const _bdg=`<span class="${_all?'b-PASS':(_some?'b-WARN':'b-FAIL')}" style="display:inline-block;padding:3px 11px;font-size:11px;font-weight:600;margin-bottom:9px">${_all?'meets MIQE':(_some?'review':'fails MIQE')}</span>`;
+ o.innerHTML=_bdg+`<div class="kv"><div><span>efficiency</span><b class="${d.efficiency_ok?'PASS':'FAIL'}">${d.efficiency_pct}%</b></div>`+
   `<div><span>slope</span><b class="${d.slope_ok?'PASS':'WARN'}">${d.slope}</b></div>`+
   `<div><span>R&sup2;</span><b class="${d.r2_ok?'PASS':'FAIL'}">${d.r2}</b></div>`+
   `<div><span>amp factor</span><b>${d.amp_factor}</b></div>`+
@@ -696,7 +701,7 @@ async function doStd(){const o=document.getElementById("std_out");o.innerHTML="�
 async function doAuto(){const o=document.getElementById("au_out");
  const wantBlast=document.getElementById("au_blast").checked;
  const bmode=document.getElementById("au_bmode").value, bdb=document.getElementById("au_bdb").value.trim();
- o.innerHTML='<div class="working">Fetching from NCBI and designing'+(wantBlast?" + BLASTing the winner — 30–90 s…":" — usually 20–60 s…")+'</div><div class="ofbar"></div>';
+ o.innerHTML='<div class="working">Fetching from NCBI and designing'+(wantBlast?" + BLASTing the winner at NCBI — this can take several minutes, leave it running…":" — usually 20–60 s…")+'</div><div class="ofbar"></div>';
  const d=await api("/api/autodesign",{target_query:document.getElementById("au_q").value,
    off_query:document.getElementById("au_off").value||null,
    profile:document.getElementById("au_prof").value,
@@ -714,10 +719,10 @@ async function doAuto(){const o=document.getElementById("au_out");
   const rows=[["Fwd",a.forward,a.f_tm,"F"],["Rev",a.reverse,a.r_tm,"R"]];
   if(a.probe)rows.push(["Probe",a.probe,(a.probe_info?a.probe_info.tm:0),"P"]);
   h+=`<div class="card" style="margin-top:10px"><b>${i==0?'★ best':'alt '+i}</b> · score ${c.score} · amplicon ${a.amplicon} nt${a.probe?'':' · <span class="note">primers only</span>'}
-   <table><tr><th></th><th>sequence</th><th>Tm</th><th>conserved</th><th>worst 3'</th>${ds?'<th>off-target</th>':''}</tr>`+
-   rows.map(([lab,seq,tm,k])=>{const cc=cn[k]||{};const dd=ds&&ds[k]&&ds[k].n?`${ds[k].max_ident}% / ${ds[k].min_mismatch}mm`:(ds?'—':'');
-     return `<tr><td>${lab}</td><td class="mono">${seq}</td><td>${tm?tm.toFixed(1):'—'}</td><td class="${cc.mean_ident<90?'WARN':'PASS'}">${cc.mean_ident!=null?cc.mean_ident:'—'}%</td><td class="${cc.worst_3prime<90?'FAIL':'PASS'}">${cc.worst_3prime!=null?cc.worst_3prime:'—'}%</td>${ds?('<td>'+dd+'</td>'):''}</tr>`;}).join("")+
-   `</table>`+
+   <table><tr><th></th><th>sequence</th><th>Tm</th><th title="Average % of bases matching across your whole target set. Higher = the oligo is conserved and binds every target.">target&nbsp;match&nbsp;↑</th><th title="Lowest % match among the last 5 bases — the 3′ end. Polymerase extends from the 3′ end, so any mismatch here can stop priming. Keep this high.">3′-end&nbsp;match&nbsp;↑</th>${ds?'<th title="Closest identity to the off-target set / fewest mismatches at any off-target site. You WANT the oligo to differ from off-targets, so lower % and more mismatches is better.">off-target&nbsp;↓</th>':''}</tr>`+
+   rows.map(([lab,seq,tm,k])=>{const cc=cn[k]||{};const od=ds&&ds[k]&&ds[k].n?ds[k]:null;const dcls=od?(od.max_ident>=90?'FAIL':(od.max_ident>=80?'WARN':'PASS')):'';const dd=od?`${od.max_ident}% / ${od.min_mismatch}mm`:(ds?'—':'');
+     return `<tr><td>${lab}</td><td class="mono">${seq}</td><td>${tm?tm.toFixed(1):'—'}</td><td class="${cc.mean_ident<90?'WARN':'PASS'}">${cc.mean_ident!=null?cc.mean_ident:'—'}%</td><td class="${cc.worst_3prime<90?'FAIL':'PASS'}">${cc.worst_3prime!=null?cc.worst_3prime:'—'}%</td>${ds?('<td class="'+dcls+'">'+dd+'</td>'):''}</tr>`;}).join("")+
+   `</table><div class="legend">↑ higher is better &nbsp;·&nbsp; ↓ lower is better &nbsp;·&nbsp; <b class="PASS">green</b> = good, <b class="WARN">amber</b> = check, <b class="FAIL">red</b> = problem &nbsp;·&nbsp; off-target shows closest identity&nbsp;/&nbsp;mismatches (<b>mm</b>)</div>`+
    ampliconMap(a)+
    (i===0?`<div style="margin-top:8px"><button class="ghost" onclick='autoAdd()'>★ add to workbench</button> <button class="ghost" onclick='autoToOrder(${JSON.stringify(a.forward)},${JSON.stringify(a.reverse)},${JSON.stringify(a.probe)},"${probeKind}")'>→ send to Order tab</button></div>`:"")+
    `</div>`;});
