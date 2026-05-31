@@ -100,17 +100,17 @@ _PRETTY = {"idt_taqman": "IDT PrimeTime (ZEN double-quenched probe)",
            "biorad_probe": "Bio-Rad PrimePCR", "sybr_generic": "SYBR generic"}
 
 
-def _amplicon_span(ref, fwd, rev):
-    """Locate the amplicon (forward .. reverse-complement of reverse) on the reference.
-    IUPAC-aware. Returns (start, end) 0-based half-open in reference coords, or None."""
-    if not ref:
+def _amplicon_on(seq, fwd, amplen):
+    """Amplicon start = where the forward primer sits; length is the DESIGNED amplicon
+    length. Deliberately does NOT search for the reverse primer: on a long, AT-rich
+    whole-mitogenome reference the reverse primer can match far away and yield a multi-kb
+    span, and folding that is O(n^3) (minutes). Returns (start, end) or None."""
+    if not seq or not amplen:
         return None
-    fs = SP._locate(fwd, ref)
-    rc = SP._rc_iupac(rev)
-    rs = SP._locate(rc, ref)
-    if fs is None or rs is None:
+    fs = SP._locate(fwd, seq)
+    if fs is None:
         return None
-    return (fs, rs + len(rc))
+    return (fs, min(len(seq), fs + int(amplen)))
 
 
 def _annotate(out, ref, prefer_junction):
@@ -136,7 +136,7 @@ def _annotate(out, ref, prefer_junction):
                 mrna = None
     for c in cands:
         a = c["assay"]
-        rspan = _amplicon_span(ref, a["forward"], a["reverse"]) if ref else None
+        rspan = _amplicon_on(ref, a["forward"], a.get("amplicon")) if ref else None
         c["amp_span"] = list(rspan) if rspan else None
         if STR.available() and ref and rspan:
             amp = ref[rspan[0]:rspan[1]]
@@ -153,7 +153,7 @@ def _annotate(out, ref, prefer_junction):
                     p_paired=(STR.site_paired_fraction(f["paired"], pp, pp + len(a["probe"]))
                               if (a.get("probe") and pp is not None) else None))
         if prefer_junction:
-            jspan = _amplicon_span(mrna, a["forward"], a["reverse"]) if (mrna and junctions) else None
+            jspan = _amplicon_on(mrna, a["forward"], a.get("amplicon")) if (mrna and junctions) else None
             c["spans_junction"] = (any(jspan[0] < j < jspan[1] for j in junctions)
                                    if (junctions and jspan) else None)
     if prefer_junction and junctions:

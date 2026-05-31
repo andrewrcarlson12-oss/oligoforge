@@ -35,7 +35,7 @@ def fold(seq):
         return None
     s = "".join(c for c in seq.upper() if c in "ACGTUN").replace("T", "U") if not _DNA else \
         "".join(c for c in seq.upper() if c in "ACGTUN")
-    if len(s) < 8:
+    if len(s) < 8 or len(s) > 1000:   # RNAfold is O(n^3); amplicons are short — never fold a long template
         return None
     try:
         fc = RNA.fold_compound(s)
