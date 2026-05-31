@@ -399,6 +399,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
     </div>
     <div class="row" style="margin-top:8px">
       <div><label><input type="checkbox" id="au_blast"> also BLAST the winning pair (in-silico PCR)</label></div>
+      <div><label><input type="checkbox" id="au_junc"> prefer exon-junction-spanning (RT-qPCR gDNA control)</label></div>
       <div><label>BLAST</label><select id="au_bmode"><option value="remote">remote (NCBI · slow)</option><option value="local">local (blastn)</option></select></div>
       <div><label>organism filter</label><input id="au_borg" placeholder="optional, e.g. Genus" style="width:170px"></div>
       <div><label>db / db path</label><input id="au_bdb" placeholder="nt, or local genome path" style="width:170px"></div>
@@ -483,7 +484,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.8.1</footer>
+<footer>OligoForge v1.9.0</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -754,6 +755,13 @@ async function doStd(){const o=document.getElementById("std_out");o.innerHTML="�
   d.levels.map(l=>`<tr><td class="mono">${l.quantity}</td><td>${l.n}</td><td>${l.detected}</td><td>${l.mean_cq!=null?l.mean_cq:'—'}</td><td>${l.sd_cq!=null?l.sd_cq:'—'}</td><td class="${l.detection_rate<100?'WARN':'PASS'}">${l.detection_rate}</td></tr>`).join("")+`</table>`+
   `<small class="note">${d.notes}</small><div style="margin-top:8px"><button class="ghost" onclick="attachStdToCurrent()">attach to current assay</button></div>`;}
 
+function candExtras(c){let h="";
+ if(c.spans_junction!==undefined){const sj=c.spans_junction;
+  h+=`<div style="margin-top:6px"><span class="amp-cap" style="display:inline">gDNA</span> `+(sj===true?`<b class="PASS">✓ spans an exon junction</b> <span class="hint">— gDNA won't co-amplify</span>`:(sj===false?`<b class="WARN">within one exon</b> <span class="hint">— gDNA can co-amplify; use a no-RT control/DNase or pick a junction-spanning candidate</span>`:`<span class="hint">exon junction: couldn't place on the annotated transcript (different isoform or no annotation)</span>`))+`</div>`;}
+ const st=c.structure;
+ if(st&&st.mfe!=null){const sites=[["F",st.f_paired],["R",st.r_paired],["P",st.p_paired]].filter(x=>x[1]!=null);const bad=sites.filter(x=>x[1]>=0.5).map(x=>x[0]);
+  h+=`<div style="margin-top:4px"><span class="amp-cap" style="display:inline">structure</span> amplicon ΔG <b class="${st.mfe_per_nt<=-0.4?'WARN':'PASS'}">${st.mfe} kcal/mol</b>`+(sites.length?` · binding-site paired `+sites.map(x=>`${x[0]} <b class="${x[1]>=0.5?'WARN':'PASS'}">${Math.round(x[1]*100)}%</b>`).join(" · "):"")+(bad.length?` <span class="hint">— structure over ${bad.join("/")} may hinder binding</span>`:"")+` <span class="hint">(ViennaRNA${st.dna?", DNA params":", RNA approx"})</span></div>`;}
+ return h;}
 async function doAuto(){const o=document.getElementById("au_out");
  const wantBlast=document.getElementById("au_blast").checked;
  const bmode=document.getElementById("au_bmode").value, bdb=document.getElementById("au_bdb").value.trim();
@@ -765,6 +773,7 @@ async function doAuto(){const o=document.getElementById("au_out");
    run_blast:wantBlast, blast_mode:bmode,
    blast_db:bmode==="local"?"nt":(bdb||"nt"), blast_db_path:bmode==="local"?(bdb||null):null,
    organism:document.getElementById("au_borg").value.trim()||null,
+   prefer_junction:document.getElementById("au_junc").checked,
    email:document.getElementById("email").value});
  if(d.error){o.innerHTML=err(d.error)+(d.tried?`<small class="note">tried: ${d.tried.join(", ")}</small>`:"");return;}
  LAST_AUTO={assay:d.candidates[0].assay,pretty:d.profile_pretty,query:d.target_query,acc:d.source_accession};
@@ -779,6 +788,7 @@ async function doAuto(){const o=document.getElementById("au_out");
    rows.map(([lab,seq,tm,k])=>{const cc=cn[k]||{};const od=ds&&ds[k]&&ds[k].n?ds[k]:null;const dcls=od?(od.max_ident>=90?'FAIL':(od.max_ident>=80?'WARN':'PASS')):'';const dd=od?`${od.max_ident}% / ${od.min_mismatch}mm${od.indel_masked?' <span title="matches closely once a small indel is allowed — ungapped screen understates; confirm in BLAST">⚠</span>':''}`:(ds?'—':'');
      return `<tr><td>${lab}</td><td class="mono">${seq}</td><td>${tm?tm.toFixed(1):'—'}</td><td class="${cc.mean_ident<90?'WARN':'PASS'}">${cc.mean_ident!=null?cc.mean_ident:'—'}%</td><td class="${cc.worst_3prime<90?'FAIL':'PASS'}">${cc.worst_3prime!=null?cc.worst_3prime:'—'}%</td>${ds?('<td class="'+dcls+'">'+dd+'</td>'):''}</tr>`;}).join("")+
    `</table><div class="legend">↑ higher is better &nbsp;·&nbsp; ↓ lower is better &nbsp;·&nbsp; <b class="PASS">green</b> = good, <b class="WARN">amber</b> = check, <b class="FAIL">red</b> = problem &nbsp;·&nbsp; off-target shows closest identity&nbsp;/&nbsp;mismatches (<b>mm</b>)</div>`+
+   candExtras(c)+
    ampliconMap(a)+
    (i===0?`<div style="margin-top:8px"><button class="ghost" onclick='autoAdd()'>★ add to workbench</button> <button class="ghost" onclick='autoToOrder(${JSON.stringify(a.forward)},${JSON.stringify(a.reverse)},${JSON.stringify(a.probe)},"${probeKind}")'>→ send to Order tab</button></div>`:"")+
    `</div>`;});

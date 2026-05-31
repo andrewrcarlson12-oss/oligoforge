@@ -1,5 +1,9 @@
 primer3-py>=2.0.0
 biopython>=1.81
+# ViennaRNA powers the template secondary-structure check (amplicon fold + binding-site
+# pairing). Optional at runtime: structure.py degrades gracefully if it isn't importable
+# (e.g. a frozen build that didn't bundle it), so the rest of the app still works.
+ViennaRNA>=2.6.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 # httpx is only needed to run the scripts in tests/ (FastAPI TestClient)

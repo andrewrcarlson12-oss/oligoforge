@@ -11,7 +11,7 @@ confirming finals in OligoAnalyzer, or bench validation. A bare organism name al
 under-specifies the problem: it needs the gene (so the fetched sequences share a
 locus) and, for a detection assay, what to discriminate against.
 """
-from . import design as D, conservation as C, ncbi as N, thermo as T, profiles as PROF, specificity as SP
+from . import design as D, conservation as C, ncbi as N, thermo as T, profiles as PROF, specificity as SP, structure as STR
 
 
 def _reference(seqs):
@@ -100,9 +100,70 @@ _PRETTY = {"idt_taqman": "IDT PrimeTime (ZEN double-quenched probe)",
            "biorad_probe": "Bio-Rad PrimePCR", "sybr_generic": "SYBR generic"}
 
 
+def _amplicon_span(ref, fwd, rev):
+    """Locate the amplicon (forward .. reverse-complement of reverse) on the reference.
+    IUPAC-aware. Returns (start, end) 0-based half-open in reference coords, or None."""
+    if not ref:
+        return None
+    fs = SP._locate(fwd, ref)
+    rc = SP._rc_iupac(rev)
+    rs = SP._locate(rc, ref)
+    if fs is None or rs is None:
+        return None
+    return (fs, rs + len(rc))
+
+
+def _annotate(out, ref, prefer_junction):
+    """Add template-structure (always, offline) and, when prefer_junction is set,
+    exon-junction-spanning to each candidate. Structure is folded on the actual designed
+    amplicon (from the reference). For the junction call the exon table and the amplicon
+    must share a coordinate frame, so junctions are read from whatever transcript the
+    gene_table returns and the amplicon is re-located on THAT transcript -- not assumed to
+    match the reference (isoform variants differ in exon structure)."""
+    cands = out.get("candidates") or []
+    junctions = mrna = None
+    if prefer_junction and out.get("source_accession"):
+        try:
+            junctions, jinfo, used = SP.exon_junctions_mrna("", "", out["source_accession"])
+        except Exception:
+            junctions, jinfo, used = None, "couldn't read exon annotation for the source accession", None
+        out["junction_info"] = jinfo
+        if junctions and used:
+            try:
+                recs = N.fetch_accessions([used], "fasta")
+                mrna = str(recs[0].seq) if recs else None
+            except Exception:
+                mrna = None
+    for c in cands:
+        a = c["assay"]
+        rspan = _amplicon_span(ref, a["forward"], a["reverse"]) if ref else None
+        c["amp_span"] = list(rspan) if rspan else None
+        if STR.available() and ref and rspan:
+            amp = ref[rspan[0]:rspan[1]]
+            f = STR.fold(amp)
+            if f:
+                fl, rl = len(a["forward"]), len(a["reverse"])
+                pp = SP._locate(a["probe"], amp) if a.get("probe") else None
+                if a.get("probe") and pp is None:
+                    pp = SP._locate(SP._rc_iupac(a["probe"]), amp)
+                c["structure"] = dict(
+                    mfe=f["mfe"], mfe_per_nt=f["mfe_per_nt"], dna=f["dna_params"],
+                    f_paired=STR.site_paired_fraction(f["paired"], 0, fl),
+                    r_paired=STR.site_paired_fraction(f["paired"], len(amp) - rl, len(amp)),
+                    p_paired=(STR.site_paired_fraction(f["paired"], pp, pp + len(a["probe"]))
+                              if (a.get("probe") and pp is not None) else None))
+        if prefer_junction:
+            jspan = _amplicon_span(mrna, a["forward"], a["reverse"]) if (mrna and junctions) else None
+            c["spans_junction"] = (any(jspan[0] < j < jspan[1] for j in junctions)
+                                   if (junctions and jspan) else None)
+    if prefer_junction and junctions:
+        cands.sort(key=lambda c: (0 if c.get("spans_junction") else 1, -c["score"]))
+    return out
+
+
 def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=20,
                       min_ident=0.6, run_blast=False, blast_mode="remote",
-                      blast_db="nt", blast_db_path=None, organism=None):
+                      blast_db="nt", blast_db_path=None, organism=None, prefer_junction=False):
     """Fetch -> design -> (optional) in-silico-PCR the winning pair.
 
     profile_key may be a specific profile, or "auto": Auto tries the IDT-orderable
@@ -143,12 +204,14 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
     out["target_query"] = target_query
     out["off_query"] = off_query
 
-    if out.get("candidates") and _pairs:
+    if out.get("candidates"):
         try:
             _ref = _reference(tg)
-            out["source_accession"] = next((a for a, sq in _pairs if sq == _ref), None)
         except Exception:
-            out["source_accession"] = None
+            _ref = None
+        _desc = next((a for a, sq in _pairs if sq == _ref), None) if (_ref and _pairs) else None
+        out["source_accession"] = _desc.split()[0] if _desc else None
+        _annotate(out, _ref, prefer_junction)
     if run_blast and out.get("candidates"):
         a = out["candidates"][0]["assay"]
         try:
