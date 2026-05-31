@@ -22,7 +22,10 @@ def _rc(s):
 
 
 def _match(o, b):
-    return b in IUPAC.get(o, set())
+    # N in a reference read is an unknown base (low-quality call), not a definite
+    # mismatch — scoring it as a mismatch would unfairly penalize conservation and
+    # over-state off-target discrimination.
+    return b == "N" or b in IUPAC.get(o, set())
 
 
 def best_placement(oligo, seq):

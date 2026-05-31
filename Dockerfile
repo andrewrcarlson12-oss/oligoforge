@@ -11,4 +11,4 @@ ENV OLIGOFORGE_EMAIL=arcarl27@colby.edu
 # Optional NCBI API key (10 req/s vs 3). Pass at runtime, never bake a secret into the image:
 #   docker run -e OLIGOFORGE_NCBI_KEY=your_key ...
 # Hosts inject $PORT; fall back to 8111 locally.
-CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8111}"]
+CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8111} --limit-concurrency 24 --timeout-keep-alive 30"]

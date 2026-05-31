@@ -12,12 +12,14 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
 
-app = FastAPI(title="OligoForge", version="1.2.2")
+app = FastAPI(title="OligoForge", version="1.5.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
 RES_DIR = getattr(sys, "_MEIPASS", HERE)
-if getattr(sys, "frozen", False):
+if os.environ.get("OLIGOFORGE_DATA_PATH"):
+    DATA_DIR = os.environ["OLIGOFORGE_DATA_PATH"]   # mount a persistent volume here in Docker/Render
+elif getattr(sys, "frozen", False):
     _base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
     DATA_DIR = os.path.join(_base, "OligoForge")
 else:
@@ -274,7 +276,7 @@ def _safe(n): return re.sub(r"[^A-Za-z0-9_.-]", "_", n or "")[:80]
 
 
 class CopiesReq(BaseModel):
-    ng_per_ul: float; length_bp: int; factor: float = 10.0; points: int = 6
+    ng_per_ul: float; length_bp: int; factor: float = 10.0; points: int = 6; molecule_type: str = "dsDNA"
 
 class BatchItem(BaseModel):
     name: str; template: str; profile: str = "idt_taqman"
@@ -305,9 +307,10 @@ def copies(r: CopiesReq):
     if r.factor <= 1:
         return JSONResponse({"error": "dilution factor must be greater than 1 (e.g. 10 for a 10-fold series)"}, status_code=200)
     pts = max(1, min(int(r.points), 40))
-    c = Q.copies_per_ul(r.ng_per_ul, r.length_bp)
+    mt = r.molecule_type if r.molecule_type in Q.MW_PER_UNIT else "dsDNA"
+    c = Q.copies_per_ul(r.ng_per_ul, r.length_bp, mt)
     series = Q.dilution_series(c, r.factor, pts)
-    return dict(copies_per_ul=c, ng_per_ul=r.ng_per_ul, length_bp=r.length_bp,
+    return dict(copies_per_ul=c, ng_per_ul=r.ng_per_ul, length_bp=r.length_bp, molecule_type=mt,
                 series=[dict(point=i, copies_per_ul=v) for i, v in enumerate(series)])
 
 @app.post("/api/batch_design")

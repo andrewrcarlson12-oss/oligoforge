@@ -20,7 +20,7 @@ Works on **any organism** — you supply the sequence, accession, NCBI query, an
 - **Vendor lint** — IDT PrimeTime / Affinity Plus, Thermo MGB, Bio-Rad, generic SYBR; pass/fail against each chemistry
 - **Primer-pair / amplicon** QC (Tm match, F×R dimer, amplicon size)
 - **Panel cross-dimer matrix** — every oligo against every other
-- **Auto-design** from a template: enumerate -> gate -> pair -> probe -> gBlock, then one click into the Workbench or the Order tab (carrying its gBlock standard)
+- **Auto-design** from a template: enumerate -> gate -> pair -> probe -> gBlock, then one click into the Workbench or the Order tab (carrying its gBlock standard). Design and auto-design results draw a to-scale **amplicon map** (forward / probe / reverse in genomic context) so you can eyeball product size and probe placement before ordering
 - **NCBI fetch** by accession or gene+organism, with isoform-common region
 - **Intron / exon-junction check** — flags gDNA-contamination risk
 - **BLAST specificity** — remote (NCBI) or local (blastn)
@@ -29,8 +29,9 @@ Works on **any organism** — you supply the sequence, accession, NCBI query, an
 - **LNA-aware Tm** — honest effective-Tm range for LNA probes
 - **Standard-curve copies & IDT order export** — copy number / dilution series; IDT bulk CSV + gBlock FASTA
 - **Reference-gene stability** — geNorm M + pairwise V (how many to use) + BestKeeper Cq SD/CV, from a Cq table; picks your >=2 MIQE reference genes
-- **Workbench** — a designed assay carries across every tab: add it once, then prefill Pair, in-silico PCR, Intron, Conservation, and Order from it in one click. Edit name/gene/organism/dye inline; Check runs in-silico PCR; attach a standard curve to record efficiency/LOD against that assay; save and reload named **projects** (one per study system / lab member), export/import the whole panel as a JSON file for backup or sharing, run QC, in-silico PCR, and the intron/junction check on an assay right in the Workbench (results saved to that assay) with a suggested cycling protocol per assay, and a one-click example panel to start from
+- **Workbench** — the hub. Add a designed assay once, then from its card run QC, in-silico PCR (opens the tab with results), the intron/gDNA check, conservation (oligos + a seeded target query prefilled), a standard curve, generate its gBlock standard, and export an order — every result saves onto that specific assay. Edit name/gene/organism/dye inline; when the in-silico intron check can't resolve (common for non-model organisms NCBI hasn't annotated), "mark handled" records gDNA exclusion as user-asserted so the report stays honest. Save and reload named **projects** (one per study system / lab member), export/import the whole panel as JSON, and load a one-click example panel to start from
 - **MIQE report** — one button emits a self-contained HTML report (per-oligo QC recomputed, specificity, validation, MIQE 2.0 completeness checklist) plus a CSV, ready for a supplement
+- **Help tab** — a short, accurate in-app guide: the workflow, probe/SYBR design targets, suggested cycling, exactly which run ticks each MIQE checklist box, a worked example, and honest limits
 - **Multiplex planner** — flags detection-channel conflicts (assays sharing a dye) and cross-assay primer/probe dimers below threshold
 - **Paste-safe input** — strips FASTA headers, whitespace, and numbering from pasted sequences and converts RNA->DNA; flags (never silently drops) invalid characters
 
@@ -44,7 +45,9 @@ Close that window to stop. That is the whole install.
 - **macOS**: take `OligoForge-macos-arm64` for Apple Silicon (M1/M2/M3/M4) or
   `OligoForge-macos-intel` for older Intel Macs. On first run, right-click -> **Open** ->
   **Open** to clear Gatekeeper (unsigned). On recent macOS you may instead need
-  **System Settings -> Privacy & Security -> Open Anyway**.
+  **System Settings -> Privacy & Security -> Open Anyway**. If it reports the app is
+  "damaged" with no Open option, clear the quarantine flag in Terminal:
+  `xattr -cr OligoForge-macos-arm64` (until the binaries are code-signed).
 - Saved panels live in an `OligoForge/panels` folder under your user directory
   (`%LOCALAPPDATA%` on Windows, your home folder otherwise).
 

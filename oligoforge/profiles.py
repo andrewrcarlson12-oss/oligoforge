@@ -11,7 +11,7 @@ IDT_TAQMAN = dict(
     # primers
     len_min=18, len_max=24, gc_min=35.0, gc_max=65.0,
     tm_min=59.0, tm_max=64.5, tm_opt=62.0,
-    no_three_prime_T=True, max_3prime_gc=3, max_g_run=4, max_any_run=5,
+    no_three_prime_T=True, max_3prime_gc=3, min_3prime_gc=1, max_g_run=4, max_any_run=5,
     hairpin_min=-2.0, self_dimer_min=-6.0, pair_dimer_min=-6.0,
     pair_tm_gap_max=2.0,
     # amplicon
@@ -28,7 +28,7 @@ IDT_AFFINITY = dict(
     name="IDT Affinity Plus (LNA probe)",
     len_min=18, len_max=24, gc_min=35.0, gc_max=65.0,
     tm_min=59.0, tm_max=64.5, tm_opt=62.0,
-    no_three_prime_T=True, max_3prime_gc=3, max_g_run=4, max_any_run=5,
+    no_three_prime_T=True, max_3prime_gc=3, min_3prime_gc=1, max_g_run=4, max_any_run=5,
     hairpin_min=-2.0, self_dimer_min=-6.0, pair_dimer_min=-6.0, pair_tm_gap_max=2.0,
     amp_min=60, amp_max=150, min_probe_gap=20,
     probe_len_min=10, probe_len_max=25,        # short LNA core
@@ -40,7 +40,7 @@ THERMO_TAQMAN = dict(
     name="Thermo Fisher TaqMan (MGB)",
     len_min=15, len_max=30, gc_min=30.0, gc_max=80.0,
     tm_min=58.0, tm_max=60.5, tm_opt=59.0,       # ABI designs primers cooler
-    no_three_prime_T=False, max_3prime_gc=3, max_g_run=4, max_any_run=5,
+    no_three_prime_T=False, max_3prime_gc=3, min_3prime_gc=1, max_g_run=4, max_any_run=5,
     hairpin_min=-2.0, self_dimer_min=-6.0, pair_dimer_min=-6.0, pair_tm_gap_max=2.0,
     amp_min=50, amp_max=150, min_probe_gap=10,
     probe_len_min=13, probe_len_max=25,          # MGB probes are short
@@ -52,7 +52,7 @@ BIORAD_PROBE = dict(
     name="Bio-Rad PrimePCR / iTaq (probe)",
     len_min=18, len_max=25, gc_min=40.0, gc_max=60.0,
     tm_min=60.0, tm_max=64.0, tm_opt=62.0,
-    no_three_prime_T=True, max_3prime_gc=3, max_g_run=4, max_any_run=5,
+    no_three_prime_T=True, max_3prime_gc=3, min_3prime_gc=1, max_g_run=4, max_any_run=5,
     hairpin_min=-2.0, self_dimer_min=-6.0, pair_dimer_min=-6.0, pair_tm_gap_max=2.0,
     amp_min=70, amp_max=200, min_probe_gap=20,
     probe_len_min=18, probe_len_max=30, probe_offset_min=5.0, probe_offset_max=10.0,
@@ -62,7 +62,7 @@ SYBR_GENERIC = dict(
     name="Generic SYBR Green (no probe)",
     len_min=18, len_max=24, gc_min=40.0, gc_max=60.0,
     tm_min=58.0, tm_max=62.0, tm_opt=60.0,
-    no_three_prime_T=True, max_3prime_gc=3, max_g_run=4, max_any_run=5,
+    no_three_prime_T=True, max_3prime_gc=3, min_3prime_gc=1, max_g_run=4, max_any_run=5,
     hairpin_min=-2.0, self_dimer_min=-6.0, pair_dimer_min=-6.0, pair_tm_gap_max=1.5,
     amp_min=70, amp_max=200, min_probe_gap=0,
     probe_len_min=0, probe_len_max=0, probe_offset_min=0, probe_offset_max=0,
@@ -75,7 +75,8 @@ PARASITE_MTDNA = dict(
     name="AT-rich parasite mtDNA (low-Tm TaqMan, ~54C)",
     len_min=18, len_max=28, gc_min=25.0, gc_max=60.0,
     tm_min=52.0, tm_max=58.0, tm_opt=55.0,
-    no_three_prime_T=False, max_3prime_gc=3, max_g_run=4, max_any_run=5,
+    # AT-rich: allow 6-mer poly-A/T runs (G-run still capped at 4)
+    no_three_prime_T=False, max_3prime_gc=3, max_g_run=4, max_any_run=7,
     hairpin_min=-2.0, self_dimer_min=-6.0, pair_dimer_min=-6.0, pair_tm_gap_max=2.5,
     amp_min=70, amp_max=200, min_probe_gap=10,
     probe_len_min=12, probe_len_max=28, probe_offset_min=6.0, probe_offset_max=12.0,
@@ -87,7 +88,8 @@ PARASITE_SYBR = dict(
     name="AT-rich parasite mtDNA (low-Tm SYBR, ~54C)",
     len_min=18, len_max=28, gc_min=25.0, gc_max=60.0,
     tm_min=52.0, tm_max=58.0, tm_opt=55.0,
-    no_three_prime_T=False, max_3prime_gc=3, max_g_run=4, max_any_run=5,
+    # AT-rich: allow 6-mer poly-A/T runs (G-run still capped at 4)
+    no_three_prime_T=False, max_3prime_gc=3, max_g_run=4, max_any_run=7,
     hairpin_min=-2.0, self_dimer_min=-6.0, pair_dimer_min=-6.0, pair_tm_gap_max=2.5,
     amp_min=70, amp_max=250, min_probe_gap=0,
     probe_len_min=0, probe_len_max=0, probe_offset_min=0, probe_offset_max=0,
@@ -135,6 +137,9 @@ def lint_oligo(seq, role, profile):
             warn("3' not T", seq[-1] != "T", f"3'={seq[-1]}")
         chk("3' clamp <=3 G/C in last 5", T.last5_gc(seq) <= profile["max_3prime_gc"],
             f"{T.last5_gc(seq)} G/C in last 5")
+        if profile.get("min_3prime_gc"):
+            warn("3' GC clamp present", T.last5_gc(seq) >= profile["min_3prime_gc"],
+                 f"{T.last5_gc(seq)} G/C in last 5 (>= {profile['min_3prime_gc']} helps polymerase extension)")
         chk("no G-run >=%d" % profile["max_g_run"], T.max_run(seq, "G") < profile["max_g_run"],
             f"max G-run {T.max_run(seq,'G')}")
         chk("no homopolymer >=%d" % profile["max_any_run"], T.max_run(seq) < profile["max_any_run"],

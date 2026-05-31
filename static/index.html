@@ -161,6 +161,29 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.5px;pad
  nav{padding:9px 12px}
  .navgroup{display:none}
 }
+/* --- v1.5.0 UX pass: keyboard focus, non-colour status cues, amplicon map, reduced motion --- */
+button:focus-visible,button.ghost:focus-visible,nav a:focus-visible,a.lnk:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:8px}
+/* status table cells get a faint tint so pass/warn/fail reads as a heatmap, not by colour alone */
+td.PASS{background:rgba(70,194,92,.10)}
+td.WARN{background:rgba(226,168,58,.11)}
+td.FAIL{background:rgba(251,109,99,.12)}
+table tr:hover td{background:rgba(255,255,255,.022)}
+table tr:hover td.PASS{background:rgba(70,194,92,.16)}
+table tr:hover td.WARN{background:rgba(226,168,58,.17)}
+table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
+/* non-colour glyph prefixes on the pill badges */
+.b-PASS::before{content:"\2713\00a0"}
+.b-WARN::before{content:"\0021\00a0"}
+.b-FAIL::before{content:"\2717\00a0"}
+/* amplicon map — genomic-context view of an assay (forward/probe/reverse to scale) */
+.ampmap{margin:14px 0 4px}
+.amp-cap{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin-bottom:6px}
+.amp-track{position:relative;height:30px;border:1px solid var(--line);border-radius:7px;background:repeating-linear-gradient(90deg,var(--panel3),var(--panel3) 9px,rgba(255,255,255,.015) 9px,rgba(255,255,255,.015) 10px)}
+.amp-fwd,.amp-rev,.amp-probe{position:absolute;display:flex;align-items:center;justify-content:center;font-weight:700;letter-spacing:.3px;overflow:hidden;white-space:nowrap;border-radius:5px}
+.amp-fwd,.amp-rev{top:4px;height:22px;font-size:9.5px;color:#04222f;background:linear-gradient(180deg,rgba(92,200,255,.6),rgba(92,200,255,.36));border:1px solid rgba(92,200,255,.7);box-shadow:0 2px 7px -4px rgba(92,200,255,.7)}
+.amp-probe{top:9px;height:12px;font-size:8.5px;color:#04261a;background:linear-gradient(180deg,rgba(110,231,168,.62),rgba(110,231,168,.38));border:1px solid rgba(110,231,168,.78)}
+.amp-scale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:4px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -273,6 +296,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.5px;pad
     <div class="row">
       <div><label>conc ng/µL</label><input id="q_ng" type="number" value="10" style="width:110px"></div>
       <div><label>length bp</label><input id="q_len" type="number" placeholder="173" style="width:100px"></div>
+      <div><label>standard</label><select id="q_mol" style="width:130px"><option value="dsDNA">dsDNA (gBlock)</option><option value="ssDNA">ssDNA oligo</option><option value="RNA">RNA transcript</option></select></div>
       <div><label>fold</label><input id="q_fold" type="number" value="10" style="width:80px"></div>
       <div><label>points</label><input id="q_pts" type="number" value="6" style="width:80px"></div>
       <button onclick="doCopies()">Compute</button>
@@ -281,7 +305,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.5px;pad
   <section id="order"><div class="card">
     <h2>IDT order export</h2><p class="hint">IDT bulk CSV (Name, Sequence, Scale, Purification) + gBlock FASTA. ZEN probes wrap /56-FAM/…/3IABkFQ/; order them via PrimeTime for the double-quench and BOGO.</p>
     <div id="orderrows"></div>
-    <div class="row"><button class="ghost" onclick="addOrderRow()">+ oligo</button><button class="ghost" onclick="loadMatrixToOrder()">pull from panel matrix</button></div>
+    <div class="row"><button class="ghost" onclick="addOrderRow()">+ oligo</button><button class="ghost" onclick="loadWorkbenchToOrder()">pull from workbench</button></div>
     <label style="margin-top:12px;display:block">gBlock standards</label><div id="gbrows"></div>
     <div class="row"><button class="ghost" onclick="addGbRow()">+ gBlock</button><button onclick="doOrder()">Generate order files</button></div>
     <div id="o_out"></div>
@@ -381,15 +405,44 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.5px;pad
     </div>
     <div id="wk_mx" style="margin-top:8px"></div>
   </div></section>
+  <section id="help"><div class="card">
+   <h2>How to use OligoForge — a short, accurate guide</h2>
+   <p class="hint">OligoForge is an in-silico design + QC + reporting pipeline. It does not replace a calibrated vendor tool (confirm final oligos in IDT OligoAnalyzer) or the bench (every assay still needs wet-lab validation). Everything below is standard qPCR practice — IDT design guidance and Bustin et al., the MIQE guidelines — and the numbers match the thresholds this app actually uses.</p>
+
+   <h3 style="margin:16px 0 6px;font-size:13px;color:var(--ink)">The workflow</h3>
+   <p><b>Target → assay</b> (or <b>Design</b>) builds a primer/probe set on a sequence. Add it to the <b>Workbench</b> — that is the hub. From each assay card you run QC, in-silico PCR, the intron/gDNA check, conservation, a standard curve, generate the gBlock, and export an order, and each result saves onto that specific assay. Finish with the MIQE report, which fills its checklist from those saved results.</p>
+
+   <h3 style="margin:16px 0 6px;font-size:13px;color:var(--ink)">What design aims for (hydrolysis-probe assays)</h3>
+   <p><b>Primers.</b> 18–24 nt, Tm 59–64 °C, GC 35–65%, and the two primer Tms within about 2 °C of each other.</p>
+   <p><b>Amplicon.</b> 70–150 bp — short products amplify efficiently and tolerate degraded template.</p>
+   <p><b>Probe.</b> Tm roughly 8–10 °C above the primers, no 5′ G (it quenches the reporter), more C than G, and no run of four or more G's.</p>
+   <p><b>3′ ends.</b> Avoid a strong GC clamp (no more than 3 G/C in the last five bases) and avoid a 3′ T where you can.</p>
+   <p class="hint">SYBR (no probe): primer-dimers decide everything, so F×R, F-self and R-self must all clear the dimer floor, and you confirm specificity with a melt curve showing a single peak.</p>
+
+   <h3 style="margin:16px 0 6px;font-size:13px;color:var(--ink)">Cycling — a starting point</h3>
+   <p>Probe assays: 95 °C for 10 min, then 40–45 cycles of (95 °C 15 s → 60 °C 60 s), reading at 60 °C. SYBR: three-step with the anneal near (lowest primer Tm − 4 °C), followed by a melt curve. Optimize the annealing temperature on your own instrument; a gradient is ideal, and MIQE expects you to report it.</p>
+
+   <h3 style="margin:16px 0 6px;font-size:13px;color:var(--ink)">Validating an assay (so the report's boxes tick)</h3>
+   <p><b>Specificity.</b> Run in-silico PCR (and/or BLAST). One predicted product of the expected size is the goal; confirm it empirically by gel, melt, or sequencing.</p>
+   <p><b>gDNA / intron.</b> Design across an exon-exon junction, or DNase-treat and run a no-RT control. The automated intron check needs NCBI exon annotation, which many non-model organisms simply do not have — when it can't resolve, verify empirically and use "mark handled" on the assay card, which the report records as user-asserted rather than computed.</p>
+   <p><b>Efficiency, R², LOD.</b> Run a standard curve over a dilution series (Std curve tab) and click "attach to current assay." MIQE acceptance: efficiency 90–110% (slope between −3.1 and −3.58), R² ≥ 0.98. A formal limit of detection needs roughly 60 replicates near the low end.</p>
+   <p><b>Always.</b> Include a no-template control; for RT-qPCR, a no-RT control and a note on RNA integrity.</p>
+
+   <h3 style="margin:16px 0 6px;font-size:13px;color:var(--ink)">A worked pass (the loaded FSJ panel)</h3>
+   <p>Use "load example (FSJ)" in the Workbench to get a TaqMan panel. For each assay: QC primers → Specificity (in-silico PCR) → set the gene and organism and try the intron check → run a standard curve from your Cq data and attach it → generate the gBlock as your quantification standard → export the IDT order → generate the MIQE report.</p>
+
+   <h3 style="margin:16px 0 6px;font-size:13px;color:var(--ink)">Honest limits</h3>
+   <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
+  </div></section>
 </main>
-<footer>OligoForge v1.2.2</footer>
+<footer>OligoForge v1.5.0</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
  ["auto","Target → assay","Create"],["design","Design","Create"],["ncbi","NCBI fetch","Create"],
  ["qc","QC","Check"],["pair","Pair","Check"],["matrix","Panel matrix","Check"],["cons","Conservation","Check"],["epcr","in-silico PCR","Check"],["intron","Intron check","Check"],["blast","BLAST","Check"],
  ["quant","Quant","Quantify"],["std","Std curve","Quantify"],["refgenes","Ref genes","Quantify"],
- ["order","Order","Finish"],["work","Workbench","Finish"]];
+ ["order","Order","Finish"],["work","Workbench","Finish"],["help","Help","Finish"]];
 const nav=document.getElementById("nav");let _grp=null;
 TABS.forEach(([id,label,group],i)=>{
  if(group!==_grp){const g=document.createElement("span");g.className="navgroup"+(_grp===null?" first":"");g.textContent=group;nav.appendChild(g);_grp=group;}
@@ -462,6 +515,25 @@ async function doMatrix(){const rows=[...document.querySelectorAll("#seqrows .se
  d.names.forEach(a=>{h+=`<tr><th>${a}</th>`+d.names.map(b=>{const v=g[a+"|"+b];const c=dgClass(v);return `<td class="cell b-${c}" title="${a} × ${b}">${v}</td>`;}).join("")+`</tr>`;});
  o.innerHTML=h+`</table>`;}
 
+function _rc(s){const m={A:"T",T:"A",G:"C",C:"G",N:"N",U:"A"};return (s||"").toUpperCase().split("").reverse().map(c=>m[c]||"N").join("");}
+function ampliconMap(d){
+ if(!d||!d.f_xy||!d.r_xy)return"";
+ const fs=d.f_xy[0],fe=d.f_xy[1],rs=d.r_xy[0],re=d.r_xy[1];const span=re-fs;if(!(span>0))return"";
+ const P=x=>Math.max(0,Math.min(100,100*(x-fs)/span));
+ let probe="";
+ if(d.probe){let pl=null,pw=100*d.probe.length/span;
+  if(d.gblock){const gb=d.gblock.toUpperCase(),fI=gb.indexOf((d.forward||"").toUpperCase());let pI=gb.indexOf(d.probe.toUpperCase());if(pI<0)pI=gb.indexOf(_rc(d.probe));if(fI>=0&&pI>=0)pl=100*(pI-fI)/span;}
+  if(pl==null){pl=P(fe);pw=P(rs)-P(fe);}
+  pw=Math.max(2,pw);pl=Math.max(0,Math.min(100-pw,pl));
+  probe=`<div class="amp-probe" style="left:${pl.toFixed(1)}%;width:${pw.toFixed(1)}%" title="probe · ${d.probe.length} nt"><span>probe</span></div>`;}
+ return `<div class="ampmap"><div class="amp-cap">amplicon map · ${span} bp · ${d.probe?"probe assay":"SYBR (no probe)"}</div>
+  <div class="amp-track">
+   <div class="amp-fwd" style="left:${P(fs).toFixed(1)}%;width:${Math.max(3,P(fe)-P(fs)).toFixed(1)}%" title="forward · ${fe-fs} nt"><span>F&rarr;</span></div>
+   ${probe}
+   <div class="amp-rev" style="left:${P(rs).toFixed(1)}%;width:${Math.max(3,P(re)-P(rs)).toFixed(1)}%" title="reverse · ${re-rs} nt"><span>&larr;R</span></div>
+  </div>
+  <div class="amp-scale"><span>5&prime; ${fs}</span><span>amplicon ${span} bp</span><span>${re} 3&prime;</span></div></div>`;
+}
 async function doDesign(){const o=document.getElementById("d_out");o.innerHTML="…";
  const d=await api("/api/design",{template:document.getElementById("d_tmpl").value,profile:document.getElementById("d_prof").value});
  if(d.error){o.innerHTML=err(d.error);return;}
@@ -475,7 +547,8 @@ async function doDesign(){const o=document.getElementById("d_out");o.innerHTML="
    ${probeRow}
    </table><div class="kv"><div><span>amplicon</span><b>${d.amplicon}</b></div><div><span>pair gap</span><b>${d.pair_tm_gap}</b></div>
    ${probeKv}</div>
-   <label>gBlock standard</label><pre>${d.gblock}</pre>
+   ${ampliconMap(d)}
+   <label>gBlock standard</label><pre>${esc(d.gblock)}</pre>
    <div style="margin:4px 0 2px"><button class="ghost" style="padding:2px 9px;font-size:11px" onclick='copyText(${JSON.stringify(d.gblock)})'>copy gBlock</button> <button class="ghost" style="padding:2px 9px;font-size:11px" onclick='gblockToOrder("assay_gBlock",${JSON.stringify(d.gblock)})'>→ Order as standard</button></div>
    <small class="note">designed under ${d.profile}</small>
    <div style="margin-top:8px"><button class="ghost" onclick="doPairSpec('${d.forward}','${d.reverse}')">check specificity (BLAST)</button> <button class="ghost" onclick="designAdd()">★ add to workbench</button></div><div id="ds_out"></div>`;}
@@ -509,8 +582,8 @@ async function doIntron(){const o=document.getElementById("i_out");
  if(d.amp_start!=null){document.getElementById("i_s").value=d.amp_start;document.getElementById("i_e").value=d.amp_end;}
  const loc=d.amp_located?` · amplicon auto-located ${d.amp_start}\u2013${d.amp_end} (${d.amplicon} nt)`:(d.amp_start!=null?` · amplicon ${d.amp_start}\u2013${d.amp_end}`:"");
  o.innerHTML=`<div class="card" style="margin:0;border-color:${d.ok?'var(--pass)':'var(--fail)'}">
-   <b class="${d.ok?'ok':'FAIL'}">${d.ok?'\u2713 ':'\u2717 '}${d.verdict}</b><br>
-   <small class="note">${d.info}${loc} · junctions (mRNA): ${d.junctions.join(", ")} · spanned: ${d.spanned.join(", ")||'none'}</small></div>`;}
+   <b class="${d.ok?'ok':'FAIL'}">${d.ok?'\u2713 ':'\u2717 '}${d.verdict||""}</b><br>
+   <small class="note">${d.info||""}${loc} · junctions (mRNA): ${(d.junctions||[]).join(", ")} · spanned: ${(d.spanned||[]).join(", ")||'none'}</small></div>`;}
 
 async function doBlast(){const o=document.getElementById("b_out");const mode=document.getElementById("b_mode").value;
  document.getElementById("b_note").textContent=mode==="remote"?"remote BLAST is queued at NCBI — can take 30 s to a couple minutes":"";
@@ -528,9 +601,9 @@ async function doCopies(){const o=document.getElementById("q_out");
  const len=parseInt(document.getElementById("q_len").value),ng=parseFloat(document.getElementById("q_ng").value);
  if(!Number.isFinite(len)||len<1||!Number.isFinite(ng)||ng<=0){o.innerHTML=err("enter a positive concentration (ng/µL) and the length in bp");return;}
  o.innerHTML="…";
- const d=await api("/api/copies",{ng_per_ul:ng,length_bp:len,factor:parseFloat(document.getElementById("q_fold").value)||10,points:parseInt(document.getElementById("q_pts").value)||6});
+ const d=await api("/api/copies",{ng_per_ul:ng,length_bp:len,factor:parseFloat(document.getElementById("q_fold").value)||10,points:parseInt(document.getElementById("q_pts").value)||6,molecule_type:document.getElementById("q_mol").value});
  if(d.error){o.innerHTML=err(d.error);return;}
- o.innerHTML=`<div class="kv"><div><span>copies / µL</span><b>${d.copies_per_ul.toExponential(3)}</b></div></div>
+ o.innerHTML=`<div class="kv"><div><span>copies / µL</span><b>${d.copies_per_ul.toExponential(3)}</b></div><div><span>standard</span><b>${esc(d.molecule_type||"dsDNA")}</b></div></div>
   <table><tr><th>point</th><th>copies / µL</th></tr>`+d.series.map(s=>`<tr><td>${s.point}</td><td class="mono">${s.copies_per_ul.toExponential(3)}</td></tr>`).join("")+`</table>`;}
 function addOrderRow(name="",seq="",kind="primer"){const w=document.getElementById("orderrows");const div=document.createElement("div");div.className="seqrow";
  div.innerHTML=`<input placeholder="name" value="${name}"><input class="seq" placeholder="sequence" value="${seq}">
@@ -538,8 +611,12 @@ function addOrderRow(name="",seq="",kind="primer"){const w=document.getElementBy
   <button class="ghost" onclick="this.parentNode.remove()">✕</button>`;w.appendChild(div);}
 function addGbRow(name="",seq=""){const w=document.getElementById("gbrows");const div=document.createElement("div");div.className="seqrow";
  div.innerHTML=`<input placeholder="name" value="${name}"><input class="seq" placeholder="gBlock sequence" value="${seq}"><button class="ghost" onclick="this.parentNode.remove()">✕</button>`;w.appendChild(div);}
-function loadMatrixToOrder(){document.getElementById("orderrows").innerHTML="";
- [...document.querySelectorAll("#seqrows .seqrow")].forEach(r=>{const i=r.querySelectorAll("input");if(i[0].value&&i[1].value){const k=/_P$|probe/i.test(i[0].value)?"probe_zen":"primer";addOrderRow(i[0].value,i[1].value,k);}});}
+function loadWorkbenchToOrder(){document.getElementById("orderrows").innerHTML="";const gb=document.getElementById("gbrows");if(gb)gb.innerHTML="";
+ if(!PANEL.length){toast("No assays in the Workbench yet — add one first.","warn");return;}
+ PANEL.forEach(a=>{const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";
+  addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");
+  if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);if(a.gblock)addGbRow((a.name||"assay")+"_gBlock",a.gblock);});
+ toast("Pulled "+PANEL.length+" assay(s) from the Workbench into this order.","ok");}
 addOrderRow("HMBS_F","GAGCTATACCCCGACCTCTG","primer");addOrderRow("HMBS_P","ATCTTGTCCCCAGTTGTTGACATGGCC","probe_zen");addGbRow("HMBS_gBlock","");
 async function doOrder(){const o=document.getElementById("o_out");
  const oligos=[...document.querySelectorAll("#orderrows .seqrow")].map(r=>{const i=r.querySelectorAll("input"),s=r.querySelector("select");return{name:i[0].value,seq:i[1].value,kind:s.value};}).filter(x=>x.name&&x.seq);
@@ -547,7 +624,7 @@ async function doOrder(){const o=document.getElementById("o_out");
  const d=await api("/api/order_csv",{oligos,gblocks});if(d.error){o.innerHTML=err(d.error);return;}
  o.innerHTML=`<label>oligo CSV — IDT bulk (Name, Sequence, Scale, Purification)</label><pre>${d.oligo_csv||"(none)"}</pre>
   <button class="ghost" onclick='download("idt_oligos.csv",${JSON.stringify(d.oligo_csv)})'>download CSV</button>`+
-  (d.gblock_fasta?`<label style="margin-top:12px;display:block">gBlock FASTA</label><pre>${d.gblock_fasta}</pre><button class="ghost" onclick='download("gblocks.fasta",${JSON.stringify(d.gblock_fasta)})'>download FASTA</button>`:"");}
+  (d.gblock_fasta?`<label style="margin-top:12px;display:block">gBlock FASTA</label><pre>${esc(d.gblock_fasta)}</pre><button class="ghost" onclick='download("gblocks.fasta",${JSON.stringify(d.gblock_fasta)})'>download FASTA</button>`:"");}
 async function saveOligoPanel(){const ol={};[...document.querySelectorAll("#seqrows .seqrow")].forEach(r=>{const i=r.querySelectorAll("input");if(i[0].value&&i[1].value)ol[i[0].value]=i[1].value.toUpperCase();});
  const name=document.getElementById("panelname").value||"panel";await api("/api/panel/save",{name,oligos:ol});refreshPanels();}
 async function refreshPanels(){const d=await(await fetch("/api/panel/list")).json();const s=document.getElementById("panelsel");if(s)s.innerHTML=`<option value="">— saved panels —</option>`+(d.panels||[]).map(p=>`<option>${p}</option>`).join("");}
@@ -569,8 +646,9 @@ async function doPairSpec(f,r){const o=document.getElementById("ds_out");o.inner
  o.innerHTML=tbl(d.forward,"forward")+tbl(d.reverse,"reverse");}
 
 // ---- stage-6 UI: conservation + in-silico PCR ----
-function addConsRow(name="",seq=""){const w=document.getElementById("consrows");const d=document.createElement("div");d.className="seqrow";
- d.innerHTML=`<input placeholder="name" value="${name}"><input class="seq" placeholder="sequence" value="${seq}"><button class="ghost" onclick="this.parentNode.remove()">✕</button>`;w.appendChild(d);}
+function addConsRow(name="",seq=""){const w=document.getElementById("consrows");if(!w)return;const d=document.createElement("div");d.className="seqrow";
+ d.innerHTML=`<input placeholder="name"><input class="seq" placeholder="sequence"><button class="ghost" onclick="this.parentNode.remove()">✕</button>`;w.appendChild(d);
+ const ins=d.querySelectorAll("input");if(ins[0])ins[0].value=name;if(ins[1])ins[1].value=seq;}
 addConsRow();addConsRow();
 function parseFasta(t){const seqs=[];let cur="";t.split("\n").forEach(l=>{if(l.startsWith(">")){if(cur)seqs.push(cur);cur="";}else cur+=l.trim();});if(cur)seqs.push(cur);return seqs.filter(Boolean);}
 async function fetchNuc(boxId,qId,nId){const box=document.getElementById(boxId);box.value="fetching from NCBI…";
@@ -595,7 +673,7 @@ async function doEpcr(){const o=document.getElementById("ep_out");const mode=doc
  const d=await api("/api/epcr",{forward:document.getElementById("ep_f").value,reverse:document.getElementById("ep_r").value,mode,db:document.getElementById("ep_db").value,db_path:document.getElementById("ep_dbp").value,organism:document.getElementById("ep_org").value||null,max_product:parseInt(document.getElementById("ep_max").value)||3000,email:email.value});
  if(d.error){o.innerHTML=err(d.error);return;}
  o.innerHTML=`<div class="kv"><div><span>forward hits</span><b>${d.forward_hits}</b></div><div><span>reverse hits</span><b>${d.reverse_hits}</b></div><div><span>predicted products</span><b>${d.n_products}</b></div></div>`+
-  (d.products.length?`<table><tr><th>subject</th><th>size</th><th>primers</th><th>span</th></tr>`+d.products.map(p=>`<tr><td class="mono">${p.subject}</td><td>${p.size}</td><td>${p.left}→${p.right}</td><td>${p.span[0]}–${p.span[1]}</td></tr>`).join("")+`</table>`:`<p class="hint">no products in the size window</p>`);}
+  (d.products.length?`<table><tr><th>subject</th><th>size</th><th>primers</th><th>span</th></tr>`+d.products.map(p=>`<tr><td class="mono">${p.subject}</td><td>${p.size}</td><td>${p.left}→${p.right}</td><td>${p.span?p.span[0]:"?"}–${p.span?p.span[1]:"?"}</td></tr>`).join("")+`</table>`:`<p class="hint">no products in the size window</p>`);}
 
 async function doStd(){const o=document.getElementById("std_out");o.innerHTML="…";
  const pts=[];document.getElementById("std_in").value.split("\n").forEach(l=>{l=l.trim();if(!l)return;
@@ -640,6 +718,7 @@ async function doAuto(){const o=document.getElementById("au_out");
    rows.map(([lab,seq,tm,k])=>{const cc=cn[k]||{};const dd=ds&&ds[k]&&ds[k].n?`${ds[k].max_ident}% / ${ds[k].min_mismatch}mm`:(ds?'—':'');
      return `<tr><td>${lab}</td><td class="mono">${seq}</td><td>${tm?tm.toFixed(1):'—'}</td><td class="${cc.mean_ident<90?'WARN':'PASS'}">${cc.mean_ident!=null?cc.mean_ident:'—'}%</td><td class="${cc.worst_3prime<90?'FAIL':'PASS'}">${cc.worst_3prime!=null?cc.worst_3prime:'—'}%</td>${ds?('<td>'+dd+'</td>'):''}</tr>`;}).join("")+
    `</table>`+
+   ampliconMap(a)+
    (i===0?`<div style="margin-top:8px"><button class="ghost" onclick='autoAdd()'>★ add to workbench</button> <button class="ghost" onclick='autoToOrder(${JSON.stringify(a.forward)},${JSON.stringify(a.reverse)},${JSON.stringify(a.probe)},"${probeKind}")'>→ send to Order tab</button></div>`:"")+
    `</div>`;});
  if(d.specificity){const sp=d.specificity;
@@ -695,12 +774,18 @@ function suggestProtocol(a){
 }
 function assayResultsHtml(a){
  const proto=suggestProtocol(a);
- const pr=a.results&&a.results.pair, sp=a.checks&&a.checks.specificity, it=(a.checks&&a.checks.intron)||(a.results&&a.results.intron), va=a.validation;
+ const pr=a.results&&a.results.pair, sp=a.checks&&a.checks.specificity, it=(a.checks&&a.checks.intron)||(a.results&&a.results.intron), va=a.validation, gb=a.results&&a.results.gblock;
  let h=`<div class="acard-res"><div class="resrow"><span class="reslab">protocol</span><span class="resval">${proto}</span></div>`;
  if(pr)h+=`<div class="resrow"><span class="reslab">QC primers</span><span class="resval">${pr.running?"running…":(pr.error?`<span class="FAIL">${esc(pr.error)}</span>`:`Tm ${pr.f_tm} / ${pr.r_tm} · gap ${pr.pair_gap} · F×R <b class="${dgClass(pr.fxr)}">${pr.fxr}</b> · self ${pr.f_self} / ${pr.r_self} <a class="lnk" onclick="toPair('${a.id}')">tab ↗</a>`)}</span></div>`;
  if(sp)h+=`<div class="resrow"><span class="reslab">in-silico PCR</span><span class="resval">${sp.error?esc(sp.error):`${sp.n_products} product(s) <b class="${sp.n_products===1?"PASS":"WARN"}">${sp.n_products===1?"✓":"review"}</b> · F ${sp.forward_hits} / R ${sp.reverse_hits} hits <a class="lnk" onclick="toEpcr('${a.id}')">tab ↗</a>`}</span></div>`;
- if(it)h+=`<div class="resrow"><span class="reslab">intron</span><span class="resval">${it.running?"running…":(it.error?`<span class="FAIL">${esc(it.error)}</span>`:(it.ok==null?esc(it.info||"gene not found"):`<b class="${it.ok?"PASS":"FAIL"}">${it.ok?"✓ ":"✗ "}${esc(it.verdict||"")}</b> <a class="lnk" onclick="toIntron('${a.id}')">tab ↗</a>`))}</span></div>`;
+ if(it){let iv;
+  if(it.running)iv="running…";
+  else if(it.error)iv=`<span class="FAIL">${esc(it.error)}</span> <a class="lnk" onclick="markGdna('${a.id}')">mark handled</a>`;
+  else if(it.ok==null)iv=`${esc(it.info||"gene not found")} <a class="lnk" onclick="markGdna('${a.id}')">mark handled</a>`;
+  else iv=`<b class="${it.ok?"PASS":"FAIL"}">${it.ok?"✓ ":"✗ "}${esc(it.verdict||"")}</b> <a class="lnk" onclick="toIntron('${a.id}')">tab ↗</a>`;
+  h+=`<div class="resrow"><span class="reslab">intron / gDNA</span><span class="resval">${iv}</span></div>`;}
  if(va&&va.efficiency_pct!=null)h+=`<div class="resrow"><span class="reslab">std curve</span><span class="resval">eff ${va.efficiency_pct}% · R² ${va.r2} · slope ${va.slope}${va.lod!=null?` · LOD ${va.lod}`:""}</span></div>`;
+ if(gb)h+=`<div class="resrow"><span class="reslab">gBlock</span><span class="resval">${gb.length} bp standard <a class="lnk" onclick='copyText(${JSON.stringify(gb)})'>copy</a> <a class="lnk" onclick='gblockToOrder(${JSON.stringify((a.name||"assay")+"_gBlock")},${JSON.stringify(gb)})'>→ Order tab</a></span></div>`;
  return h+`</div>`;
 }
 async function wbPair(id){const a=PANEL.find(x=>x.id===id);if(!a)return;a.results=a.results||{};a.results.pair={running:true};savePanel();renderPanel();
@@ -714,6 +799,9 @@ async function wbIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;if(!a.
  else{a.checks=a.checks||{};a.checks.intron={ok:d.ok,verdict:d.verdict,info:d.info};delete a.results.intron;}
  savePanel();renderPanel();
  toast(d.error?d.error:(d.ok==null?(d.info||"intron: couldn't locate the amplicon"):"Intron check saved to "+(a.name||"assay")+"."),(d.error||d.ok==null)?"warn":"ok");}
+function toStdAssay(id){setCurrent(id);gotab("std");toast("Paste "+((PANEL.find(x=>x.id===id)||{}).name||"this assay")+"'s Cq dilution data, click Fit curve, then \u201cattach to current assay\u201d.","ok");}
+function wbGblock(id){const a=PANEL.find(x=>x.id===id);if(!a)return;if(!a.gblock){toast("No gBlock stored for this assay. Generate one by designing it in Target \u2192 assay or Design (the gBlock is built from the amplicon + flanks).","warn");return;}a.results=a.results||{};a.results.gblock=a.gblock;savePanel();renderPanel();toast("gBlock for "+(a.name||"assay")+" ("+a.gblock.length+" bp) is shown below \u2014 copy it or send it to the Order tab.","ok");}
+function markGdna(id){const a=PANEL.find(x=>x.id===id);if(!a)return;a.checks=a.checks||{};a.checks.intron={ok:true,verdict:"gDNA addressed by no-RT control / junction-spanning (user-asserted)",manual:true};if(a.results&&a.results.intron)delete a.results.intron;savePanel();renderPanel();toast("Marked gDNA as addressed for "+(a.name||"assay")+". The report records this as user-asserted, not computed.","ok");}
 function renderPanel(){const o=document.getElementById("wk_out");if(!o)return;
  if(!PANEL.length){o.innerHTML=`<small class="note">No assays yet \u2014 design one in <b>Target \u2192 assay</b> or <b>Design</b> and click \u201c\u2605 add to workbench\u201d, or use <b>Load example (FSJ)</b> below.</small>`;return;}
  o.innerHTML=PANEL.map(a=>{const cur=a.id===CURRENT_ID;
@@ -737,14 +825,16 @@ function renderPanel(){const o=document.getElementById("wk_out");if(!o)return;
       <button class="ghost" onclick="checkAssay(\'${a.id}\')">Specificity (in-silico PCR)</button>
       <button class="ghost" onclick="wbIntron(\'${a.id}\')">Intron / junction</button>
       <button class="ghost" onclick="toConsAssay(\'${a.id}\')">Conservation ↗</button>
+      <button class="ghost" onclick="toStdAssay(\'${a.id}\')">Std curve ↗</button>
+      <button class="ghost" onclick="wbGblock(\'${a.id}\')">gBlock</button>
       <button class="ghost" onclick="toOrderAssay(\'${a.id}\')">Order ↗</button>
     </div>
     ${assayResultsHtml(a)}
   </div>`;}).join("");}
 function toPair(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("p_f",a.forward);fld("p_r",a.reverse);fld("p_amp",a.amplicon);gotab("pair");doPair();}
-function toEpcr(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("ep_f",a.forward);fld("ep_r",a.reverse);fld("ep_org",a.organism);gotab("epcr");}
-function toIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("i_gene",a.gene);fld("i_org",a.organism);fld("i_acc",a.accession);fld("i_f",a.forward);fld("i_r",a.reverse);fld("i_s","");fld("i_e","");gotab("intron");}
-function toConsAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("consrows").innerHTML="";addConsRow((a.name||"a")+"_F",a.forward);addConsRow((a.name||"a")+"_R",a.reverse);if(a.probe)addConsRow((a.name||"a")+"_P",a.probe);gotab("cons");}
+function toEpcr(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("ep_f",a.forward);fld("ep_r",a.reverse);fld("ep_org",a.organism);gotab("epcr");doEpcr();}
+function toIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("i_gene",a.gene);fld("i_org",a.organism);fld("i_acc",a.accession);fld("i_f",a.forward);fld("i_r",a.reverse);fld("i_s","");fld("i_e","");gotab("intron");doIntron();}
+function toConsAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("consrows").innerHTML="";addConsRow((a.name||"a")+"_F",a.forward);addConsRow((a.name||"a")+"_R",a.reverse);if(a.probe)addConsRow((a.name||"a")+"_P",a.probe);if(a.gene&&a.organism)fld("cons_tq",a.organism+"[Organism] AND "+a.gene+"[Gene]");gotab("cons");toast("Filled "+(a.name||"assay")+"'s oligos. Add target sequences (Fetch or paste FASTA), then Analyze.","ok");}
 function toOrderAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("orderrows").innerHTML="";const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);if(a.gblock){const gb=document.getElementById("gbrows");if(gb)gb.innerHTML="";addGbRow((a.name||"assay")+"_gBlock",a.gblock);}gotab("order");}
 async function checkAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;const c=document.getElementById("wk_status_"+id);if(c)c.textContent="checking\u2026";
  const md=document.getElementById("ep_mode")?document.getElementById("ep_mode").value:"remote";

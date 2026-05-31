@@ -1,17 +1,25 @@
 """Standard-curve quantification: copy number from concentration, and dilution series."""
 AVOGADRO = 6.02214076e23
 DS_MW_PER_BP = 650.0          # g/mol per bp, dsDNA approximation
+# Average molecular weight per base/bp by molecule type. Using the dsDNA constant
+# for an ssDNA or RNA standard (e.g. an RNA-virus transcript) over-states the mass
+# per molecule and throws the copy number off by ~2x.
+MW_PER_UNIT = {"dsDNA": 650.0, "ssDNA": 330.0, "RNA": 340.0}
 
 
-def copies_per_ul(ng_per_ul, length_bp):
+def _mw(molecule_type):
+    return MW_PER_UNIT.get(molecule_type or "dsDNA", DS_MW_PER_BP)
+
+
+def copies_per_ul(ng_per_ul, length_bp, molecule_type="dsDNA"):
     grams = ng_per_ul * 1e-9
-    moles = grams / (length_bp * DS_MW_PER_BP)
+    moles = grams / (length_bp * _mw(molecule_type))
     return moles * AVOGADRO
 
 
-def ng_for_copies(copies_per_ul, length_bp):
+def ng_for_copies(copies_per_ul, length_bp, molecule_type="dsDNA"):
     moles = copies_per_ul / AVOGADRO
-    grams = moles * length_bp * DS_MW_PER_BP
+    grams = moles * length_bp * _mw(molecule_type)
     return grams / 1e-9
 
 

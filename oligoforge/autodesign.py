@@ -15,9 +15,11 @@ from . import design as D, conservation as C, ncbi as N, thermo as T, profiles a
 
 
 def _reference(seqs):
-    """Most complete sequence at the gene scale: longest at or below 2 kb, so a
-    whole mitogenome doesn't get picked and sliced in the wrong gene."""
-    capped = [s for s in seqs if len(s) <= 2000]
+    """Most complete sequence at the transcript scale: longest at or below ~12 kb,
+    which admits real mRNAs (immune-gene transcripts run well past 2 kb) while still
+    excluding whole mitogenomes (~16 kb+) that would otherwise get sliced in the
+    wrong gene. If everything is larger, fall back to the shortest."""
+    capped = [s for s in seqs if len(s) <= 12000]
     return max(capped, key=len) if capped else min(seqs, key=len)
 
 
@@ -34,9 +36,13 @@ def _design_one(template, profile):
     return D.design_assay(template, profile)
 
 
-def _candidates(reference, profile, n=3, window=350):
+def _candidates(reference, profile, n=3, window=350, step=100):
+    """Slide a design window across the WHOLE reference until n distinct candidates
+    are found. Previously only two static windows (5' end + exact middle) were tried,
+    so a transcript with a bad 5' end and a bad middle could falsely report
+    NO ASSAY FOUND while hundreds of valid interior bases went unexamined."""
     L = len(reference)
-    starts = [0] if L <= window else [0, (L - window) // 2]
+    starts = [0] if L <= window else list(range(0, L - window + 1, step))
     cands, seen = [], set()
     for s in starts:
         a = _design_one(reference[s:s + window], profile)

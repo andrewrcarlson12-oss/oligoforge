@@ -7,7 +7,8 @@ const ctx={document:{getElementById:el,createElement:()=>el("c"+Math.random()),q
 vm.createContext(ctx); vm.runInContext(script,ctx);
 const RESP={
  "/api/pair":{f_tm:60,r_tm:60,pair_gap:0,fxr:-3,f_self:-4,r_self:-5,lint:[]},
- "/api/epcr":{forward_hits:1,reverse_hits:1,n_products:1,products:[{subject:"x",size:120,left:"F",right:"R"}]},
+ "/api/epcr":{forward_hits:1,reverse_hits:1,n_products:1,products:[{subject:"x",size:120,left:"F",right:"R",span:[10,130]}]},
+ "/api/intron":{ok:true,verdict:"amplicon spans an exon-exon junction",info:"located on mRNA",amp_start:40,amp_end:176,amplicon:136,amp_located:true,junctions:[88,204],spanned:[88]},
  "/api/standard_curve":{efficiency_pct:99.2,slope:-3.33,r2:0.998,amp_factor:2,lod_practical:10,efficiency_ok:true,slope_ok:true,r2_ok:true,levels:[{quantity:"1e6",n:1,detected:1,mean_cq:20,sd_cq:null,detection_rate:100}],notes:"MIQE"},
  "/api/report":{html:"<html>r</html>",csv:"a,b\n1,2",n_assays:2},
  "/api/multiplex":{n_assays:2,n_oligos:4,threshold:-9,channel_conflicts:[{dye:"FAM",assays:["A","B"]}],cross_dimers:[{dg:-12,assay_a:"A",oligo_a:"F",assay_b:"B",oligo_b:"R"}],n_flagged:1},

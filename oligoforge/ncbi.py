@@ -39,7 +39,7 @@ def search_mrna(gene, organism, retmax=20):
         r = Entrez.read(h); h.close()
         if r["IdList"]:
             return r["IdList"], q
-        time.sleep(0.34)
+        time.sleep(0.11 if Entrez.api_key else 0.34)
     return [], None
 
 
@@ -68,20 +68,39 @@ def common_region(seqs):
 
 
 def gene_id(gene, organism):
-    h = Entrez.esearch(db="gene", term=f'{gene}[Gene Name] AND {organism}[Organism]')
-    r = Entrez.read(h); h.close()
-    return r["IdList"][0] if r["IdList"] else None
+    """Entrez Gene ID for a gene in an organism. Tries progressively looser field
+    tags so a symbol that isn't indexed as an exact [Gene Name] still resolves."""
+    for term in (f'{gene}[Gene Name] AND {organism}[Organism]',
+                 f'{gene}[Gene] AND {organism}[Organism]',
+                 f'{gene}[All Fields] AND {organism}[Organism]'):
+        h = Entrez.esearch(db="gene", term=term)
+        r = Entrez.read(h); h.close()
+        if r["IdList"]:
+            return r["IdList"][0]
+        time.sleep(0.11 if Entrez.api_key else 0.34)
+    return None
 
 
 def search_fetch_fasta(query, n=10):
-    """esearch + efetch a nucleotide query -> [(description, sequence), ...]."""
+    """esearch + efetch a nucleotide query -> [(description, sequence), ...].
+    Caps the request count and skips oversized records (genomic contigs /
+    chromosomes) with a total-bases ceiling, so a stray large hit can't run the
+    server out of memory on a small instance."""
     from io import StringIO
     from Bio import SeqIO
+    n = max(1, min(int(n), 40))
     h = Entrez.esearch(db="nucleotide", term=query, retmax=n)
     ids = Entrez.read(h)["IdList"]; h.close()
     if not ids:
         return []
     h = Entrez.efetch(db="nucleotide", id=",".join(ids), rettype="fasta", retmode="text")
-    recs = [(r.description, str(r.seq)) for r in SeqIO.parse(StringIO(h.read()), "fasta")]
+    recs, total = [], 0
+    for r in SeqIO.parse(StringIO(h.read()), "fasta"):
+        s = str(r.seq)
+        if len(s) > 120000:                 # skip genomic contigs / chromosomes
+            continue
+        recs.append((r.description, s)); total += len(s)
+        if total > 4_000_000:               # ~4 Mb total cap
+            break
     h.close()
     return recs

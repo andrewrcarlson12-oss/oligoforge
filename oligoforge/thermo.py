@@ -7,6 +7,7 @@ the REAL primer3 numbers, not a browser approximation.
 """
 import primer3
 import itertools
+from functools import lru_cache
 
 # Typical TaqMan/SYBR master-mix conditions. Edit here to match your kit.
 COND = dict(mv_conc=50.0, dv_conc=3.0, dntp_conc=0.8, dna_conc=200.0)
@@ -70,6 +71,7 @@ def gc_percent(seq):
     return 100.0 * (seq.count("G") + seq.count("C")) / len(seq) if seq else 0.0
 
 
+@lru_cache(maxsize=8192)
 def tm(seq):
     return primer3.calc_tm(_resolve(seq), tm_method="santalucia",
                            salt_corrections_method="owczarzy", **COND)
@@ -95,6 +97,7 @@ def set_conditions(mv_conc=None, dv_conc=None, dntp_conc=None, dna_conc=None):
         COND["dntp_conc"] = float(dntp_conc)
     if dna_conc is not None:
         COND["dna_conc"] = float(dna_conc)
+    tm.cache_clear(); hairpin.cache_clear(); self_dimer.cache_clear(); hetero_dimer.cache_clear()
     return dict(COND)
 
 
@@ -127,15 +130,18 @@ def tm_range(seq, cap=64):
     return dict(min=round(min(tms), 1), max=round(max(tms), 1), n=ncomb, degenerate=True, capped=False)
 
 
+@lru_cache(maxsize=8192)
 def hairpin(seq):
     r = primer3.calc_hairpin(_resolve(seq), **COND)
     return r.dg / 1000.0, r.tm           # (dG kcal/mol, melting Tm C)
 
 
+@lru_cache(maxsize=8192)
 def self_dimer(seq):
     return primer3.calc_homodimer(_resolve(seq), **COND).dg / 1000.0
 
 
+@lru_cache(maxsize=8192)
 def hetero_dimer(a, b):
     return primer3.calc_heterodimer(_resolve(a), _resolve(b), **COND).dg / 1000.0
 

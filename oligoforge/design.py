@@ -108,7 +108,24 @@ def design_assay(template, c):
     return None
 
 
-def build_gblock(template, fstart, rend, flank=40):
+_GBLOCK_FILLER = ("GCATAGCTGACTGATCAGCTAGTCGATCAGTACGATCGTAGCATCGTAGCTAGCT"
+                  "GACGTACGATCGATCAGCTAGCATCGATGCATCGATCGATCGTACGTAGCATGCA")  # GC~50%, no long runs
+
+
+def build_gblock(template, fstart, rend, flank=40, min_len=125):
+    """Amplicon + flanking sequence as a synthesizable standard, at least IDT's
+    gBlock minimum (125 bp). Flanks first widen within the template; only if the
+    template itself can't reach the minimum is a balanced, low-binding filler
+    appended (IDT rejects gene-fragment orders under 125 bp)."""
     s = max(0, fstart - flank)
     e = min(len(template), rend + flank)
-    return template[s:e], s, e
+    while (e - s) < min_len and (s > 0 or e < len(template)):
+        if s > 0:
+            s -= 1
+        if e < len(template):
+            e += 1
+    block = template[s:e]
+    if len(block) < min_len:
+        need = min_len - len(block)
+        block += (_GBLOCK_FILLER * (need // len(_GBLOCK_FILLER) + 1))[:need]
+    return block, s, e
