@@ -106,3 +106,25 @@ def search_fetch_fasta(query, n=10):
             break
     h.close()
     return recs
+
+
+def taxonomy_lineage(name):
+    """Resolve a taxon name to (scientific_name, rank, lineage_string) via NCBI
+    Taxonomy, or None if not found / offline. Used by the marker recommender so
+    it can classify any taxon, not just a hard-coded genus list."""
+    try:
+        h = Entrez.esearch(db="taxonomy", term=name)
+        r = Entrez.read(h); h.close()
+        ids = r.get("IdList") or []
+        if not ids:
+            return None
+        h = Entrez.efetch(db="taxonomy", id=ids[0], retmode="xml")
+        recs = Entrez.read(h); h.close()
+        if not recs:
+            return None
+        rec = recs[0]
+        return (rec.get("ScientificName", "") or name,
+                rec.get("Rank", "") or "",
+                rec.get("Lineage", "") or "")
+    except Exception:
+        return None

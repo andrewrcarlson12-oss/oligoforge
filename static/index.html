@@ -187,6 +187,13 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
 .ph{display:flex;align-items:center;gap:11px;color:var(--dim);font-size:12.5px;line-height:1.5;background:rgba(255,255,255,.012);border:1px dashed var(--line2);border-radius:10px;padding:15px 17px;margin-top:4px}
 .ph::before{content:"";flex:none;width:24px;height:24px;border-radius:7px;background:linear-gradient(150deg,rgba(92,200,255,.28),rgba(110,231,168,.16));border:1px solid var(--line2);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
 .legend{margin-top:7px;font-size:11px;color:var(--dim);line-height:1.7}
+.gfbox{background:rgba(110,231,168,.05);border:1px solid var(--line2);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.gf-chips{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0}
+.gf-chip{padding:5px 11px;font-size:12px}
+.gf-chip b{font-weight:600}
+.ma-det>summary{cursor:pointer;color:var(--acc2);font-size:12.5px;font-weight:600;list-style:none;user-select:none}
+.ma-det>summary::-webkit-details-marker{display:none}
+.ma-det>summary:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -351,6 +358,14 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
       <div class="steps"><span class="step"><b>1</b> Name the target</span><span class="step"><b>2</b> Fetch + design</span><span class="step"><b>3</b> Review &amp; add to Workbench</span><span class="step"><b>4</b> Order oligos + gBlock</span></div>
     </div>
     <div class="card">
+    <div class="gfbox">
+      <b>Not sure which gene?</b> <span class="hint">Enter a species or genus — get the standard qPCR markers to try.</span>
+      <div class="row" style="margin-top:6px">
+        <input id="gf_org" class="seq" placeholder="e.g. Plasmodium" style="flex:1;text-transform:none">
+        <button onclick="suggestGenes()">Suggest genes</button>
+      </div>
+      <div id="gf_out"></div>
+    </div>
     <p class="hint">A screen, not a final answer — confirm winners in OligoAnalyzer. AT-rich parasite mtDNA needs a low-Tm parasite profile. Without BLAST this is one NCBI fetch plus design (usually under a minute; it gives up at 120 s rather than hanging). Ticking BLAST adds a remote NCBI search that can take several minutes; fewer sequences is faster.</p>
     <label>target (include the gene)</label>
     <input id="au_q" class="seq" placeholder="e.g. Genus species gene" style="width:100%;text-transform:none">
@@ -387,7 +402,25 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
   </div></section>
   <section id="work"><div class="card">
     <h3 style="margin:0 0 6px">Workbench &mdash; your panel</h3>
-    <small class="note">Assays you add from Design or Target &rarr; assay collect here and carry across tabs. Pick one (radio) to make it current, then attach a standard curve to it from the Std-curve tab. Edit name/gene/organism/dye inline. Stored in this browser.</small>
+    <small class="note">Assays you add from Design or Target &rarr; assay collect here and carry across tabs. You can also paste an existing or published assay below. Pick one (radio) to make it current, then attach a standard curve to it from the Std-curve tab. Edit name/gene/organism/dye inline. Stored in this browser.</small>
+    <details class="ma-det" style="margin-top:8px">
+      <summary>+ Add an existing / published assay (paste primers)</summary>
+      <div style="margin-top:9px">
+        <div class="row">
+          <div><label>name</label><input id="ma_name" placeholder="e.g. Pfal_18S" style="width:150px"></div>
+          <div><label>organism</label><input id="ma_org" placeholder="Plasmodium" style="width:150px"></div>
+          <div><label>gene</label><input id="ma_gene" placeholder="18S rRNA" style="width:120px"></div>
+          <div><label>dye</label><input id="ma_dye" placeholder="FAM" style="width:66px"></div>
+          <div><label>amplicon bp</label><input id="ma_amp" type="number" placeholder="opt" style="width:80px"></div>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <div style="flex:1"><label>forward</label><input id="ma_f" class="seq" style="width:100%"></div>
+          <div style="flex:1"><label>reverse</label><input id="ma_r" class="seq" style="width:100%"></div>
+          <div style="flex:1"><label>probe (optional)</label><input id="ma_p" class="seq" style="width:100%"></div>
+        </div>
+        <div style="margin-top:8px"><button onclick="addManualAssay()">Add to workbench</button> <span class="hint">QC runs automatically; then check Specificity / Intron and attach a standard curve like any other assay.</span></div>
+      </div>
+    </details>
     <div id="wk_out" style="margin-top:8px"></div>
     <div class="row" style="margin-top:10px;align-items:flex-end">
       <div><label>project</label><input id="pj_name" placeholder="e.g. Smith frog panel" style="width:180px"></div>
@@ -438,7 +471,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.5.4</footer>
+<footer>OligoForge v1.6.1</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -463,6 +496,8 @@ const ncbi_key=document.getElementById("ncbi_key");try{const _k=localStorage.get
 ncbi_key.addEventListener("change",()=>{try{localStorage.setItem("of_ncbi_key",ncbi_key.value);}catch(e){}});
 function copyText(t){try{navigator.clipboard.writeText(t);}catch(e){}}
 document.getElementById("qc_seq").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();doQC();}});
+function _degFold(s){const f={R:2,Y:2,S:2,W:2,K:2,M:2,B:3,V:3,D:3,H:3,N:4};let n=1;for(const c of (s||"").toUpperCase()){if(f[c])n*=f[c];}return n;}
+[["p_f",()=>doPair()],["p_r",()=>doPair()],["q_ng",()=>doCopies()],["q_len",()=>doCopies()],["gf_org",()=>suggestGenes()]].forEach(([id,fn])=>{const e=document.getElementById(id);if(e)e.addEventListener("keydown",ev=>{if(ev.key==="Enter"){ev.preventDefault();fn();}});});
 async function api(path,body){let r,j;
  if(body&&typeof body==="object"&&!Array.isArray(body)){try{const _em=(document.getElementById("email")||{}).value;const _ky=(document.getElementById("ncbi_key")||{}).value;if(_em&&body.email==null)body.email=_em;if(_ky)body.ncbi_key=_ky;}catch(e){}}
  try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
@@ -493,7 +528,7 @@ async function doQC(){const o=document.getElementById("qc_out");o.innerHTML="…
    <div><span>hairpin ΔG</span><b>${d.hairpin_dg}</b></div><div><span>self-dimer ΔG</span><b>${d.self_dimer}</b></div>
    <div><span>length</span><b>${d.length}</b></div><div><span>max run</span><b>${d.max_run}</b></div>
    <div><span>3' clamp (G/C in 5)</span><b>${d.last5_gc}</b></div></div>
-   <small class="note mono">revcomp: ${d.revcomp}</small> <button class="ghost" style="padding:1px 7px;font-size:11px" onclick='copyText("${d.revcomp}")'>copy</button>${d.note?`<br><small class="note">${d.note}</small>`:""}${d.lna_note?`<br><small class="note">${d.lna_note}</small>`:""}`+lintTable(d.lint);}
+   <small class="note mono">revcomp: ${d.revcomp}</small> <button class="ghost" style="padding:1px 7px;font-size:11px" onclick='copyText("${d.revcomp}")'>copy</button>${d.note?`<br><small class="note">${d.note}</small>`:""}${d.lna_note?`<br><small class="note">${d.lna_note}</small>`:""}${_degFold((document.getElementById("qc_seq").value||"").replace(/\s+/g,""))>1?`<br><small class="note">degenerate: encodes <b>${_degFold((document.getElementById("qc_seq").value||"").replace(/\s+/g,""))}</b> distinct sequences</small>`:""}`+lintTable(d.lint);}
 
 async function doPair(){const o=document.getElementById("p_out");o.innerHTML="…";
  const d=await api("/api/pair",{forward:document.getElementById("p_f").value,reverse:document.getElementById("p_r").value,
@@ -583,6 +618,8 @@ async function doIntron(){const o=document.getElementById("i_out");
  if(d.error){o.innerHTML=err(d.error);return;}
  if(d.ok===null){o.innerHTML=err(d.info);return;}
  if(d.amp_start!=null){document.getElementById("i_s").value=d.amp_start;document.getElementById("i_e").value=d.amp_end;}
+ renderIntron(d,o);}
+function renderIntron(d,o){if(!d||!o)return;
  const loc=d.amp_located?` · amplicon auto-located ${d.amp_start}\u2013${d.amp_end} (${d.amplicon} nt)`:(d.amp_start!=null?` · amplicon ${d.amp_start}\u2013${d.amp_end}`:"");
  o.innerHTML=`<div class="card" style="margin:0;border-color:${d.ok?'var(--pass)':'var(--fail)'}">
    <b class="${d.ok?'ok':'FAIL'}">${d.ok?'\u2713 ':'\u2717 '}${d.verdict||""}</b><br>
@@ -680,8 +717,10 @@ async function doEpcr(){const o=document.getElementById("ep_out");const mode=doc
  o.innerHTML=(mode=="remote"?'<div class="working">Remote BLAST queued at NCBI — 30 s to a few minutes…</div>':'<div class="working">Running local blastn…</div>')+'<div class="ofbar"></div>';
  const d=await api("/api/epcr",{forward:document.getElementById("ep_f").value,reverse:document.getElementById("ep_r").value,mode,db:document.getElementById("ep_db").value,db_path:document.getElementById("ep_dbp").value,organism:document.getElementById("ep_org").value||null,max_product:parseInt(document.getElementById("ep_max").value)||3000,email:email.value});
  if(d.error){o.innerHTML=err(d.error);return;}
+ renderEpcr(d,o);}
+function renderEpcr(d,o){if(!d||!o)return;
  o.innerHTML=`<div class="kv"><div><span>forward hits</span><b>${d.forward_hits}</b></div><div><span>reverse hits</span><b>${d.reverse_hits}</b></div><div><span>predicted products</span><b>${d.n_products}</b></div></div>`+
-  (d.products.length?`<table><tr><th>subject</th><th>size</th><th>primers</th><th>span</th></tr>`+d.products.map(p=>`<tr><td class="mono">${p.subject}</td><td>${p.size}</td><td>${p.left}→${p.right}</td><td>${p.span?p.span[0]:"?"}–${p.span?p.span[1]:"?"}</td></tr>`).join("")+`</table>`:`<p class="hint">no products in the size window</p>`);}
+  ((d.products&&d.products.length)?`<table><tr><th>subject</th><th>size</th><th>primers</th><th>span</th></tr>`+d.products.map(p=>`<tr><td class="mono">${p.subject}</td><td>${p.size}</td><td>${p.left}→${p.right}</td><td>${p.span?p.span[0]:"?"}–${p.span?p.span[1]:"?"}</td></tr>`).join("")+`</table>`:`<p class="hint">no products in the size window</p>`);}
 
 async function doStd(){const o=document.getElementById("std_out");o.innerHTML="…";
  const pts=[];document.getElementById("std_in").value.split("\n").forEach(l=>{l=l.trim();if(!l)return;
@@ -776,6 +815,21 @@ function addAssay(a){a.id=uid();a.status=a.status||"designed";PANEL.push(a);CURR
 function autoAdd(){if(!LAST_AUTO)return;const a=LAST_AUTO.assay;addAssay({name:(LAST_AUTO.query||"assay").slice(0,28),gene:LAST_AUTO.query||"",organism:"",forward:a.forward,reverse:a.reverse,probe:a.probe,amplicon:a.amplicon,amplicon_tm:a.amplicon_tm,f_tm:a.f_tm,r_tm:a.r_tm,probe_tm:a.probe_info?a.probe_info.tm:null,chemistry:LAST_AUTO.pretty||"",accession:LAST_AUTO.acc||"",gblock:a.gblock||null});}
 function gblockToOrder(name,seq){addGbRow(name,seq);gotab("order");toast("gBlock added to the Order tab as a standard.","ok");}
 function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,amplicon_tm:d.amplicon_tm,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||"",gblock:d.gblock});}
+function addManualAssay(){
+ const f=(document.getElementById("ma_f").value||"").trim().toUpperCase().replace(/\s+/g,"");
+ const r=(document.getElementById("ma_r").value||"").trim().toUpperCase().replace(/\s+/g,"");
+ if(!f||!r){toast("Enter at least a forward and reverse primer.","warn");return;}
+ const p=(document.getElementById("ma_p").value||"").trim().toUpperCase().replace(/\s+/g,"");
+ addAssay({name:((document.getElementById("ma_name").value||"").trim()||"assay"),
+  gene:(document.getElementById("ma_gene").value||"").trim(),
+  organism:(document.getElementById("ma_org").value||"").trim(),
+  dye:(document.getElementById("ma_dye").value||"").trim(),
+  forward:f,reverse:r,probe:p||null,
+  amplicon:parseInt(document.getElementById("ma_amp").value)||null,
+  chemistry:p?"":"SYBR (no probe)",status:"added"});
+ ["ma_name","ma_gene","ma_org","ma_dye","ma_f","ma_r","ma_p","ma_amp"].forEach(id=>{const e=document.getElementById(id);if(e)e.value="";});
+ if(CURRENT_ID)wbPair(CURRENT_ID);
+}
 function suggestProtocol(a){
  const tms=[a.f_tm,a.r_tm].filter(t=>t!=null&&isFinite(t)).map(Number);
  if(a.probe)return "TaqMan two-step — 95 °C 15 s / 60 °C 60 s, ×40–45 (read at 60 °C); probe Tm should sit ~8–10 °C above the primers.";
@@ -800,13 +854,13 @@ function assayResultsHtml(a){
 }
 async function wbPair(id){const a=PANEL.find(x=>x.id===id);if(!a)return;a.results=a.results||{};a.results.pair={running:true};savePanel();renderPanel();
  const d=await api("/api/pair",{forward:a.forward,reverse:a.reverse,amplicon:a.amplicon||null,profile:(a.probe?"idt_taqman":"sybr_generic")});
- a.results.pair=d.error?{error:d.error}:{f_tm:d.f_tm,r_tm:d.r_tm,pair_gap:d.pair_gap,fxr:d.fxr,f_self:d.f_self,r_self:d.r_self};savePanel();renderPanel();
+ if(d.error){a.results.pair={error:d.error};}else{a.results.pair={f_tm:d.f_tm,r_tm:d.r_tm,pair_gap:d.pair_gap,fxr:d.fxr,f_self:d.f_self,r_self:d.r_self};a.f_tm=d.f_tm;a.r_tm=d.r_tm;}savePanel();renderPanel();
  toast(d.error?d.error:"Primer QC saved to "+(a.name||"assay")+".",d.error?"err":"ok");}
 async function wbIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;if(!a.gene||!a.organism){toast("Set this assay's gene and organism first — the intron check needs both.","warn");return;}a.results=a.results||{};a.results.intron={running:true};savePanel();renderPanel();
  const d=await api("/api/intron",{gene:a.gene,organism:a.organism,mrna_acc:a.accession||null,forward:a.forward,reverse:a.reverse});
  if(d.error){a.results.intron={error:d.error};}
  else if(d.ok==null){a.results.intron={ok:null,info:d.info};}
- else{a.checks=a.checks||{};a.checks.intron={ok:d.ok,verdict:d.verdict,info:d.info};delete a.results.intron;}
+ else{a.checks=a.checks||{};a.checks.intron={ok:d.ok,verdict:d.verdict,info:d.info,junctions:d.junctions,spanned:d.spanned,amp_start:d.amp_start,amp_end:d.amp_end,amplicon:d.amplicon,amp_located:d.amp_located};delete a.results.intron;}
  savePanel();renderPanel();
  toast(d.error?d.error:(d.ok==null?(d.info||"intron: couldn't locate the amplicon"):"Intron check saved to "+(a.name||"assay")+"."),(d.error||d.ok==null)?"warn":"ok");}
 function toStdAssay(id){setCurrent(id);gotab("std");toast("Paste "+((PANEL.find(x=>x.id===id)||{}).name||"this assay")+"'s Cq dilution data, click Fit curve, then \u201cattach to current assay\u201d.","ok");}
@@ -841,9 +895,30 @@ function renderPanel(){const o=document.getElementById("wk_out");if(!o)return;
     </div>
     ${assayResultsHtml(a)}
   </div>`;}).join("");}
+async function suggestGenes(){const o=document.getElementById("gf_out");const q=(document.getElementById("gf_org").value||"").trim();
+ if(!q){o.innerHTML=err("enter a species or genus");return;}
+ o.innerHTML='<div class="working">resolving taxon + markers\u2026</div><div class="ofbar"></div>';
+ const d=await api("/api/suggest_genes",{organism:q,email:email.value});
+ if(d.error){o.innerHTML=err(d.error);return;}
+ let h=`<div class="note" style="margin-top:8px">${d.resolved_ok?`resolved <b>${esc(d.resolved)}</b>${d.rank?` (${esc(d.rank)})`:""} \u2014 ${esc(d.group)}`:`couldn\u2019t resolve via NCBI \u2014 matched on name as <b>${esc(d.group)}</b>`}${d.lineage?`<br><span style="opacity:.65">${esc(d.lineage)}</span>`:""}</div>`;
+ if(d.markers&&d.markers.length){
+  h+=`<div class="gf-chips">`+d.markers.map(m=>`<button class="ghost gf-chip" title="${esc(m.good_for)} \u00b7 ${esc(m.copies)}" onclick='useMarker(${JSON.stringify(m.query)},${JSON.stringify(m.chemistry)})'><b>${esc(m.gene)}</b> <span class="hint">${esc(m.level)}</span></button>`).join("")+`</div>`;
+  h+=`<table><tr><th>marker</th><th>good for</th><th>copies</th><th>chemistry</th></tr>`+d.markers.map(m=>`<tr><td><b>${esc(m.gene)}</b><br><span class="hint">${esc(m.name)}</span></td><td>${esc(m.good_for)}</td><td>${esc(m.copies)}</td><td class="mono">${esc(m.chemistry)}</td></tr>`).join("")+`</table>`;
+ }
+ if(d.note)h+=`<small class="note">${esc(d.note)}</small>`;
+ o.innerHTML=h;}
+function useMarker(query,chem){fld("au_q",query);const ps=document.getElementById("au_prof");if(ps&&chem){try{ps.value=chem;}catch(e){}}const qel=document.getElementById("au_q");if(qel&&qel.focus)qel.focus();toast("Filled the target query"+(chem?" + chemistry":"")+" \u2014 set an off-target if you want discrimination, then Design.","ok");}
 function toPair(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("p_f",a.forward);fld("p_r",a.reverse);fld("p_amp",a.amplicon);gotab("pair");doPair();}
-function toEpcr(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("ep_f",a.forward);fld("ep_r",a.reverse);fld("ep_org",a.organism);gotab("epcr");doEpcr();}
-function toIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("i_gene",a.gene);fld("i_org",a.organism);fld("i_acc",a.accession);fld("i_f",a.forward);fld("i_r",a.reverse);fld("i_s","");fld("i_e","");gotab("intron");doIntron();}
+function toEpcr(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("ep_f",a.forward);fld("ep_r",a.reverse);fld("ep_org",a.organism);gotab("epcr");
+ const o=document.getElementById("ep_out");const s=a.checks&&a.checks.specificity;
+ if(s&&s.error){o.innerHTML=err(s.error);}
+ else if(s&&s.n_products!=null){renderEpcr(s,o);}
+ else{o.innerHTML=`<div class="ph">Primers loaded from ${esc(a.name||"the assay")}. Click <b>Run in-silico PCR</b> above to BLAST (it can take a few minutes), or run <b>Specificity</b> on the Workbench card to save the result to the assay.</div>`;}}
+function toIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("i_gene",a.gene);fld("i_org",a.organism);fld("i_acc",a.accession);fld("i_f",a.forward);fld("i_r",a.reverse);fld("i_s","");fld("i_e","");gotab("intron");
+ const sv=(a.checks&&a.checks.intron)||(a.results&&a.results.intron);const o=document.getElementById("i_out");
+ if(sv&&sv.verdict){renderIntron(sv,o);}
+ else if(a.gene&&a.organism){doIntron();}
+ else{o.innerHTML=`<div class="ph">Loaded ${esc(a.name||"assay")} primers. Set the gene and organism (above, or on the Workbench card), then this locates the amplicon and checks the exon junctions.</div>`;}}
 function toConsAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("consrows").innerHTML="";addConsRow((a.name||"a")+"_F",a.forward);addConsRow((a.name||"a")+"_R",a.reverse);if(a.probe)addConsRow((a.name||"a")+"_P",a.probe);if(a.gene&&a.organism)fld("cons_tq",a.organism+"[Organism] AND "+a.gene+"[Gene]");gotab("cons");toast("Filled "+(a.name||"assay")+"'s oligos. Add target sequences (Fetch or paste FASTA), then Analyze.","ok");}
 function toOrderAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("orderrows").innerHTML="";const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);if(a.gblock){const gb=document.getElementById("gbrows");if(gb)gb.innerHTML="";addGbRow((a.name||"assay")+"_gBlock",a.gblock);}gotab("order");}
 async function checkAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;const c=document.getElementById("wk_status_"+id);if(c)c.textContent="checking\u2026";
