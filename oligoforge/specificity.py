@@ -168,12 +168,18 @@ def blast_local(seq, db_path, hitlist=10):
 
 
 # ---- in-silico PCR: do the two primers actually bracket a product? ----
-def _blast_remote_coords(seq, organism=None, hitlist=20, db="nt"):
-    if NCBIWWW is None:
-        return dict(error="biopython Blast unavailable")
-    eq = f"{organism}[Organism]" if organism else None
-    h = NCBIWWW.qblast("blastn", db, seq, hitlist_size=hitlist, entrez_query=eq, megablast=False)
-    rec = NCBIXML.read(h); h.close()
+def _short_blast_kw(seq):
+    """Parameters so a ~20 nt primer actually returns hits against nt (NCBI's
+    'blastn-short' behaviour): small word size, no low-complexity masking, large
+    E-value. Without these, default blastn silently drops short queries and reports
+    zero hits — which is why primers came back empty while a long sequence worked."""
+    if len(seq) <= 30:
+        return dict(word_size=7, expect=1000.0, nucl_reward=1, nucl_penalty=-3,
+                    gapcosts="5 2", filter="F", megablast=False)
+    return dict(megablast=True)
+
+
+def _hits_from_record(rec, qlen):
     hits = []
     for al in rec.alignments:
         for hsp in al.hsps:
@@ -181,28 +187,51 @@ def _blast_remote_coords(seq, organism=None, hitlist=20, db="nt"):
             lo, hi = (ss, se) if ss <= se else (se, ss)
             hits.append(dict(subject=al.accession, lo=lo, hi=hi,
                              strand="+" if ss <= se else "-",
-                             q3=hsp.query_end >= len(seq) - 1,
+                             q3=hsp.query_end >= qlen - 1,
                              ident=hsp.identities, alen=hsp.align_length))
-    return dict(n_hits=len(hits), hits=hits)
+    return hits
 
 
-def _blast_local_coords(seq, db_path, hitlist=20):
+def _blast_remote_pair(fwd, rev, organism=None, db="nt", hitlist=50):
+    """BLAST BOTH primers in a single NCBI job (one network round-trip instead of two)
+    using short-query parameters. Returns ({'F':[...], 'R':[...]}, error)."""
+    if NCBIWWW is None:
+        return None, "biopython Blast unavailable"
+    eq = f"{organism}[Organism]" if organism else None
+    query = ">F\n%s\n>R\n%s\n" % (fwd, rev)
+    kw = _short_blast_kw(fwd if len(fwd) >= len(rev) else rev)
+    try:
+        h = NCBIWWW.qblast("blastn", db, query, hitlist_size=hitlist, entrez_query=eq, **kw)
+        recs = list(NCBIXML.parse(h)); h.close()
+    except Exception as e:
+        return None, f"NCBI BLAST error: {e}"
+    out, lengths = {"F": [], "R": []}, {"F": len(fwd), "R": len(rev)}
+    for i, rec in enumerate(recs[:2]):
+        lab = ("F", "R")[i]
+        out[lab] = _hits_from_record(rec, getattr(rec, "query_letters", 0) or lengths[lab])
+    return out, None
+
+
+def _blast_local_pair(fwd, rev, db_path, hitlist=50):
     if not shutil.which("blastn"):
-        return dict(error="blastn not on PATH (install BLAST+)")
-    fmt = "6 sacc pident length evalue sstart send qstart qend sstrand"
-    p = subprocess.run(["blastn", "-db", db_path, "-outfmt", fmt,
-                        "-max_target_seqs", str(hitlist)],
-                       input=f">q\n{seq}\n", capture_output=True, text=True)
-    hits = []
+        return None, "blastn not on PATH (install BLAST+)"
+    fmt = "6 qseqid sacc pident length evalue sstart send qstart qend sstrand"
+    q = ">F\n%s\n>R\n%s\n" % (fwd, rev)
+    p = subprocess.run(["blastn", "-db", db_path, "-outfmt", fmt, "-word_size", "7",
+                        "-evalue", "1000", "-reward", "1", "-penalty", "-3", "-gapopen", "5",
+                        "-gapextend", "2", "-dust", "no", "-max_target_seqs", str(hitlist)],
+                       input=q, capture_output=True, text=True)
+    out, ql = {"F": [], "R": []}, {"F": len(fwd), "R": len(rev)}
     for l in p.stdout.strip().splitlines():
         c = l.split("\t")
-        if len(c) < 9:
+        if len(c) < 10:
             continue
-        ss, se = int(c[4]), int(c[5]); lo, hi = sorted((ss, se))
-        hits.append(dict(subject=c[0], lo=lo, hi=hi,
-                         strand="+" if c[8].lower().startswith("plus") else "-",
-                         q3=int(c[7]) >= len(seq) - 1, ident=c[1], alen=int(c[2])))
-    return dict(n_hits=len(hits), hits=hits, stderr=p.stderr[:200])
+        lab = c[0] if c[0] in ("F", "R") else "F"
+        ss, se = int(c[5]), int(c[6]); lo, hi = sorted((ss, se))
+        out[lab].append(dict(subject=c[1], lo=lo, hi=hi,
+                             strand="+" if c[9].lower().startswith("plus") else "-",
+                             q3=int(c[8]) >= ql[lab] - 1, ident=c[2], alen=int(c[3])))
+    return out, None
 
 
 def epcr(hits, min_product=40, max_product=3000, require_3prime=True):
@@ -231,14 +260,61 @@ def epcr(hits, min_product=40, max_product=3000, require_3prime=True):
 
 def in_silico_pcr(forward, reverse, mode="remote", db="nt", db_path=None,
                   organism=None, min_product=40, max_product=3000):
-    def run(seq):
-        return (_blast_local_coords(seq, db_path or "") if mode == "local"
-                else _blast_remote_coords(seq, organism=organism, db=db))
-    fr, rr = run(forward.upper().strip()), run(reverse.upper().strip())
-    if fr.get("error") or rr.get("error"):
-        return dict(error=fr.get("error") or rr.get("error"))
-    hits = ([dict(primer="F", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in fr["hits"]] +
-            [dict(primer="R", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in rr["hits"]])
+    fwd, rev = forward.upper().strip(), reverse.upper().strip()
+    pair, err = (_blast_local_pair(fwd, rev, db_path or "") if mode == "local"
+                 else _blast_remote_pair(fwd, rev, organism=organism, db=db))
+    if err:
+        return dict(error=err)
+    F, R = pair.get("F", []), pair.get("R", [])
+    hits = ([dict(primer="F", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in F] +
+            [dict(primer="R", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in R])
     prod = epcr(hits, min_product, max_product)
-    return dict(forward_hits=fr["n_hits"], reverse_hits=rr["n_hits"],
+    return dict(forward_hits=len(F), reverse_hits=len(R),
                 n_products=len(prod), products=prod[:25])
+
+
+def blast_summary(seq, mode="remote", db="nt", db_path=None, organism=None, top=40):
+    """BLAST one sequence and return a ranked hit list (top N) with accession, title,
+    % identity, query coverage, E-value and bit score — a readable BLAST report. Short
+    sequences (primers/probes) automatically use short-query parameters."""
+    seq = "".join(c for c in (seq or "").upper().replace("U", "T") if c.isalpha())
+    if len(seq) < 10:
+        return dict(error="sequence too short to BLAST (need >= 10 nt)")
+    top = max(1, min(int(top), 100))
+    if mode == "local":
+        if not shutil.which("blastn"):
+            return dict(error="blastn not on PATH (install BLAST+)")
+        fmt = "6 sacc pident length evalue bitscore qstart qend sstrand stitle"
+        cmd = ["blastn", "-db", db_path or "", "-outfmt", fmt, "-max_target_seqs", str(top)]
+        if len(seq) <= 30:
+            cmd += ["-word_size", "7", "-evalue", "1000", "-reward", "1", "-penalty", "-3",
+                    "-gapopen", "5", "-gapextend", "2", "-dust", "no"]
+        p = subprocess.run(cmd, input=f">q\n{seq}\n", capture_output=True, text=True)
+        hits = []
+        for l in p.stdout.strip().splitlines():
+            c = l.split("\t")
+            if len(c) < 9:
+                continue
+            hits.append(dict(accession=c[0], pident=float(c[1]), length=int(c[2]), evalue=c[3],
+                             bitscore=c[4], strand=c[7],
+                             qcov=round(100 * (abs(int(c[6]) - int(c[5])) + 1) / len(seq), 1),
+                             title=(c[9] if len(c) > 9 else c[0])[:95]))
+        return dict(query_len=len(seq), n_hits=len(hits), hits=hits[:top])
+    if NCBIWWW is None:
+        return dict(error="biopython Blast unavailable")
+    eq = f"{organism}[Organism]" if organism else None
+    try:
+        h = NCBIWWW.qblast("blastn", db, seq, hitlist_size=top, entrez_query=eq, **_short_blast_kw(seq))
+        rec = NCBIXML.read(h); h.close()
+    except Exception as e:
+        return dict(error=f"NCBI BLAST error: {e}")
+    qlen = getattr(rec, "query_letters", 0) or len(seq)
+    hits = []
+    for al in rec.alignments:
+        hsp = al.hsps[0]
+        hits.append(dict(accession=al.accession, title=al.hit_def[:95], length=al.length,
+                         pident=round(100 * hsp.identities / max(1, hsp.align_length), 1),
+                         qcov=round(100 * hsp.align_length / max(1, qlen), 1),
+                         evalue=("%.0e" % hsp.expect if hsp.expect else "0"),
+                         bitscore=round(hsp.bits), strand="plus" if hsp.sbjct_start <= hsp.sbjct_end else "minus"))
+    return dict(query_len=qlen, n_hits=len(hits), hits=hits[:top])

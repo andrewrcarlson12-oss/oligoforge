@@ -13,6 +13,37 @@ locus) and, for a detection assay, what to discriminate against.
 """
 from . import design as D, conservation as C, ncbi as N, thermo as T, profiles as PROF, specificity as SP, structure as STR
 
+# Mitochondrial / ribosomal barcode words: their GenBank records (e.g. MalAvi cytb
+# barcodes) are deposited as partial sequences not linked to a Gene record, so a precise
+# [Gene Name] fetch would MISS them — keep these as free-text. Protein-coding genes
+# (IFNG, IL4, RPL13...) instead get the precise fetch so "interferon gamma" lands on IFNG,
+# not IFNGR1 (interferon-gamma receptor 1).
+_MARKER_WORDS = {"cytb", "cob", "cox1", "cox2", "cox3", "coi", "co1", "coii", "coiii",
+                 "nad1", "nad5", "nad4", "atp6", "18s", "28s", "16s", "23s", "12s",
+                 "its", "its1", "its2", "rrna", "ribosomal", "rbcl", "matk", "trnl",
+                 "trnh", "psba", "rdrp", "ssu", "lsu", "d-loop"}
+
+
+def _is_marker(gene):
+    g = (gene or "").lower()
+    toks = set(g.replace("-", " ").split())
+    return bool(toks & _MARKER_WORDS) or "control region" in g or "ribosomal" in g
+
+
+def _split_query(q):
+    """Best-effort split of a free-text target into (organism, gene): a leading capitalised
+    genus (+ lowercase species epithet) is the organism, the remainder is the gene. Used to
+    resolve the official gene symbol and to fill the workbench organism/gene fields separately."""
+    toks = (q or "").split()
+    if not toks:
+        return "", ""
+    org, i = [], 0
+    if toks[0][:1].isupper() and toks[0].isalpha():
+        org.append(toks[0]); i = 1
+        if i < len(toks) and toks[i].islower() and toks[i].isalpha() and toks[i] not in _MARKER_WORDS:
+            org.append(toks[i]); i += 1
+    return " ".join(org), " ".join(toks[i:])
+
 
 def _reference(seqs):
     """Most complete sequence at the transcript scale: longest at or below ~12 kb,
@@ -75,7 +106,7 @@ def _score(assay, targets, offs, min_ident):
     return round(s, 1), cons, disc
 
 
-def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidates=3):
+def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidates=5):
     targets = [t for t in targets if t and len(t) > 60]
     if not targets:
         return dict(error="no usable target sequences (need >=1, ideally several)")
@@ -221,10 +252,32 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
     profile_key may be a specific profile, or "auto": Auto tries the IDT-orderable
     chemistries in order and returns the first that yields a clean assay, so an
     AT-rich parasite target lands on the low-Tm TaqMan instead of just failing."""
-    _pairs = N.search_fetch_fasta(target_query, n_fetch)
+    _org, _gene = _split_query(target_query)
+    _resolved, _fetch_q = None, target_query
+    if _gene and _org and not _is_marker(_gene):
+        try:
+            _resolved = N.resolve_gene(_gene, _org)
+        except Exception:
+            _resolved = None
+        if _resolved and _resolved.get("found"):
+            if _resolved.get("in_requested_organism") and _resolved.get("clean"):
+                _fetch_q = f'{_resolved["symbol"]}[Gene Name] AND {_org}[Organism]'
+            elif _resolved.get("symbol") and not _resolved.get("in_requested_organism"):
+                return dict(error=f"{_resolved['symbol']} ({_resolved.get('description','')}) isn't "
+                                  f"annotated in {_org} — NCBI has it in "
+                                  f"{_resolved.get('organism','another species')}. Design there, or "
+                                  f"paste a {_gene} sequence in the Design tab. (Designing on the loosely "
+                                  f"matching records in {_org} would risk a paralog like a receptor.)")
+    _pairs = N.search_fetch_fasta(_fetch_q, n_fetch)
+    if not _pairs and _fetch_q != target_query:
+        _pairs = N.search_fetch_fasta(target_query, n_fetch)      # precise found nothing -> free text
     tg = [seq for _, seq in _pairs]
     if not tg:
-        return dict(error=f"NCBI returned nothing for: {target_query}")
+        msg = f"NCBI returned nothing for: {target_query}"
+        if _resolved and _resolved.get("found") and not _resolved.get("in_requested_organism"):
+            msg += (f". {_resolved['symbol']} ({_resolved.get('description','')}) is annotated in "
+                    f"{_resolved.get('organism','another species')}, not in {_org}.")
+        return dict(error=msg)
     off = [seq for _, seq in N.search_fetch_fasta(off_query, max(8, n_fetch // 2))] if off_query else None
 
     if profile_key == "auto":
@@ -254,6 +307,8 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
 
     out["profile_pretty"] = _PRETTY.get(out.get("profile_used"), out.get("profile_used"))
     out["target_query"] = target_query
+    out["resolved_gene"] = (_resolved.get("symbol") if (_resolved and _resolved.get("found")) else _gene) or ""
+    out["resolved_organism"] = _org or (_resolved.get("organism") if _resolved else "") or ""
     out["off_query"] = off_query
 
     if out.get("candidates"):
@@ -264,6 +319,14 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
         _desc = next((a for a, sq in _pairs if sq == _ref), None) if (_ref and _pairs) else None
         out["source_accession"] = _desc.split()[0] if _desc else None
         _annotate(out, _ref, prefer_junction)
+        if out.get("profile_used") in ("idt_affinity", "parasite_mtdna"):
+            for c in out["candidates"]:                       # LNA chemistry -> suggest + positions
+                pb = (c.get("assay") or {}).get("probe")
+                if pb:
+                    try:
+                        c["assay"]["probe_lna"] = T.suggest_lna(pb)
+                    except Exception:
+                        pass
         if nested:
             _prof = PROF.PROFILES.get(out.get("profile_used")) or {}
             try:

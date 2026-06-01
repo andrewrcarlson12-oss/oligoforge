@@ -15,6 +15,9 @@ try:
 except Exception:
     _HAVE = False
 
+import threading
+_LOCK = threading.Lock()      # ViennaRNA uses non-thread-safe global state; serialize folds
+
 _DNA = False
 if _HAVE:
     for _fn in ("params_load_DNA_Mathews2004", "params_load_DNA_Mathews1999"):
@@ -38,8 +41,9 @@ def fold(seq):
     if len(s) < 8 or len(s) > 1000:   # RNAfold is O(n^3); amplicons are short — never fold a long template
         return None
     try:
-        fc = RNA.fold_compound(s)
-        struct, mfe = fc.mfe()
+        with _LOCK:
+            fc = RNA.fold_compound(s)
+            struct, mfe = fc.mfe()
     except Exception:
         return None
     paired = {i for i, ch in enumerate(struct) if ch in "()"}

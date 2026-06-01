@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
 
-app = FastAPI(title="OligoForge", version="1.10.0")
+app = FastAPI(title="OligoForge", version="1.11.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -64,7 +64,8 @@ class IntronReq(BaseModel):
 
 class BlastReq(BaseModel):
     seq: str; organism: Optional[str] = None; mode: str = "remote"
-    db: str = "nt"; db_path: Optional[str] = None; email: Optional[str] = None; ncbi_key: Optional[str] = None
+    db: str = "nt"; db_path: Optional[str] = None; top: int = 40
+    email: Optional[str] = None; ncbi_key: Optional[str] = None
 
 
 # ---------- routes ----------
@@ -211,9 +212,8 @@ def intron(r: IntronReq):
 def blast(r: BlastReq):
     _set_email(r.email, r.ncbi_key)
     try:
-        if r.mode == "local":
-            return SP.blast_local(r.seq.upper().strip(), r.db_path or "")
-        return SP.blast_remote(r.seq.upper().strip(), organism=r.organism, db=r.db)
+        return SP.blast_summary(r.seq, mode=r.mode, db=r.db, db_path=r.db_path,
+                                organism=r.organism, top=r.top)
     except Exception as e:
         return JSONResponse({"error": f"BLAST failed: {e}"}, status_code=200)
 
@@ -399,7 +399,7 @@ class EpcrReq(BaseModel):
     db_path: Optional[str] = None; organism: Optional[str] = None
     min_product: int = 40; max_product: int = 3000; email: Optional[str] = None; ncbi_key: Optional[str] = None
 class LnaReq(BaseModel):
-    seq: str; n_lna: Optional[int] = None
+    seq: str; n_lna: Optional[int] = None; snp_pos: Optional[int] = None
 
 @app.post("/api/conservation")
 def api_conservation(r: ConsReq):
@@ -419,6 +419,21 @@ def api_epcr(r: EpcrReq):
 @app.post("/api/lna_tm")
 def api_lna_tm(r: LnaReq):
     return T.tm_lna(r.seq, r.n_lna)
+
+@app.post("/api/lna_suggest")
+def api_lna_suggest(r: LnaReq):
+    return T.suggest_lna(r.seq, snp_pos=r.snp_pos, max_lna=r.n_lna)
+
+class GeneLookupReq(BaseModel):
+    gene: str; organism: Optional[str] = None; email: Optional[str] = None; ncbi_key: Optional[str] = None
+
+@app.post("/api/gene_lookup")
+def api_gene_lookup(r: GeneLookupReq):
+    _set_email(r.email, r.ncbi_key)
+    try:
+        return ncbi.gene_lookup(r.gene, r.organism)
+    except Exception as e:
+        return JSONResponse({"error": f"gene lookup failed: {e}"}, status_code=200)
 
 from oligoforge import refgenes as RG
 class RefGenesReq(BaseModel):

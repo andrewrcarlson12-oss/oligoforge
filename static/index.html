@@ -204,6 +204,33 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
 .ma-det>summary{cursor:pointer;color:var(--acc2);font-size:12.5px;font-weight:600;list-style:none;user-select:none}
 .ma-det>summary::-webkit-details-marker{display:none}
 .ma-det>summary:hover{text-decoration:underline}
+/* ===== v1.11.0 visual pass: specific-gene finder + elevated surfaces ===== */
+.genebox{background:linear-gradient(180deg,rgba(92,200,255,.09),rgba(92,200,255,.02));border:1px solid rgba(92,200,255,.26);border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:var(--edge)}
+.genebox>b,.gfbox>b{font-size:13.5px}
+.gfbox{border-radius:12px;padding:14px 16px}
+.gf-tag{display:inline-block;margin-left:6px;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.3px;color:var(--acc);background:rgba(92,200,255,.12);border:1px solid rgba(92,200,255,.3);border-radius:20px;padding:2px 9px;vertical-align:middle}
+.gene-hit{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:11px;padding:14px 16px;border-radius:12px;background:linear-gradient(180deg,#16202d,#101824);border:1px solid var(--line2);border-left:3px solid var(--acc);box-shadow:var(--sh2)}
+.gene-hit-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+.gene-sym{font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:.4px;line-height:1.1;color:#bfe9ff;background:linear-gradient(90deg,#cdeeff,#5cc8ff 58%,#6ee7a8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.gene-desc{color:var(--ink2);font-size:13.5px}
+.gene-org{color:var(--dim);font-size:12px;font-style:italic}
+.gene-stats{display:flex;gap:10px;flex-wrap:wrap}
+.gene-stats>div{background:rgba(255,255,255,.025);border:1px solid var(--line);border-radius:9px;padding:8px 13px;min-width:94px}
+.gene-stats span{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim)}
+.gene-stats b{font-size:18px;font-family:var(--mono);color:#e6f1fb}
+.gene-stats b.mono{font-size:13px}
+.gene-alts{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.gene-alts-cap{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:8px}
+.gene-alt{display:inline-flex;align-items:baseline;gap:7px;margin:0 7px 7px 0;text-align:left}
+.gene-alt .hint{margin:0;font-size:11.5px}
+.hero{background:linear-gradient(135deg,rgba(92,200,255,.14),rgba(110,231,168,.06) 55%,transparent);border:1px solid rgba(92,200,255,.26);box-shadow:0 0 0 1px rgba(92,200,255,.04),0 24px 60px -34px rgba(92,200,255,.5),var(--edge);position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;top:-42%;right:-8%;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(110,231,168,.15),transparent 68%);pointer-events:none}
+.hero h2{font-size:19px;color:#eef7ff;background:linear-gradient(90deg,#eef7ff,#9fdcff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+.card.best{border-color:rgba(92,200,255,.45);box-shadow:0 0 0 1px rgba(92,200,255,.18),0 22px 54px -28px rgba(92,200,255,.5),var(--edge)}
+.card.best::before{background:linear-gradient(90deg,transparent,var(--acc2),var(--acc) 55%,transparent);opacity:.92;inset:0 0 auto;height:2px}
+.card.best>b:first-child{display:inline-block;background:linear-gradient(180deg,var(--acc2),var(--acc-d));color:#04222f;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:2px 10px;border-radius:20px;box-shadow:0 4px 10px -5px rgba(92,200,255,.7)}
+.kv b{font-size:20px}
+button{box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 1px 2px rgba(0,0,0,.45),0 12px 26px -12px rgba(92,200,255,.7)}
 </style>
 </head>
 <body>
@@ -301,15 +328,16 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
 
   <!-- BLAST -->
   <section id="blast"><div class="card">
-    <h2>Specificity (BLAST)</h2><p class="hint">Remote = NCBI, no install, slower. Local = your blastn DB, fast/offline.</p>
+    <h2>BLAST a sequence — ranked hits</h2><p class="hint">Paste any sequence — a primer, probe, amplicon, or a longer fragment — for a ranked NCBI BLAST report: top hits with accession, % identity, query coverage and E-value. Short oligos automatically use blastn-short parameters (plain blastn drops short queries and returns nothing). Remote = NCBI (slower, queued); local = your blastn DB.</p>
     <div class="row">
       <div style="flex:1"><label>sequence</label><input id="b_seq" class="seq" style="width:100%"></div>
       <div><label>mode</label><select id="b_mode"><option value="remote">remote (NCBI)</option><option value="local">local (blastn)</option></select></div>
-      <div><label>organism filter</label><input id="b_org" placeholder="optional" style="width:160px"></div>
-      <div><label>db / db_path</label><input id="b_db" placeholder="nt" style="width:120px"></div>
+      <div><label>organism filter</label><input id="b_org" placeholder="optional" style="width:150px"></div>
+      <div><label>db / db_path</label><input id="b_db" placeholder="nt" style="width:110px"></div>
+      <div><label>top</label><input id="b_top" type="number" value="40" style="width:70px"></div>
       <button onclick="doBlast()">BLAST</button>
     </div>
-    <p class="hint" id="b_note"></p><div id="b_out"><div class="ph">Run BLAST to see specificity hits here.</div></div>
+    <p class="hint" id="b_note"></p><div id="b_out"><div class="ph">Run BLAST to see ranked hits here.</div></div>
   </div></section>
   <section id="quant"><div class="card">
     <h2>Standard-curve copies</h2><p class="hint">gBlock / amplicon copies per µL from concentration, plus a dilution series for the standard curve.</p>
@@ -368,8 +396,18 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
       <div class="steps"><span class="step"><b>1</b> Name the target</span><span class="step"><b>2</b> Fetch + design</span><span class="step"><b>3</b> Review &amp; add to Workbench</span><span class="step"><b>4</b> Order oligos + gBlock</span></div>
     </div>
     <div class="card">
+    <div class="genebox">
+      <b>Have a specific gene? <span class="gf-tag">IL4 · IFNG · reference genes</span></b>
+      <span class="hint">Enter the organism and a gene name or symbol. OligoForge resolves it to NCBI’s official gene — so “interferon gamma” lands on IFNG, not the receptor — shows what sequence exists, and sets up a precise design.</span>
+      <div class="row" style="margin-top:8px;align-items:flex-end">
+        <div style="flex:1.2"><label>organism</label><input id="gene_org" class="seq" placeholder="e.g. Aphelocoma coerulescens" style="width:100%;text-transform:none"></div>
+        <div style="flex:1"><label>gene name or symbol</label><input id="gene_q" class="seq" placeholder="e.g. IL4, IFNG, interferon gamma" style="width:100%;text-transform:none"></div>
+        <button onclick="geneFind()">Find gene</button>
+      </div>
+      <div id="gene_out"></div>
+    </div>
     <div class="gfbox">
-      <b>Not sure which gene?</b> <span class="hint">Enter a species or genus — get the standard qPCR markers to try.</span>
+      <b>Not sure which gene to target?</b> <span class="hint">Enter a species or genus to get standard barcoding/typing markers (cytb, 18S, COI…) for identifying or telling that taxon apart. For a <b>specific named gene</b> (IL4, IFNG, a reference gene), use the gene finder above instead.</span>
       <div class="row" style="margin-top:6px;align-items:flex-end">
         <div style="flex:1"><label>organism / genus</label><input id="gf_org" class="seq" placeholder="e.g. Haemoproteus" style="width:100%;text-transform:none"></div>
         <div><label>goal</label><select id="gf_intent"><option value="any">no preference</option><option value="detect">detect / quantify</option><option value="genotype">tell species/lineages apart</option></select></div>
@@ -485,7 +523,7 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.10.0</footer>
+<footer>OligoForge v1.11.0</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -511,7 +549,7 @@ ncbi_key.addEventListener("change",()=>{try{localStorage.setItem("of_ncbi_key",n
 function copyText(t){try{navigator.clipboard.writeText(t);}catch(e){}}
 document.getElementById("qc_seq").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();doQC();}});
 function _degFold(s){const f={R:2,Y:2,S:2,W:2,K:2,M:2,B:3,V:3,D:3,H:3,N:4};let n=1;for(const c of (s||"").toUpperCase()){if(f[c])n*=f[c];}return n;}
-[["p_f",()=>doPair()],["p_r",()=>doPair()],["q_ng",()=>doCopies()],["q_len",()=>doCopies()],["gf_org",()=>suggestGenes()]].forEach(([id,fn])=>{const e=document.getElementById(id);if(e)e.addEventListener("keydown",ev=>{if(ev.key==="Enter"){ev.preventDefault();fn();}});});
+[["p_f",()=>doPair()],["p_r",()=>doPair()],["q_ng",()=>doCopies()],["q_len",()=>doCopies()],["gf_org",()=>suggestGenes()],["gene_q",()=>geneFind()],["gene_org",()=>geneFind()]].forEach(([id,fn])=>{const e=document.getElementById(id);if(e)e.addEventListener("keydown",ev=>{if(ev.key==="Enter"){ev.preventDefault();fn();}});});
 async function api(path,body){let r,j;
  if(body&&typeof body==="object"&&!Array.isArray(body)){try{const _em=(document.getElementById("email")||{}).value;const _ky=(document.getElementById("ncbi_key")||{}).value;if(_em&&body.email==null)body.email=_em;if(_ky)body.ncbi_key=_ky;}catch(e){}}
  try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
@@ -640,15 +678,17 @@ function renderIntron(d,o){if(!d||!o)return;
    <small class="note">${d.info||""}${loc} · junctions (mRNA): ${(d.junctions||[]).join(", ")} · spanned: ${(d.spanned||[]).join(", ")||'none'}</small></div>`;}
 
 async function doBlast(){const o=document.getElementById("b_out");const mode=document.getElementById("b_mode").value;
- document.getElementById("b_note").textContent=mode==="remote"?"remote BLAST is queued at NCBI — can take 30 s to a couple minutes":"";
- o.innerHTML="…";
+ document.getElementById("b_note").textContent=mode==="remote"?"remote BLAST is queued at NCBI — can take 30 s to a couple of minutes":"";
+ o.innerHTML='<div class="working">BLASTing…</div><div class="ofbar"></div>';
  const d=await api("/api/blast",{seq:document.getElementById("b_seq").value,mode:mode,organism:document.getElementById("b_org").value||null,
-  db:mode==="local"?undefined:(document.getElementById("b_db").value||"nt"),db_path:mode==="local"?document.getElementById("b_db").value:null,email:email.value});
+  db:mode==="local"?undefined:(document.getElementById("b_db").value||"nt"),db_path:mode==="local"?document.getElementById("b_db").value:null,
+  top:parseInt(document.getElementById("b_top").value)||40,email:email.value});
  if(d.error){o.innerHTML=err(d.error);return;}
  const hits=d.hits||[];
- o.innerHTML=`<small class="note">query ${d.query_len} nt · ${d.n_hits} hits</small><table><tr><th>hit</th><th>identity</th><th>e-value</th></tr>`+
-  hits.map(hh=>Array.isArray(hh)?`<tr><td class="mono">${esc(hh[4]||hh[0])}</td><td>${hh[1]}%</td><td>${hh[3]}</td></tr>`
-   :`<tr><td>${esc(hh.title)}</td><td>${hh.identity}/${hh.align_len}</td><td>${hh.evalue}</td></tr>`).join("")+`</table>`;}
+ if(!hits.length){o.innerHTML=`<small class="note">query ${d.query_len} nt · 0 hits</small><div class="ph">No hits returned. For a very short or unusual sequence, widen the organism filter or use remote nt.</div>`;return;}
+ o.innerHTML=`<small class="note">query ${d.query_len} nt · ${d.n_hits} hit(s) · ranked by bit score</small>
+  <table><tr><th>#</th><th>accession</th><th>title</th><th>% id</th><th>cov</th><th>E-value</th><th>bits</th><th>str</th></tr>`+
+  hits.map((hh,i)=>`<tr><td>${i+1}</td><td class="mono"><a href="https://www.ncbi.nlm.nih.gov/nuccore/${esc(hh.accession)}" target="_blank" rel="noopener">${esc(hh.accession)}</a></td><td>${esc(hh.title||"")}</td><td>${hh.pident}%</td><td>${hh.qcov!=null?hh.qcov+"%":"—"}</td><td>${esc(""+hh.evalue)}</td><td>${hh.bitscore!=null?hh.bitscore:"—"}</td><td>${hh.strand?((""+hh.strand)[0]==="m"||hh.strand==="-"?"−":"+"):""}</td></tr>`).join("")+`</table>`;}
 // ---- stage-5 UI ----
 function download(fn,txt){const b=new Blob([txt],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=fn;a.click();}
 async function doCopies(){const o=document.getElementById("q_out");
@@ -787,25 +827,27 @@ async function doAuto(){const o=document.getElementById("au_out");
    email:document.getElementById("email").value});
  if(d.error){o.innerHTML=err(d.error)+(d.tried?`<small class="note">tried: ${d.tried.join(", ")}</small>`:"");return;}
  LAST_AUTO={assay:d.candidates[0].assay,pretty:d.profile_pretty,query:d.target_query,acc:d.source_accession};
+ LAST_AUTO_FULL=d;
  const probeKind=(d.profile_used==="idt_affinity"||d.profile_used==="parasite_mtdna")?"probe_lna":"probe_zen";
  let h=`<small class="note">fetched ${d.n_targets} target${d.n_offs?(", "+d.n_offs+" off-target"):""}; designed on a ${d.reference_len} nt reference; ${d.n_candidates} candidate(s). Screen only — confirm in OligoAnalyzer.</small>
    <div class="card" style="margin-top:8px;border-color:var(--acc)">chemistry chosen: <b>${d.profile_pretty||d.profile_used}</b></div>`;
  d.candidates.forEach((c,i)=>{const a=c.assay,cn=c.conservation,ds=c.discrimination;
   const rows=[["Fwd",a.forward,a.f_tm,"F"],["Rev",a.reverse,a.r_tm,"R"]];
   if(a.probe)rows.push(["Probe",a.probe,(a.probe_info?a.probe_info.tm:0),"P"]);
-  h+=`<div class="card" style="margin-top:10px"><b>${i==0?'★ best':'alt '+i}</b> · score ${c.score} · amplicon ${a.amplicon} nt${a.amplicon_tm!=null?' · Tm ≈ '+a.amplicon_tm+' °C':''}${a.probe?'':' · <span class="note">primers only</span>'}
+  h+=`<div class="card${i==0?' best':''}" style="margin-top:10px"><b>${i==0?'★ best':'alt '+i}</b> · score ${c.score} · amplicon ${a.amplicon} nt${a.amplicon_tm!=null?' · Tm ≈ '+a.amplicon_tm+' °C':''}${a.probe?'':' · <span class="note">primers only</span>'}
    <table><tr><th></th><th>sequence</th><th>Tm</th><th title="Average % of bases matching across your whole target set. Higher = the oligo is conserved and binds every target.">target&nbsp;match&nbsp;↑</th><th title="Lowest % match among the last 5 bases — the 3′ end. Polymerase extends from the 3′ end, so any mismatch here can stop priming. Keep this high.">3′-end&nbsp;match&nbsp;↑</th>${ds?'<th title="Closest identity to the off-target set / fewest mismatches at any off-target site. You WANT the oligo to differ from off-targets, so lower % and more mismatches is better.">off-target&nbsp;↓</th>':''}</tr>`+
    rows.map(([lab,seq,tm,k])=>{const cc=cn[k]||{};const od=ds&&ds[k]&&ds[k].n?ds[k]:null;const dcls=od?(od.max_ident>=90?'FAIL':(od.max_ident>=80?'WARN':'PASS')):'';const dd=od?`${od.max_ident}% / ${od.min_mismatch}mm${od.indel_masked?' <span title="matches closely once a small indel is allowed — ungapped screen understates; confirm in BLAST">⚠</span>':''}`:(ds?'—':'');
      return `<tr><td>${lab}</td><td class="mono">${seq}</td><td>${tm?tm.toFixed(1):'—'}</td><td class="${cc.mean_ident<90?'WARN':'PASS'}">${cc.mean_ident!=null?cc.mean_ident:'—'}%</td><td class="${cc.worst_3prime<90?'FAIL':'PASS'}">${cc.worst_3prime!=null?cc.worst_3prime:'—'}%</td>${ds?('<td class="'+dcls+'">'+dd+'</td>'):''}</tr>`;}).join("")+
    `</table><div class="legend">↑ higher is better &nbsp;·&nbsp; ↓ lower is better &nbsp;·&nbsp; <b class="PASS">green</b> = good, <b class="WARN">amber</b> = check, <b class="FAIL">red</b> = problem &nbsp;·&nbsp; off-target shows closest identity&nbsp;/&nbsp;mismatches (<b>mm</b>)</div>`+
+   (a.probe_lna&&a.probe_lna.notation?`<div class="card" style="margin:6px 0"><b>LNA placement (suggested)</b> <span class="mono">${a.probe_lna.notation}</span><br><span class="hint">${a.probe_lna.n_lna} LNA · ${a.probe_lna.mode||""} · est. Tm ${a.probe_lna.est_tm_low!=null?a.probe_lna.est_tm_low+"–"+a.probe_lna.est_tm_high+" °C":"(confirm in OligoAnalyzer)"}. ${a.probe_lna.note||""}</span></div>`:"")+
    candExtras(c)+
    ampliconMap(a)+
-   (i===0?`<div style="margin-top:8px"><button class="ghost" onclick='autoAdd()'>★ add to workbench</button> <button class="ghost" onclick='autoToOrder(${JSON.stringify(a.forward)},${JSON.stringify(a.reverse)},${JSON.stringify(a.probe)},"${probeKind}")'>→ send to Order tab</button></div>`:"")+
+   `<div style="margin-top:8px"><button class="ghost" onclick='autoAddCand(${i})'>${i==0?'★ ':''}add to workbench</button> <button class="ghost" onclick='autoToOrder(${JSON.stringify(a.forward)},${JSON.stringify(a.reverse)},${JSON.stringify(a.probe)},"${probeKind}")'>→ send to Order tab</button></div>`+
    `</div>`;});
  h+=nestedHtml(d);
  if(d.specificity){const sp=d.specificity;
   if(sp.error)h+=`<div class="card" style="margin-top:8px"><b>in-silico PCR</b> <span class="note">${sp.error}</span></div>`;
-  else h+=`<div class="card" style="margin-top:8px"><b>in-silico PCR on the winner</b> — F ${sp.forward_hits} hits, R ${sp.reverse_hits} hits, <b>${sp.n_products}</b> predicted product(s)`+
+  else h+=`<div class="card" style="margin-top:8px"><b>in-silico PCR on the winner</b> — searched NCBI nt: the <b>forward</b> primer matched <b>${sp.forward_hits}</b> place(s) and the <b>reverse</b> matched <b>${sp.reverse_hits}</b>; <b>${sp.n_products}</b> of those line up (convergent, 3′ ends pointing in, spacing in the product-size window) into a predicted amplicon. A clean assay shows one product on the intended template and nothing else.`+
    (sp.products&&sp.products.length?`<table><tr><th>subject</th><th>size</th><th>primers</th></tr>`+sp.products.map(pr=>`<tr><td class="mono">${pr.subject}</td><td>${pr.size}</td><td>${pr.left}→${pr.right}</td></tr>`).join("")+`</table>`:` <span class="note">— no off-target products in the size window (good)</span>`)+`</div>`;
  }
  o.innerHTML=h;}
@@ -829,7 +871,7 @@ async function doRefGenes(){const o=document.getElementById("rg_out");o.innerHTM
  o.innerHTML=h;}
 
 /* ---- workbench: assays carry across tabs + panel + report + multiplex ---- */
-let LAST_DESIGN=null,LAST_STD=null,LAST_AUTO=null;
+let LAST_DESIGN=null,LAST_STD=null,LAST_AUTO=null,LAST_AUTO_FULL=null;
 let PANEL=[];try{PANEL=JSON.parse(localStorage.getItem("of_panel")||"[]")||[];}catch(e){PANEL=[];}
 let CURRENT_ID=null;try{CURRENT_ID=localStorage.getItem("of_current")||null;}catch(e){}
 function savePanel(){try{localStorage.setItem("of_panel",JSON.stringify(PANEL));localStorage.setItem("of_current",CURRENT_ID||"");}catch(e){}}
@@ -845,7 +887,16 @@ function exportPanel(){if(!PANEL.length){toast("Nothing to export — the workbe
 function importPanel(inp){const f=inp&&inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{let arr;try{arr=JSON.parse(rd.result);}catch(e){toast("That file isn't valid JSON.","err");inp.value="";return;}if(!Array.isArray(arr)){toast("Expected a panel file — a JSON array of assays (use Export panel to make one).","err");inp.value="";return;}if(PANEL.length&&!confirm("Replace the current workbench with "+arr.length+" imported assay(s)?")){inp.value="";return;}PANEL=arr.map(a=>{a=a||{};if(!a.id)a.id=uid();return a;});CURRENT_ID=PANEL.length?PANEL[0].id:null;savePanel();renderPanel();gotab("work");toast("Imported "+PANEL.length+" assay(s).","ok");inp.value="";};rd.readAsText(f);}
 function uid(){return "a"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 function addAssay(a){a.id=uid();a.status=a.status||"designed";PANEL.push(a);CURRENT_ID=a.id;savePanel();renderPanel();gotab("work");toast('Added '+(a.name||a.gene||"assay")+' to the Workbench','ok');}
-function autoAdd(){if(!LAST_AUTO)return;const a=LAST_AUTO.assay;addAssay({name:(LAST_AUTO.query||"assay").slice(0,28),gene:LAST_AUTO.query||"",organism:"",forward:a.forward,reverse:a.reverse,probe:a.probe,amplicon:a.amplicon,amplicon_tm:a.amplicon_tm,f_tm:a.f_tm,r_tm:a.r_tm,probe_tm:a.probe_info?a.probe_info.tm:null,chemistry:LAST_AUTO.pretty||"",accession:LAST_AUTO.acc||"",gblock:a.gblock||null});}
+function autoAddCand(i){if(!LAST_AUTO_FULL||!LAST_AUTO_FULL.candidates||!LAST_AUTO_FULL.candidates[i])return;
+ const d=LAST_AUTO_FULL,a=d.candidates[i].assay;
+ const org=d.resolved_organism||"",gene=d.resolved_gene||(d.target_query||"");
+ const lab=((gene||d.target_query||"assay")+(i?" alt"+i:"")).slice(0,28);
+ addAssay({name:lab,gene:gene,organism:org,forward:a.forward,reverse:a.reverse,probe:a.probe,
+  probe_lna:(a.probe_lna&&a.probe_lna.notation)?a.probe_lna.notation:null,
+  amplicon:a.amplicon,amplicon_tm:a.amplicon_tm,f_tm:a.f_tm,r_tm:a.r_tm,
+  probe_tm:a.probe_info?a.probe_info.tm:null,chemistry:d.profile_pretty||"",
+  accession:d.source_accession||"",gblock:a.gblock||null});}
+function autoAdd(){autoAddCand(0);}
 function gblockToOrder(name,seq){addGbRow(name,seq);gotab("order");toast("gBlock added to the Order tab as a standard.","ok");}
 function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,amplicon_tm:d.amplicon_tm,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||"",gblock:d.gblock});}
 function addManualAssay(){
@@ -942,16 +993,37 @@ async function scanMarkers(){const o=document.getElementById("gf_out");const q=(
  const d=await api("/api/scan_markers",{organism:q,exclude:excl,intent:intent,email:email.value});
  if(d.error){o.innerHTML=err(d.error);return;}
  o.innerHTML=gfRender(d);}
+async function geneFind(){const o=document.getElementById("gene_out");
+ const g=(document.getElementById("gene_q").value||"").trim();const org=(document.getElementById("gene_org").value||"").trim();
+ if(!g){o.innerHTML=err("enter a gene name or symbol");return;}
+ o.innerHTML='<div class="working">resolving the gene at NCBI\u2026</div><div class="ofbar"></div>';
+ const d=await api("/api/gene_lookup",{gene:g,organism:org||null,email:email.value});
+ if(d.error){o.innerHTML=err(d.error)+`<div class="hint" style="margin-top:6px">Try the official symbol, or drop the organism to see which species have it.</div>`;return;}
+ o.innerHTML=geneRender(d);}
+function geneUse(org,sym){fld("au_q",((org?org+" ":"")+sym).trim());const el=document.getElementById("au_q");
+ if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");}
+ toast("Target set to "+sym+" \u2014 pick a chemistry, then Design.","ok");}
+function geneRender(d){const b=d.best||{};const inorg=d.in_requested_organism;
+ let h=`<div class="gene-hit"><div class="gene-hit-main"><span class="gene-sym">${esc(b.symbol||d.gene)}</span><span class="gene-desc">${esc(b.description||"")}</span>${(b.organism||d.organism)?`<span class="gene-org">${esc(b.organism||d.organism)}</span>`:""}</div>
+   <div class="gene-stats"><div><span>mRNA records</span><b>${d.records!=null?fmtNum(d.records):"\u2014"}</b></div><div><span>RefSeq</span><b class="mono">${d.accessions&&d.accessions.length?esc(d.accessions[0]):"\u2014"}</b></div></div></div>`;
+ if(d.organism&&!inorg){h+=`<div class="err" style="margin-top:8px">Not annotated in <b>${esc(d.organism)}</b>${b.organism?` \u2014 NCBI\u2019s record is in <b>${esc(b.organism)}</b>`:""}. Design there, paste a sequence in the Design tab, or pick a related species.</div>`;}
+ else if(d.records===0){h+=`<div class="err" style="margin-top:8px">The gene resolves but NCBI has no mRNA sequence for it in this organism yet. Paste a sequence in the Design tab, or try a related species.</div>`;}
+ else{h+=`<div style="margin-top:11px"><button onclick='geneUse(${JSON.stringify(b.organism||d.organism||"")},${JSON.stringify(b.symbol||d.gene)})'>\u2605 Design on ${esc(b.symbol||d.gene)}</button></div>`;}
+ const others=(d.candidates||[]).filter(c=>c.symbol&&c.symbol!==b.symbol);
+ if(others.length){h+=`<div class="gene-alts"><div class="gene-alts-cap">other genes matching \u201c${esc(d.gene)}\u201d \u2014 check you want this one, not a receptor/paralog</div>`+
+   others.map(c=>`<button class="ghost gene-alt" onclick='geneUse(${JSON.stringify(c.organism||d.organism||"")},${JSON.stringify(c.symbol)})'><b>${esc(c.symbol)}</b> <span class="hint">${esc(c.description||"")}</span></button>`).join("")+`</div>`;}
+ return h;}
 function fmtNum(n){try{return Number(n).toLocaleString();}catch(e){return ""+n;}}
-function gfFit(c,goal){if(goal==="separate")return c==="variable"?"PASS":(c==="moderate"?"WARN":"FAIL");if(goal==="detect")return c==="conserved"?"PASS":"WARN";return "";}
+function gfFit(c,goal){if(goal==="separate"&&c==="variable")return "PASS";if(goal==="detect"&&c==="conserved")return "PASS";return "";}
 function gfRender(d){const _i=(document.getElementById("gf_intent")||{}).value||"any";const goal=d.exclude?"separate":(_i==="genotype"?"separate":(_i==="detect"?"detect":""));
  let h=`<div class="note" style="margin-top:8px">${d.resolved_ok?`resolved <b>${esc(d.resolved)}</b>${d.rank?` (${esc(d.rank)})`:""} \u2014 ${esc(d.group)}`:`couldn\u2019t resolve via NCBI \u2014 matched on name as <b>${esc(d.group)}</b>`}${d.lineage?`<br><span style="opacity:.65">${esc(d.lineage)}</span>`:""}</div>`;
+ h+=`<div class="hint" style="margin-top:6px">“detect the group” = a <b>conserved</b> marker that reads the same across the whole genus — good for catching any member or quantifying load. “separate species/lineages” = a <b>variable</b> marker that differs between close relatives — good for telling them apart. Neither is better in the abstract; it depends on your goal. <b>Already have a specific named gene</b> (IL4, IFNG, a reference gene)? Skip this — type “Organism Gene” in the box above and Design. This finder is only for choosing a barcoding/typing marker when you don’t have a gene in mind.</div>`;
  if(d.relatives&&d.relatives.length){h+=`<div style="margin-top:6px"><span class="hint">common relatives to exclude:</span> `+d.relatives.map(rl=>`<button class="ghost gf-chip gf-rel" onclick='setExcl(${JSON.stringify(rl)})'>not in ${esc(rl)}</button>`).join(" ")+`</div>`;}
- if(d.exclude)h+=`<div class="note" style="margin-top:4px">discriminating against <b>${esc(d.exclude)}</b> \u2014 a <b class="FAIL">conserved</b> marker is nearly identical in both, so it can\u2019t separate them; pick a <b class="PASS">variable</b> one (green). Clicking a marker sets it as the off-target so the design scores the separation.</div>`;
+ if(d.exclude)h+=`<div class="note" style="margin-top:4px">Separating <b>${esc(d.resolved||"the target")}</b> from <b>${esc(d.exclude)}</b>: a <b>conserved</b> marker reads almost the same in both and can’t tell them apart, while a <b>variable</b> one (highlighted) carries the differences you need. Click a marker to set it as the off-target so the design scores the actual separation.</div>`;
  if(d.markers&&d.markers.length){
   const sc=d.scanned;
   h+=`<div class="gf-chips">`+d.markers.map(m=>`<button class="ghost gf-chip" title="${esc(m.good_for)} \u00b7 ${esc(m.copies)}${m.region?" \u00b7 "+esc(m.region):""}" onclick='useMarker(${JSON.stringify(m.query)},${JSON.stringify(m.chemistry)},${JSON.stringify(m.qwords)})'><b>${esc(m.gene)}</b> <span class="hint ${gfFit(m.conservation,goal)}">${esc(m.conservation)}</span></button>`).join("")+`</div>`;
-  h+=`<table><tr><th>marker</th><th>best for</th><th>group vs species</th><th>sensitivity</th>`+(sc?`<th title="GenBank nucleotide records matching the query">records</th><th>med len</th><th>length range</th>`:`<th>typical region</th>`)+`<th>chem</th></tr>`+
+  h+=`<table><tr><th>marker</th><th>best for</th><th title="A conserved marker detects the whole group; a variable one separates close species/lineages.">detects group / separates species</th><th>sensitivity</th>`+(sc?`<th title="GenBank nucleotide records matching the query">records</th><th>med len</th><th>length range</th>`:`<th>typical region</th>`)+`<th>chem</th></tr>`+
    d.markers.map(m=>{
     const head=`<td><b>${esc(m.gene)}</b><br><span class="hint">${esc(m.name)}</span></td><td>${esc(m.good_for)}</td><td><b class="${gfFit(m.conservation,goal)}">${esc(m.conservation)}</b> \u00b7 ${esc(m.level)}</td><td>${esc(m.copies)}</td>`;
     let mid;

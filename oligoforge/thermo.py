@@ -7,7 +7,11 @@ the REAL primer3 numbers, not a browser approximation.
 """
 import primer3
 import itertools
+import threading
 from functools import lru_cache
+
+_P3 = threading.Lock()        # primer3's C core is not safe under the sync-endpoint threadpool
+_P3_MAXLEN = 60               # primer3 thermo alignment refuses (raises) on sequences > 60 nt
 
 # Typical TaqMan/SYBR master-mix conditions. Edit here to match your kit.
 COND = dict(mv_conc=50.0, dv_conc=3.0, dntp_conc=0.8, dna_conc=200.0)
@@ -88,8 +92,9 @@ def amplicon_tm(seq):
 
 @lru_cache(maxsize=8192)
 def tm(seq):
-    return primer3.calc_tm(_resolve(seq), tm_method="santalucia",
-                           salt_corrections_method="owczarzy", **COND)
+    with _P3:
+        return primer3.calc_tm(_resolve(seq), tm_method="santalucia",
+                               salt_corrections_method="owczarzy", **COND)
 
 
 _IUPAC_SETS = {"A": "A", "C": "C", "G": "G", "T": "T", "R": "AG", "Y": "CT", "S": "GC",
@@ -147,18 +152,30 @@ def tm_range(seq, cap=64):
 
 @lru_cache(maxsize=8192)
 def hairpin(seq):
-    r = primer3.calc_hairpin(_resolve(seq), **COND)
+    s = _resolve(seq)
+    if len(s) > _P3_MAXLEN:              # not an oligo; primer3 would raise. Neutral (no hairpin).
+        return 0.0, 0.0
+    with _P3:
+        r = primer3.calc_hairpin(s, **COND)
     return r.dg / 1000.0, r.tm           # (dG kcal/mol, melting Tm C)
 
 
 @lru_cache(maxsize=8192)
 def self_dimer(seq):
-    return primer3.calc_homodimer(_resolve(seq), **COND).dg / 1000.0
+    s = _resolve(seq)
+    if len(s) > _P3_MAXLEN:
+        return 0.0
+    with _P3:
+        return primer3.calc_homodimer(s, **COND).dg / 1000.0
 
 
 @lru_cache(maxsize=8192)
 def hetero_dimer(a, b):
-    return primer3.calc_heterodimer(_resolve(a), _resolve(b), **COND).dg / 1000.0
+    sa, sb = _resolve(a), _resolve(b)
+    if len(sa) > _P3_MAXLEN or len(sb) > _P3_MAXLEN:
+        return 0.0
+    with _P3:
+        return primer3.calc_heterodimer(sa, sb, **COND).dg / 1000.0
 
 
 def max_run(seq, base=None):
@@ -188,6 +205,51 @@ def strip_lna(seq):
         else:
             dna.append(s[i]); idx += 1; i += 1
     return "".join(dna), len(pos), pos
+
+
+def suggest_lna(seq, snp_pos=None, max_lna=None, spacing=3):
+    """Heuristic LNA (+) placement on a DNA probe -> '+N' notation, positions, count, Tm range.
+
+    Two modes:
+      - Tm boost (default): space LNAs ~every `spacing` bases, nudged onto G/C for the biggest
+        gain, clear of the ends, never 3 in a row, capped.
+      - Genotyping (snp_pos, 0-based): LNA centred on the polymorphic base (+ its neighbours),
+        which maximises the match-vs-mismatch Tm gap an allele-specific probe relies on.
+
+    This is a STARTING point only. Optimal LNA placement is strongly context-dependent and IDT's
+    Affinity Plus / OligoAnalyzer model is authoritative; always confirm there, and for allele
+    discrimination validate the match-vs-mismatch dTm empirically.
+    """
+    s = "".join(c for c in seq.upper().replace("U", "T") if c in "ACGT")
+    n = len(s)
+    if n < 6:
+        return dict(error="probe too short for LNA placement (need >= 6 nt)")
+    pos = set()
+    if snp_pos is not None and 0 <= snp_pos < n:
+        for p in (snp_pos - 1, snp_pos, snp_pos + 1):
+            if 0 <= p < n:
+                pos.add(p)
+        mode = "genotyping (LNA on the discriminating base)"
+    else:
+        cap = max_lna if max_lna else min(8, max(3, n // 4))
+        i = 2
+        while i < n - 2 and len(pos) < cap:
+            cand = i
+            for off in (0, 1, -1):
+                j = i + off
+                if 2 <= j < n - 2 and s[j] in "GC":
+                    cand = j; break
+            pos.add(cand)
+            i = cand + spacing
+        mode = "Tm boost (LNA spaced on G/C)"
+    pos = sorted(pos)
+    notation = "".join((("+" + b) if i in pos else b) for i, b in enumerate(s))
+    out = dict(dna=s, lna_pos=[p + 1 for p in pos], n_lna=len(pos), notation=notation, mode=mode)
+    out.update(tm_lna(notation))
+    out["note"] = ("Heuristic starting placement — optimal LNA positions are context-dependent. "
+                   "Confirm in IDT OligoAnalyzer (Affinity Plus). For allele/SNP discrimination, "
+                   "place an LNA on the polymorphic base and validate match-vs-mismatch dTm.")
+    return out
 
 
 def tm_lna(seq, n_lna=None, per_lna_low=2.0, per_lna_high=8.0):

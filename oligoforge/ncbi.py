@@ -83,6 +83,154 @@ def gene_id(gene, organism):
     return None
 
 
+_GENE_DECOY = ("receptor", "antagonist", "binding", "associated", "induced", "inducible",
+               "like", "regulator", "activator", "inhibitor", "antisense", "converting",
+               "pseudogene", "interacting", "downstream")
+
+
+def _gene_match_score(doc, gene_q):
+    """Higher = closer to the gene the user named. An exact description/symbol match wins;
+    identity-changing modifiers the user did NOT type (receptor, antagonist, -like ...) are
+    penalised, so 'interferon gamma' resolves to IFNG, not IFNGR1/IFNGR2."""
+    desc = " ".join(str(doc.get("Description") or "").lower().split())
+    name = str(doc.get("Name") or "").lower().strip()
+    q = " ".join((gene_q or "").lower().split())
+    qn = q.replace("-", "").replace(" ", "")
+    s = 0.0
+    if name == q or desc == q:
+        s += 100
+    if name.replace("-", "") == qn or desc.replace("-", "").replace(" ", "") == qn:
+        s += 80
+    qwords = q.split()
+    if qwords and all(w in desc.split() for w in qwords):
+        s += 25
+    for d in _GENE_DECOY:
+        if d in desc and d not in q:
+            s -= 40
+    s -= max(0, len(desc.split()) - len(qwords)) * 3
+    return s
+
+
+def resolve_gene(gene, organism=None):
+    """Resolve a free-text gene name to NCBI's OFFICIAL gene symbol via the Gene database,
+    so a design targets the right locus (IFNG, not interferon-gamma RECEPTOR 1 / IFNGR1).
+    Among all candidates it picks the best description match (see _gene_match_score). Returns
+    dict(found, symbol, gene_id, organism, description, in_requested_organism, clean). When the
+    organism's only matches are decoys (e.g. just the receptor), it looks the gene up without the
+    organism so the caller can say where the real gene exists instead of designing on a paralog.
+    """
+    gene = (gene or "").strip()
+    if not gene:
+        return dict(found=False)
+    org = (organism or "").strip()
+    tiers = []
+    if org:
+        tiers += [(f'"{gene}"[Gene Name] AND "{org}"[Organism]', True),
+                  (f'{gene}[Gene Name] AND {org}[Organism]', True),
+                  (f'{gene}[All Fields] AND {org}[Organism] AND alive[prop]', True)]
+    tiers += [(f'"{gene}"[Gene Name]', False), (f'{gene}[Gene Name]', False),
+              (f'{gene}[All Fields] AND alive[prop]', False)]
+
+    def best_of(ids):
+        try:
+            h = Entrez.esummary(db="gene", id=",".join(ids[:20])); s = Entrez.read(h); h.close()
+            docs = list(s["DocumentSummarySet"]["DocumentSummary"])
+        except Exception:
+            return None, 0.0
+        if not docs:
+            return None, 0.0
+        docs.sort(key=lambda d: _gene_match_score(d, gene), reverse=True)
+        return docs[0], _gene_match_score(docs[0], gene)
+
+    for term, in_org in tiers:
+        try:
+            h = Entrez.esearch(db="gene", term=term, retmax=20)
+            ids = Entrez.read(h)["IdList"]; h.close()
+        except Exception:
+            ids = []
+        if ids:
+            doc, score = best_of(ids)
+            if doc is None:
+                continue
+            clean = score >= 25                      # all query words present, no unrequested modifier
+            if in_org and not clean:
+                continue                             # only decoys here -> look the gene up elsewhere
+            try:
+                uid = doc.attributes.get("uid", ids[0])
+            except Exception:
+                uid = ids[0]
+            return dict(found=True, symbol=str(doc.get("Name") or gene), gene_id=uid,
+                        organism=str((doc.get("Organism") or {}).get("ScientificName") or org or ""),
+                        description=str(doc.get("Description") or ""),
+                        in_requested_organism=in_org, clean=clean)
+        time.sleep(0.11 if Entrez.api_key else 0.34)
+    return dict(found=False)
+
+
+def gene_lookup(gene, organism=None, max_candidates=8):
+    """User-facing gene resolution for the specific-gene finder. Returns the best-match official
+    gene PLUS every other gene whose name matched the text (so IFNG vs IFNGR1/IFNGR2 is laid out
+    for the user), and how many nucleotide mRNA records exist for the best match. Honest about
+    whether the gene is annotated in the requested organism or only found elsewhere."""
+    gene = (gene or "").strip(); org = (organism or "").strip()
+    if not gene:
+        return dict(found=False, error="enter a gene name or symbol")
+    ids, scoped = [], False
+    if org:
+        for term in (f'{gene}[Gene Name] AND {org}[Organism]',
+                     f'{gene}[All Fields] AND {org}[Organism] AND alive[prop]'):
+            try:
+                h = Entrez.esearch(db="gene", term=term, retmax=max_candidates)
+                ids = Entrez.read(h)["IdList"]; h.close()
+            except Exception:
+                ids = []
+            if ids:
+                scoped = True; break
+            time.sleep(0.11 if Entrez.api_key else 0.34)
+    if not ids:
+        for term in (f'{gene}[Gene Name]', f'{gene}[All Fields] AND alive[prop]'):
+            try:
+                h = Entrez.esearch(db="gene", term=term, retmax=max_candidates)
+                ids = Entrez.read(h)["IdList"]; h.close()
+            except Exception:
+                ids = []
+            if ids:
+                break
+            time.sleep(0.11 if Entrez.api_key else 0.34)
+    if not ids:
+        return dict(found=False, gene=gene, organism=org,
+                    error="NCBI Gene has no record matching \u201c%s\u201d%s" % (gene, (" in " + org) if org else ""))
+    try:
+        h = Entrez.esummary(db="gene", id=",".join(ids[:max_candidates]))
+        docs = list(Entrez.read(h)["DocumentSummarySet"]["DocumentSummary"]); h.close()
+    except Exception:
+        docs = []
+    cand = []
+    for d in docs:
+        try:
+            uid = d.attributes.get("uid")
+        except Exception:
+            uid = None
+        cand.append(dict(symbol=str(d.get("Name") or ""), description=str(d.get("Description") or ""),
+                         organism=str((d.get("Organism") or {}).get("ScientificName") or ""),
+                         aliases=str(d.get("OtherAliases") or ""), gene_id=uid,
+                         score=_gene_match_score(d, gene)))
+    cand.sort(key=lambda c: c["score"], reverse=True)
+    best = cand[0] if cand else None
+    n_rec, acc = 0, []
+    if best and best["symbol"]:
+        torg = org or best["organism"]
+        nq = (f'{best["symbol"]}[Gene Name] AND {torg}[Organism]') if torg else f'{best["symbol"]}[Gene Name]'
+        try:
+            n_rec = count_hits(nq)
+            acc = [a.split()[0] for a, _ in search_fetch_fasta(nq, 3)]
+        except Exception:
+            pass
+    in_org = bool(org) and scoped and bool(best) and best["score"] >= 25
+    return dict(found=True, gene=gene, organism=org, scoped=scoped, in_requested_organism=in_org,
+                best=best, candidates=cand[:max_candidates], records=n_rec, accessions=acc)
+
+
 def gene_id_from_accession(acc):
     """Entrez Gene ID linked to a nucleotide accession, via elink (organism-independent).
     This lets the intron check work for a non-model organism that has a RefSeq mRNA but no
