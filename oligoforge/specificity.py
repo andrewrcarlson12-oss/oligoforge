@@ -143,9 +143,10 @@ def intron_check(gene, organism, amp_start=None, amp_end=None, mrna_acc=None,
 def blast_remote(seq, organism=None, hitlist=10, program="blastn", db="nt"):
     if NCBIWWW is None:
         return dict(error="biopython Blast unavailable")
+    seq = (seq or "").strip()
     entrez_q = f"{organism}[Organism]" if organism else None
     h = NCBIWWW.qblast(program, db, seq, hitlist_size=hitlist,
-                       entrez_query=entrez_q, megablast=True)
+                       entrez_query=entrez_q, **_short_blast_kw(seq))
     rec = NCBIXML.read(h); h.close()
     hits = []
     for al in rec.alignments:
@@ -159,10 +160,13 @@ def blast_remote(seq, organism=None, hitlist=10, program="blastn", db="nt"):
 def blast_local(seq, db_path, hitlist=10):
     if not shutil.which("blastn"):
         return dict(error="blastn not on PATH (install BLAST+)")
-    p = subprocess.run(
-        ["blastn", "-db", db_path, "-outfmt", "6 sacc pident length evalue stitle",
-         "-max_target_seqs", str(hitlist)],
-        input=f">q\n{seq}\n", capture_output=True, text=True)
+    seq = (seq or "").strip()
+    cmd = ["blastn", "-db", db_path, "-outfmt", "6 sacc pident length evalue stitle",
+           "-max_target_seqs", str(hitlist)]
+    if len(seq) <= 30:                       # short-query params so primers return hits
+        cmd += ["-word_size", "7", "-evalue", "1000", "-reward", "1", "-penalty", "-3",
+                "-gapopen", "5", "-gapextend", "2", "-dust", "no"]
+    p = subprocess.run(cmd, input=f">q\n{seq}\n", capture_output=True, text=True)
     rows = [l.split("\t") for l in p.stdout.strip().splitlines() if l]
     return dict(query_len=len(seq), n_hits=len(rows), hits=rows, stderr=p.stderr[:200])
 
