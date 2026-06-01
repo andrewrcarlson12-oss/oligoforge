@@ -43,9 +43,9 @@ def clean_seq(raw):
     if len(body) != len(raw_lines):
         notes.append("removed a FASTA header line")
     joined = "".join(body)
-    no_fmt = "".join(ch for ch in joined if not (ch.isspace() or ch.isdigit()))
+    no_fmt = "".join(ch for ch in joined if not (ch.isspace() or ch.isdigit() or ch in "-."))
     if len(no_fmt) != len(joined):
-        notes.append("removed spacing/numbering from a formatted paste")
+        notes.append("removed spacing / numbering / alignment gaps from a formatted paste")
     up = no_fmt.upper()
     bad = sorted({ch for ch in up if ch not in _IUPAC and ch != "U"})
     if bad:
@@ -63,7 +63,9 @@ def revcomp(seq):
 
 
 def _resolve(seq):
-    return "".join(_RESOLVE.get(b, b) for b in seq.upper())
+    # primer3 accepts only ACGT: map each IUPAC code / U to a concrete base and drop anything
+    # else (whitespace, alignment gaps, stray punctuation) so Tm never crashes on a dirty oligo.
+    return "".join(_RESOLVE.get(b, b) for b in seq.upper() if b in "ACGT" or b in _RESOLVE)
 
 
 def has_degenerate(seq):
@@ -92,8 +94,11 @@ def amplicon_tm(seq):
 
 @lru_cache(maxsize=8192)
 def tm(seq):
+    r = _resolve(seq)
+    if not r:
+        return 0.0
     with _P3:
-        return primer3.calc_tm(_resolve(seq), tm_method="santalucia",
+        return primer3.calc_tm(r, tm_method="santalucia",
                                salt_corrections_method="owczarzy", **COND)
 
 

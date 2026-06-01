@@ -242,9 +242,60 @@ button{box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 1px 2px rgba(0,0,0,.45),
 .gf-star{color:var(--acc2);font-weight:700;text-align:center;width:22px}
 .gf-row-rec td{background:rgba(110,231,168,.10)!important}
 table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
+
+/* ---- intro splash (shown once per browser; replayable from footer) ---- */
+#splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(1200px 700px at 50% 28%,rgba(92,200,255,.10),transparent 60%),linear-gradient(180deg,#070b11,#0a0f17 60%,#070a10);
+  opacity:1;transition:opacity .55s ease,visibility .55s ease}
+#splash.gone{opacity:0;visibility:hidden;pointer-events:none}
+#splash .scard{position:relative;text-align:center;padding:34px 46px;max-width:520px;animation:splashIn .8s cubic-bezier(.2,.8,.2,1) both}
+@keyframes splashIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+#splash .helix{width:104px;height:104px;margin:0 auto 4px;display:block}
+#splash .helix g{transform-origin:54px 54px;animation:helixSpin 9s linear infinite}
+@keyframes helixSpin{to{transform:rotate(360deg)}}
+#splash .helix .strand{fill:none;stroke:var(--acc);stroke-width:3;stroke-linecap:round;opacity:.9}
+#splash .helix .strand.b{stroke:var(--acc2)}
+#splash .helix .rung{stroke:var(--line2);stroke-width:2.2;stroke-linecap:round;animation:rungPulse 2.6s ease-in-out infinite}
+@keyframes rungPulse{0%,100%{stroke:var(--line2)}50%{stroke:var(--acc)}}
+#splash h1{margin:.3em 0 .1em;font:700 40px/1 var(--ui);letter-spacing:-.5px;background:linear-gradient(92deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+#splash .tag{color:var(--ink2);font:13px/1.5 var(--mono);letter-spacing:.4px}
+#splash .seqticker{color:var(--dim);font:11px/1.4 var(--mono);letter-spacing:3px;height:15px;overflow:hidden;margin:9px 0 14px;-webkit-mask:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
+#splash .seqticker span{display:inline-block;white-space:nowrap;animation:seqScroll 16s linear infinite}
+@keyframes seqScroll{to{transform:translateX(-50%)}}
+#splash .curve{width:236px;height:40px;margin:0 auto 18px;display:block;opacity:.85}
+#splash .curve path{fill:none;stroke:var(--acc);stroke-width:2.4;stroke-linecap:round;stroke-dasharray:320;stroke-dashoffset:320;animation:cdraw 2.2s ease-out .35s forwards}
+@keyframes cdraw{to{stroke-dashoffset:0}}
+#splash button{font:600 15px var(--ui);color:#04121d;background:linear-gradient(180deg,var(--acc),var(--acc-d));border:0;border-radius:11px;padding:13px 32px;cursor:pointer;box-shadow:0 10px 30px -10px rgba(92,200,255,.6),var(--edge);transition:transform .15s ease,box-shadow .2s ease}
+#splash button:hover{transform:translateY(-2px);box-shadow:0 16px 38px -12px rgba(92,200,255,.78)}
+#splash button:active{transform:translateY(0)}
+#splash .hint{margin-top:13px;color:var(--dim);font:11px/1 var(--mono);letter-spacing:1px}
+#introReplay{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--line2);cursor:pointer}
+#introReplay:hover{color:var(--acc)}
+@media (prefers-reduced-motion:reduce){#splash .helix g,#splash .seqticker span{animation:none}#splash .curve path{animation:cdraw .01s linear forwards}#splash .scard{animation:none}}
 </style>
 </head>
 <body>
+<div id="splash" role="dialog" aria-label="Welcome to OligoForge" tabindex="-1">
+  <div class="scard">
+    <svg class="helix" viewBox="0 0 108 108" aria-hidden="true"><g>
+      <path class="strand"   d="M30 6 C66 28 66 28 30 54 C-6 80 -6 80 30 102"/>
+      <path class="strand b" d="M78 6 C42 28 42 28 78 54 C114 80 114 80 78 102"/>
+      <line class="rung" x1="34" y1="16" x2="74" y2="16" style="animation-delay:0s"/>
+      <line class="rung" x1="48" y1="30" x2="60" y2="30" style="animation-delay:.25s"/>
+      <line class="rung" x1="34" y1="44" x2="74" y2="44" style="animation-delay:.5s"/>
+      <line class="rung" x1="48" y1="64" x2="60" y2="64" style="animation-delay:.75s"/>
+      <line class="rung" x1="34" y1="78" x2="74" y2="78" style="animation-delay:1s"/>
+      <line class="rung" x1="48" y1="92" x2="60" y2="92" style="animation-delay:1.25s"/>
+    </g></svg>
+    <h1>OligoForge</h1>
+    <div class="tag">qPCR primer &amp; probe design · validation · QC</div>
+    <div class="seqticker"><span>ACGT · CYTB · COI · 16S · ITS · rbcL · rpoB · IFNG · ACGT · CYTB · COI · 16S · ITS · rbcL · rpoB · IFNG · </span></div>
+    <svg class="curve" viewBox="0 0 236 40" aria-hidden="true"><path d="M4 36 C92 36 118 34 146 21 C172 9 198 6 232 5"/></svg>
+    <button id="splashEnter" type="button">Enter OligoForge →</button>
+    <div class="hint">click anywhere or press Enter</div>
+  </div>
+</div>
+
 <header>
   <div class="brand"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="flex:0 0 auto"><defs><linearGradient id="ofg" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop stop-color="#6fd2ff"/><stop offset="1" stop-color="#7ee787"/></linearGradient></defs><path d="M8 3C16 7.5 8 16.5 16 21" stroke="url(#ofg)" stroke-width="1.7" stroke-linecap="round"/><path d="M16 3C8 7.5 16 16.5 8 21" stroke="url(#ofg)" stroke-width="1.7" stroke-linecap="round"/><line x1="9.4" y1="6.1" x2="14.6" y2="6.1" stroke="url(#ofg)" stroke-width="1.2" stroke-linecap="round"/><line x1="9.4" y1="12" x2="14.6" y2="12" stroke="url(#ofg)" stroke-width="1.2" stroke-linecap="round"/><line x1="9.4" y1="17.9" x2="14.6" y2="17.9" stroke="url(#ofg)" stroke-width="1.2" stroke-linecap="round"/></svg><h1>Oligo<b>Forge</b></h1></div><span class="sub">qPCR primer / probe design + QC · local</span>
   <div class="cond" title="reaction salt used for every Tm — match it to your master mix">
@@ -440,6 +491,8 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
         <option value="thermo_taqman">Thermo TaqMan (MGB)</option>
         <option value="parasite_mtdna">Parasite mtDNA — low-Tm TaqMan</option>
         <option value="parasite_sybr">Parasite mtDNA — low-Tm SYBR</option>
+        <option value="gc_rich">GC-rich — high-Tm TaqMan</option>
+        <option value="gc_rich_sybr">GC-rich — high-Tm SYBR</option>
         <option value="biorad_probe">Bio-Rad PrimePCR</option>
         <option value="sybr_generic">SYBR generic</option>
       </select></div>
@@ -534,7 +587,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.11.5</footer>
+<footer>OligoForge v1.11.8 · <a href="#" id="introReplay">replay intro</a></footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -1162,5 +1215,19 @@ async function deleteProject(){const nm=document.getElementById("pj_sel").value;
 initConditions();
 loadProjectList();
 renderPanel();
+
+/* intro splash: show once per browser, instant to dismiss, replayable from the footer.
+   Element-level handlers + guards only, so the headless test harness can't trip on it. */
+(function(){try{
+  var sp=document.getElementById('splash'); if(!sp) return;
+  function enter(){ try{localStorage.setItem('of_seen_intro','1');}catch(e){} sp.classList.add('gone'); }
+  function open(){ try{sp.style.display='';}catch(e){} try{void sp.offsetHeight;}catch(e){} sp.classList.remove('gone'); var x=document.getElementById('splashEnter'); if(x){try{x.focus();}catch(e){}} }
+  var b=document.getElementById('splashEnter'); if(b){ b.addEventListener('click',enter); }
+  sp.addEventListener('click',function(ev){ if(ev&&ev.target===sp) enter(); });
+  sp.addEventListener('keydown',function(ev){ if(ev&&(ev.key==='Enter'||ev.key==='Escape')) enter(); });
+  var rep=document.getElementById('introReplay'); if(rep){ rep.addEventListener('click',function(ev){ if(ev&&ev.preventDefault)ev.preventDefault(); open(); }); }
+  var seen=false; try{ seen=localStorage.getItem('of_seen_intro')==='1'; }catch(e){}
+  if(seen){ try{sp.style.display='none';}catch(e){} } else if(b){ try{b.focus();}catch(e){} }
+}catch(e){}})();
 </script>
 </body></html>

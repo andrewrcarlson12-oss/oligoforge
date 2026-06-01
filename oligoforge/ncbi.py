@@ -16,6 +16,7 @@ try:
 except ValueError:
     NCBI_TIMEOUT = 600.0
 socket.setdefaulttimeout(NCBI_TIMEOUT)
+from io import StringIO
 
 Entrez.email = "set-me@example.com"   # set to your address; NCBI requires it
 Entrez.api_key = None                  # optional: set for 10 req/s instead of 3
@@ -23,9 +24,14 @@ Entrez.api_key = None                  # optional: set for 10 req/s instead of 3
 
 def _records(ids, rettype="fasta"):
     h = Entrez.efetch(db="nucleotide", id=list(ids), rettype=rettype, retmode="text")
-    recs = list(SeqIO.parse(h, "genbank" if rettype == "gb" else "fasta"))
-    h.close()
-    return recs
+    try:
+        raw = h.read()
+    finally:
+        h.close()
+    if rettype == "gb":
+        return list(SeqIO.parse(StringIO(raw), "genbank"))
+    cut = raw.find(">")                     # drop any NCBI notice/comment before the first FASTA record
+    return list(SeqIO.parse(StringIO(raw[cut:] if cut >= 0 else ""), "fasta"))
 
 
 def fetch_accessions(accs, rettype="fasta"):
@@ -301,17 +307,20 @@ def search_fetch_fasta(query, n=10):
     if not ids:
         return []
     h = Entrez.efetch(db="nucleotide", id=",".join(ids), rettype="fasta", retmode="text")
-    recs, total = [], 0
     try:
-        for r in SeqIO.parse(h, "fasta"):        # stream: never read the whole response into memory
-            s = str(r.seq)
-            if len(s) > 120000:                  # defensive: skip any oversized record that slips through
-                continue
-            recs.append((r.description, s)); total += len(s)
-            if len(recs) >= n or total > 4_000_000:
-                break
+        raw = h.read()                            # SLEN filter caps each record at 120 kb, so this is bounded
     finally:
         h.close()
+    cut = raw.find(">")                            # NCBI sometimes prepends a notice/comment that the strict
+    raw = raw[cut:] if cut >= 0 else ""            # FASTA parser rejects; drop anything before the first record
+    recs, total = [], 0
+    for r in SeqIO.parse(StringIO(raw), "fasta"):
+        s = str(r.seq)
+        if len(s) > 120000:                       # defensive: skip any oversized record that slips through
+            continue
+        recs.append((r.description, s)); total += len(s)
+        if len(recs) >= n or total > 4_000_000:
+            break
     return recs
 
 

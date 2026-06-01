@@ -97,11 +97,39 @@ PARASITE_SYBR = dict(
     notes="No probe; AT-rich mtDNA primers only (e.g. apicomplexan cytb), ~54C anneal.",
 )
 
+GC_RICH = dict(
+    name="GC-rich target (high-Tm TaqMan)",
+    len_min=16, len_max=24, gc_min=50.0, gc_max=85.0,
+    tm_min=60.0, tm_max=68.0, tm_opt=64.0,
+    # GC-rich: short primers avoid runaway Tm; tolerate higher GC% and short G/C runs
+    no_three_prime_T=True, max_3prime_gc=4, min_3prime_gc=1, max_g_run=5, max_any_run=6,
+    hairpin_min=-3.0, self_dimer_min=-8.0, pair_dimer_min=-8.0, pair_tm_gap_max=2.5,
+    amp_min=70, amp_max=150, min_probe_gap=10,
+    probe_len_min=15, probe_len_max=30, probe_offset_min=5.0, probe_offset_max=10.5,
+    probe_hairpin_min=-2.5,
+    notes="GC-rich targets (e.g. high-GC Actinobacteria like Mycobacterium/Streptomyces, "
+          "GC-rich viral genomes). Short primers keep Tm in range; higher GC% and short G/C "
+          "runs are tolerated. These templates fold strongly \u2014 check the amplicon structure "
+          "and consider DMSO or 7-deaza-dGTP in the reaction.",
+)
+GC_RICH_SYBR = dict(
+    name="GC-rich target (high-Tm SYBR, no probe)",
+    len_min=16, len_max=24, gc_min=50.0, gc_max=85.0,
+    tm_min=60.0, tm_max=68.0, tm_opt=64.0,
+    no_three_prime_T=True, max_3prime_gc=4, min_3prime_gc=1, max_g_run=5, max_any_run=6,
+    hairpin_min=-3.0, self_dimer_min=-8.0, pair_dimer_min=-8.0, pair_tm_gap_max=2.5,
+    amp_min=70, amp_max=200, min_probe_gap=0,
+    probe_len_min=0, probe_len_max=0, probe_offset_min=0, probe_offset_max=0,
+    probe_hairpin_min=-99, no_probe=True,
+    notes="No probe; GC-rich primers only. Strong template structure \u2014 consider DMSO / 7-deaza-dGTP.",
+)
+
 PROFILES = {
     "idt_taqman": IDT_TAQMAN, "idt_affinity": IDT_AFFINITY,
     "thermo_taqman": THERMO_TAQMAN, "biorad_probe": BIORAD_PROBE,
     "sybr_generic": SYBR_GENERIC,
     "parasite_mtdna": PARASITE_MTDNA, "parasite_sybr": PARASITE_SYBR,
+    "gc_rich": GC_RICH, "gc_rich_sybr": GC_RICH_SYBR,
 }
 
 

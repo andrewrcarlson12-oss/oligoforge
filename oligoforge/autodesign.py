@@ -11,7 +11,7 @@ confirming finals in OligoAnalyzer, or bench validation. A bare organism name al
 under-specifies the problem: it needs the gene (so the fetched sequences share a
 locus) and, for a detection assay, what to discriminate against.
 """
-from . import design as D, conservation as C, ncbi as N, thermo as T, profiles as PROF, specificity as SP, structure as STR
+from . import design as D, conservation as C, ncbi as N, thermo as T, profiles as PROF, specificity as SP, structure as STR, refmarkers as RM
 
 # Mitochondrial / ribosomal barcode words: their GenBank records (e.g. MalAvi cytb
 # barcodes) are deposited as partial sequences not linked to a Gene record, so a precise
@@ -21,7 +21,8 @@ from . import design as D, conservation as C, ncbi as N, thermo as T, profiles a
 _MARKER_WORDS = {"cytb", "cob", "cytochrome", "oxidase", "nadh", "cox1", "cox2", "cox3", "coi", "co1", "coii", "coiii",
                  "nad1", "nad5", "nad4", "atp6", "18s", "28s", "16s", "23s", "12s",
                  "its", "its1", "its2", "rrna", "ribosomal", "rbcl", "matk", "trnl",
-                 "trnh", "psba", "rdrp", "ssu", "lsu", "d-loop"}
+                 "trnh", "psba", "rdrp", "ssu", "lsu", "d-loop",
+                 "spacer", "intergenic", "transcribed", "minicircle", "kinetoplast"}
 
 
 def _is_marker(gene):
@@ -204,7 +205,14 @@ def _degenerate(oligo, targets, max_mm_frac=0.25, min_minor=0.18, min_count=2, c
 
 
 def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidates=5):
-    targets = [t for t in targets if t and len(t) > 60]
+    # defensive: de-gap / uppercase / RNA->DNA each sequence and drop anything unusable, so a
+    # pasted alignment or RNA sequence is corrected here rather than reaching the Tm engine dirty.
+    _clean = []
+    for t in (targets or []):
+        c, _n, err = T.clean_seq(t) if isinstance(t, str) and t.strip() else ("", None, "empty")
+        if c and not err:
+            _clean.append(c)
+    targets = [t for t in _clean if len(t) > 60]
     if not targets:
         return dict(error="no usable target sequences (need >=1, ideally several)")
     ref = _reference(targets)
@@ -248,13 +256,30 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
     return out
 
 
-AUTO_ORDER = ["idt_taqman", "parasite_mtdna", "parasite_sybr"]
+AUTO_ORDER = ["idt_taqman", "parasite_mtdna", "gc_rich", "parasite_sybr"]   # normal-composition default
 _PRETTY = {"idt_taqman": "IDT PrimeTime (ZEN double-quenched probe)",
            "idt_affinity": "IDT Affinity Plus (LNA probe)",
            "thermo_taqman": "Thermo TaqMan (MGB)",
            "parasite_mtdna": "low-Tm TaqMan \u2014 order the probe as IDT Affinity Plus (LNA)",
            "parasite_sybr": "low-Tm SYBR (primers only, no probe)",
+           "gc_rich": "GC-rich high-Tm TaqMan (short primers; consider DMSO / 7-deaza-dGTP)",
+           "gc_rich_sybr": "GC-rich high-Tm SYBR (no probe)",
            "biorad_probe": "Bio-Rad PrimePCR", "sybr_generic": "SYBR generic"}
+
+
+def _auto_order(ref):
+    """Composition-aware chemistry order for Auto. AT-rich and GC-rich targets each get their
+    tuned low-/high-Tm profile tried FIRST (the same first-class treatment), instead of spending
+    the first attempt on a generic profile that cannot meet the Tm/GC window \u2014 and, on a GC-rich
+    target, failing every profile. 40-62% GC keeps the standard IDT-first order.
+    Returns (ordered_profile_keys, gc_percent)."""
+    s = (ref or "").upper()
+    gc = 100.0 * sum(c in "GC" for c in s) / max(1, len(s))
+    if gc < 40.0:
+        return ["parasite_mtdna", "idt_taqman", "gc_rich", "parasite_sybr"], gc
+    if gc > 62.0:
+        return ["gc_rich", "idt_taqman", "parasite_mtdna", "sybr_generic"], gc
+    return list(AUTO_ORDER), gc
 
 
 def _amplicon_on(seq, fwd, amplen):
@@ -376,7 +401,7 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
     AT-rich parasite target lands on the low-Tm TaqMan instead of just failing."""
     _org, _gene = _split_query(target_query)
     _resolved, _fetch_q = None, target_query
-    if _gene and _org and not _is_marker(_gene):
+    if _gene and _org and not _is_marker(_gene) and not RM.gold_standard_query(_org, _gene):
         try:
             _resolved = N.resolve_gene(_gene, _org)
         except Exception:
@@ -404,7 +429,9 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
 
     if profile_key == "auto":
         out, tried = None, []
-        for pk in AUTO_ORDER:
+        _refseq = _reference([t for t in tg if t and len(t) > 60] or tg)
+        order, _autogc = _auto_order(_refseq)
+        for pk in order:
             tried.append(pk)
             r = design_from_sequences(tg, PROF.PROFILES[pk], off, min_ident)
             if r.get("candidates"):
@@ -412,10 +439,12 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
                 out["profile_used"] = pk
                 break
         if out is None:
-            return dict(error="Auto could not place a clean assay in any IDT chemistry for this "
-                              "target. The region may be too variable, or the fetched sequences too "
-                              "short for a full amplicon; try a different gene/region, or pick MGB "
-                              "manually.", tried=tried, target_query=target_query, off_query=off_query)
+            return dict(error="Auto could not place a clean assay in any chemistry for this target "
+                              "(tried %s at %.0f%% GC). The region may be too variable, or the fetched "
+                              "sequences too short for a full amplicon; try a different gene/region, a "
+                              "wider amplicon, or pick a profile manually." % (", ".join(tried), _autogc),
+                              tried=tried, target_query=target_query, off_query=off_query)
+        out["auto_gc"] = round(_autogc, 1)
     else:
         prof = PROF.PROFILES.get(profile_key)
         if not prof:

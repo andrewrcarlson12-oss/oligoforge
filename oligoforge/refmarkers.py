@@ -227,6 +227,26 @@ _SPECIFIC = [
     (["mycobacterium"], [MTB_IS6110, MTB_HSP65]),
 ]
 
+
+def gold_standard_query(organism, gene):
+    """If (organism, gene) names a curated taxon-specific gold-standard target -- e.g. Toxoplasma
+    'B1' / 'RE', Mycobacterium 'IS6110' / 'hsp65' -- return its marker query so a direct design
+    query routes to the free-text marker fetch instead of colliding with an unrelated gene symbol
+    (the classic failure: Toxoplasma 'B1' -> human cyclin B1, CCNB1). Returns None when no match,
+    so normal protein-coding genes are unaffected."""
+    org = (organism or "").lower()
+    g = (gene or "").lower().replace("gene", "").replace("-", " ").strip()
+    if not g:
+        return None
+    gtoks = {t for t in g.split() if t}
+    for keys, markers in _SPECIFIC:
+        if any(k in org for k in keys):
+            for m in markers:
+                hay = (m["gene"] + " " + m["name"] + " " + m["q"]).lower().replace("-", " ")
+                if g in hay or (gtoks & set(hay.split())):
+                    return m["q"]
+    return None
+
 _RELATIVES = {
     "haemoproteus": ["Plasmodium", "Leucocytozoon"], "plasmodium": ["Haemoproteus", "Leucocytozoon"],
     "leucocytozoon": ["Plasmodium", "Haemoproteus"], "babesia": ["Theileria"], "theileria": ["Babesia"],
