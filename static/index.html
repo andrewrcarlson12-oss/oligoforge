@@ -587,7 +587,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.11.8 · <a href="#" id="introReplay">replay intro</a></footer>
+<footer>OligoForge v1.11.9 · <a href="#" id="introReplay">replay intro</a></footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -926,7 +926,7 @@ async function doAuto(){const o=document.getElementById("au_out");
  LAST_AUTO={assay:d.candidates[0].assay,pretty:d.profile_pretty,query:d.target_query,acc:d.source_accession};
  LAST_AUTO_FULL=d;
  const probeKind=(d.profile_used==="idt_affinity"||d.profile_used==="parasite_mtdna")?"probe_lna":"probe_zen";
- let h=`<small class="note">fetched ${d.n_targets} target${d.n_offs?(", "+d.n_offs+" off-target"):""}; designed on a ${d.reference_len} nt reference; ${d.n_candidates} candidate(s). Screen only — confirm in OligoAnalyzer.</small>${d.constraint_note?`<div class="note" style="margin-top:4px"><b class="WARN">heads up:</b> ${esc(d.constraint_note)}</div>`:""}
+ let h=`<small class="note">fetched ${d.n_targets} target${d.n_offs?(", "+d.n_offs+" off-target"):""}; designed on a ${d.reference_len} nt reference; ${d.n_candidates} candidate(s). Screen only — confirm in OligoAnalyzer.</small>${!d.n_offs?`<div class="hint" style="margin-top:4px"><b>No off-target set.</b> To score cross-reactivity (e.g. Plasmodium vs Haemoproteus), put an off-target query in the <b>off-target to discriminate against</b> field above, or use the marker finder’s <b>Design with … vs …</b> button — the off-target column appears once one is set.</div>`:''}${d.constraint_note?`<div class="note" style="margin-top:4px"><b class="WARN">heads up:</b> ${esc(d.constraint_note)}</div>`:""}
    <div class="card" style="margin-top:8px;border-color:var(--acc)">chemistry chosen: <b>${d.profile_pretty||d.profile_used}</b></div>`;
  d.candidates.forEach((c,i)=>{const a=c.assay,cn=c.conservation,ds=c.discrimination;
   const rows=[["Fwd",a.forward,a.f_tm,"F"],["Rev",a.reverse,a.r_tm,"R"]];
@@ -935,7 +935,7 @@ async function doAuto(){const o=document.getElementById("au_out");
    <table><tr><th></th><th>sequence</th><th>Tm</th><th title="Average % of bases matching across your whole target set. Higher = the oligo is conserved and binds every target.">target&nbsp;match&nbsp;↑</th><th title="Lowest % match among the last 5 bases — the 3′ end. Polymerase extends from the 3′ end, so any mismatch here can stop priming. Keep this high.">3′-end&nbsp;match&nbsp;↑</th>${ds?'<th title="Closest identity to the off-target set / fewest mismatches at any off-target site. You WANT the oligo to differ from off-targets, so lower % and more mismatches is better.">off-target&nbsp;↓</th>':''}</tr>`+
    rows.map(([lab,seq,tm,k])=>{const cc=cn[k]||{};const od=ds&&ds[k]&&ds[k].n?ds[k]:null;const dcls=od?(od.max_ident>=90?'FAIL':(od.max_ident>=80?'WARN':'PASS')):'';const dd=od?`${od.max_ident}% / ${od.min_mismatch}mm${od.indel_masked?' <span title="matches closely once a small indel is allowed — ungapped screen understates; confirm in BLAST">⚠</span>':''}`:(ds?'—':'');
      return `<tr><td>${lab}</td><td class="mono">${seq}</td><td>${tm?tm.toFixed(1):'—'}</td><td class="${cc.mean_ident<90?'WARN':'PASS'}">${cc.mean_ident!=null?cc.mean_ident:'—'}%</td><td class="${cc.worst_3prime<90?'FAIL':'PASS'}">${cc.worst_3prime!=null?cc.worst_3prime:'—'}%</td>${ds?('<td class="'+dcls+'">'+dd+'</td>'):''}</tr>`;}).join("")+
-   `</table><div class="legend">↑ higher is better &nbsp;·&nbsp; ↓ lower is better &nbsp;·&nbsp; <b class="PASS">green</b> = good, <b class="WARN">amber</b> = check, <b class="FAIL">red</b> = problem &nbsp;·&nbsp; off-target shows closest identity&nbsp;/&nbsp;mismatches (<b>mm</b>)</div>`+
+   `</table><div class="legend">↑ higher is better &nbsp;·&nbsp; ↓ lower is better &nbsp;·&nbsp; <b class="PASS">green</b> = good, <b class="WARN">amber</b> = check, <b class="FAIL">red</b> = problem${ds?' &nbsp;·&nbsp; off-target shows closest identity&nbsp;/&nbsp;mismatches (<b>mm</b>)':''}</div>`+
    (a.probe_lna&&a.probe_lna.notation?`<div class="card" style="margin:6px 0"><b>LNA placement (suggested)</b> <span class="mono">${a.probe_lna.notation}</span><br><span class="hint">${a.probe_lna.n_lna} LNA · ${a.probe_lna.mode||""} · est. Tm ${a.probe_lna.est_tm_low!=null?a.probe_lna.est_tm_low+"–"+a.probe_lna.est_tm_high+" °C":"(confirm in OligoAnalyzer)"}. ${a.probe_lna.note||""}</span></div>`:"")+
    candExtras(c)+
    ampliconMap(a)+
@@ -1120,7 +1120,7 @@ function gfScore(m,goal){
  else if(goal==="detect")s+=(m.conservation==="conserved")?12:(m.conservation==="moderate"?4:-3);
  if(goal==="separate"&&m.off_count!=null)s+=(m.off_count>0?4:-10);
  return s;}
-function gfRender(d){const _i=(document.getElementById("gf_intent")||{}).value||"any";const goal=d.exclude?"separate":(_i==="genotype"?"separate":(_i==="detect"?"detect":""));
+function gfRender(d){const _i=(document.getElementById("gf_intent")||{}).value||"any";const goal=d.exclude?"separate":(_i==="genotype"?"separate":(_i==="detect"?"detect":(d.relatives&&d.relatives.length?"separate":"detect")));
  const ms=(d.markers||[]).slice();let ranked=ms,rec=null;
  if(goal&&ms.length){ranked=ms.slice().sort((a,b)=>gfScore(b,goal)-gfScore(a,goal));if(gfScore(ranked[0],goal)>-1e8)rec=ranked[0];}
  const sc=d.scanned;

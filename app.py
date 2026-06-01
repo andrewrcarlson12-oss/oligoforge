@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
 
-app = FastAPI(title="OligoForge", version="1.11.8")
+app = FastAPI(title="OligoForge", version="1.11.9")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
