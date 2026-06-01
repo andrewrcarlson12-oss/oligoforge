@@ -18,7 +18,7 @@ from . import design as D, conservation as C, ncbi as N, thermo as T, profiles a
 # [Gene Name] fetch would MISS them — keep these as free-text. Protein-coding genes
 # (IFNG, IL4, RPL13...) instead get the precise fetch so "interferon gamma" lands on IFNG,
 # not IFNGR1 (interferon-gamma receptor 1).
-_MARKER_WORDS = {"cytb", "cob", "cox1", "cox2", "cox3", "coi", "co1", "coii", "coiii",
+_MARKER_WORDS = {"cytb", "cob", "cytochrome", "oxidase", "nadh", "cox1", "cox2", "cox3", "coi", "co1", "coii", "coiii",
                  "nad1", "nad5", "nad4", "atp6", "18s", "28s", "16s", "23s", "12s",
                  "its", "its1", "its2", "rrna", "ribosomal", "rbcl", "matk", "trnl",
                  "trnh", "psba", "rdrp", "ssu", "lsu", "d-loop"}
@@ -106,6 +106,103 @@ def _score(assay, targets, offs, min_ident):
     return round(s, 1), cons, disc
 
 
+# IUPAC degenerate lookup (reverse of thermo._IUPAC_SETS): frozenset of bases -> code letter
+_DEG_CODE = {frozenset(v): k for k, v in T._IUPAC_SETS.items()}
+
+
+def _seq_quality(seq):
+    """Sequence red flags that primer3's per-oligo filters still let through: long
+    mononucleotide runs, dinucleotide repeats (slippage / homodimer), extreme GC.
+    Returns (flag_strings, score_penalty)."""
+    s = (seq or "").upper(); n = len(s)
+    if not n:
+        return [], 0.0
+    flags, pen = [], 0.0
+    gc = 100.0 * sum(c in "GC" for c in s) / n
+    run = mx = 1
+    for i in range(1, n):
+        run = run + 1 if s[i] == s[i - 1] else 1
+        mx = max(mx, run)
+    if mx >= 6:
+        flags.append("%d-base run" % mx); pen += 2.0
+    elif mx == 5:
+        flags.append("5-base run"); pen += 0.5
+    best_di = 0
+    for i in range(n - 3):
+        a, b = s[i], s[i + 1]
+        if a == b:
+            continue
+        j, units = i, 0
+        while j + 1 < n and s[j] == a and s[j + 1] == b:
+            units += 1; j += 2
+        best_di = max(best_di, units)
+    if best_di >= 4:
+        flags.append("%dx dinucleotide repeat" % best_di); pen += 2.0
+    elif best_di == 3:
+        flags.append("3x dinucleotide repeat"); pen += 0.8
+    if gc > 72:
+        flags.append("GC %.0f%% high" % gc); pen += 1.5
+    elif gc < 28:
+        flags.append("GC %.0f%% low" % gc); pen += 1.0
+    return flags, pen
+
+
+def _best_window(oligo, seq):
+    """Lowest-mismatch ungapped placement of oligo in seq; returns (window, mismatches)."""
+    L = len(oligo); best, bestmm = None, L + 1
+    for i in range(0, len(seq) - L + 1):
+        mm = 0
+        for a, b in zip(oligo, seq[i:i + L]):
+            if a != b:
+                mm += 1
+                if mm >= bestmm:
+                    break
+        if mm < bestmm:
+            bestmm, best = mm, seq[i:i + L]
+            if mm == 0:
+                break
+    return best, bestmm
+
+
+def _degenerate(oligo, targets, max_mm_frac=0.25, min_minor=0.18, min_count=2, cap=40):
+    """Place the oligo against every target (both orientations), tally the best-matching
+    window per target, and emit IUPAC codes where targets disagree -- this is what lets a
+    genus design carry a W/R/Y for pan-genus coverage rather than a single consensus base.
+    Returns (degenerate_seq, n_degenerate_positions, n_targets_used)."""
+    o = (oligo or "").upper(); L = len(o)
+    if L < 8:
+        return o, 0, 0
+    cols = [{} for _ in range(L)]; used = 0
+    for t in targets[:cap]:
+        t = t.upper()
+        w1, m1 = _best_window(o, t)
+        try:
+            w2, m2 = _best_window(o, T.revcomp(t))
+        except Exception:
+            w2, m2 = None, L + 1
+        w, mm = (w1, m1) if m1 <= m2 else (w2, m2)
+        if w is None or mm > L * max_mm_frac:
+            continue
+        used += 1
+        for i, ch in enumerate(w):
+            if ch in "ACGT":
+                cols[i][ch] = cols[i].get(ch, 0) + 1
+    if used < 2:
+        return o, 0, used
+    out, ndeg = [], 0
+    for i, ch0 in enumerate(o):
+        c = cols[i]; tot = sum(c.values())
+        if not tot:
+            out.append(ch0); continue
+        maj = max(c, key=c.get)
+        keep = {b for b, k in c.items() if k >= min_count and k / tot >= min_minor}
+        keep.add(maj)
+        out.append(_DEG_CODE.get(frozenset(keep), maj))
+        if len(keep) > 1:
+            ndeg += 1
+    return "".join(out), ndeg, used
+
+
 def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidates=5):
     targets = [t for t in targets if t and len(t) > 60]
     if not targets:
@@ -117,13 +214,38 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
                           "AT-rich targets like parasite mtDNA can't reach a high-Tm probe — use the "
                           "Auto setting, or pick a low-Tm / MGB profile. (Very short fetched sequences "
                           "can also lack a full amplicon window.)")
+    multi = len(targets) >= 2
     scored = []
     for a in cands:
         sc, cons, disc = _score(a, targets, offs, min_ident)
-        scored.append(dict(score=sc, assay=a, conservation=cons, discrimination=disc))
+        qf, pen = _seq_quality(a["forward"])
+        rqf, rpen = _seq_quality(a["reverse"]); qf = list(qf) + list(rqf); pen += rpen
+        if a.get("probe"):
+            pqf, ppen = _seq_quality(a["probe"]); qf += pqf; pen += ppen
+        a["quality_flags"] = qf
+        if multi:                         # genus / multi-template: add degenerate coverage
+            df, ndf, nu = _degenerate(a["forward"], targets)
+            dr, ndr, _ = _degenerate(a["reverse"], targets)
+            dp, ndp = (None, 0)
+            if a.get("probe"):
+                dp, ndp, _ = _degenerate(a["probe"], targets)
+            if nu >= 2 and (ndf + ndr + ndp) > 0:
+                a["forward_deg"], a["reverse_deg"] = df, dr
+                if dp is not None:
+                    a["probe_deg"] = dp
+                a["n_degenerate"] = ndf + ndr + ndp
+                a["deg_targets"] = nu
+        scored.append(dict(score=round(sc - pen, 1), score_raw=sc, quality_penalty=round(pen, 1),
+                           assay=a, conservation=cons, discrimination=disc))
     scored.sort(key=lambda x: -x["score"])
-    return dict(n_targets=len(targets), n_offs=len(offs) if offs else 0,
-                reference_len=len(ref), n_candidates=len(scored), candidates=scored)
+    out = dict(n_targets=len(targets), n_offs=len(offs) if offs else 0,
+               reference_len=len(ref), n_candidates=len(scored),
+               n_requested=n_candidates, candidates=scored)
+    if len(scored) < n_candidates:
+        out["constraint_note"] = ("only %d clean set(s) met the %s constraints on this target — "
+            "AT-rich or short targets tighten the design space. Try the Auto setting, a low-Tm/MGB "
+            "profile, or a wider amplicon window for more options." % (len(scored), profile.get("name", "selected")))
+    return out
 
 
 AUTO_ORDER = ["idt_taqman", "parasite_mtdna", "parasite_sybr"]

@@ -534,7 +534,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.11.2</footer>
+<footer>OligoForge v1.11.4</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -842,6 +842,10 @@ function candExtras(c){let h="";
  const st=c.structure;
  if(st&&st.mfe!=null){const sites=[["F",st.f_paired],["R",st.r_paired],["P",st.p_paired]].filter(x=>x[1]!=null);const bad=sites.filter(x=>x[1]>=0.5).map(x=>x[0]);
   h+=`<div style="margin-top:4px"><span class="amp-cap" style="display:inline">structure</span> amplicon ΔG <b class="${st.mfe_per_nt<=-0.4?'WARN':'PASS'}">${st.mfe} kcal/mol</b>`+(sites.length?` · binding-site paired `+sites.map(x=>`${x[0]} <b class="${x[1]>=0.5?'WARN':'PASS'}">${Math.round(x[1]*100)}%</b>`).join(" · "):"")+(bad.length?` <span class="hint">— structure over ${bad.join("/")} may hinder binding</span>`:"")+` <span class="hint">(ViennaRNA${st.dna?", DNA params":", RNA approx"})</span></div>`;}
+ const a=c.assay||{};
+ if(a.quality_flags&&a.quality_flags.length){h+=`<div style="margin-top:4px"><span class="amp-cap" style="display:inline">sequence</span> `+a.quality_flags.map(f=>`<span class="achip warn">${esc(f)}</span>`).join(" ")+` <span class="hint">\u2014 primer3 permits these but they can cause slippage/dimers or weak binding; prefer a cleaner candidate or verify in OligoAnalyzer</span></div>`;}
+ if(a.forward_deg||a.reverse_deg||a.probe_deg){const hi=t=>esc(t||"").replace(/[WRYKMSBDHVN]/g,m=>`<b style="color:var(--acc2)">${m}</b>`);
+  h+=`<div class="card" style="margin:6px 0;border-color:var(--acc2)"><b>genus-degenerate \u2014 covers ${a.deg_targets} target sequence(s), ${a.n_degenerate} variable position${a.n_degenerate==1?"":"s"}</b><br><span class="hint">where targets disagree under the oligo, the base widens to an IUPAC code (W=A/T, R=A/G, Y=C/T, K=G/T, M=A/C, S=G/C) so one oligo matches the whole set. For a pan-genus assay, order the degenerate versions; the bare-DNA Tm becomes a small range (confirm in OligoAnalyzer).</span><table><tr><th></th><th>single-base</th><th>degenerate (order this)</th></tr>`+[["F",a.forward,a.forward_deg],["R",a.reverse,a.reverse_deg],["P",a.probe,a.probe_deg]].filter(x=>x[2]).map(x=>`<tr><td>${x[0]}</td><td class="mono hint">${esc(x[1]||"")}</td><td class="mono">${hi(x[2])}</td></tr>`).join("")+`</table></div>`;}
  return h;}
 function nestedHtml(d){if(!d.nested)return"";const nz=d.nested;
  if(nz.note)return `<div class="card" style="margin-top:10px;border-color:var(--edge)"><b>Nested PCR</b> <span class="hint">${nz.note}</span></div>`;
@@ -869,7 +873,7 @@ async function doAuto(){const o=document.getElementById("au_out");
  LAST_AUTO={assay:d.candidates[0].assay,pretty:d.profile_pretty,query:d.target_query,acc:d.source_accession};
  LAST_AUTO_FULL=d;
  const probeKind=(d.profile_used==="idt_affinity"||d.profile_used==="parasite_mtdna")?"probe_lna":"probe_zen";
- let h=`<small class="note">fetched ${d.n_targets} target${d.n_offs?(", "+d.n_offs+" off-target"):""}; designed on a ${d.reference_len} nt reference; ${d.n_candidates} candidate(s). Screen only — confirm in OligoAnalyzer.</small>
+ let h=`<small class="note">fetched ${d.n_targets} target${d.n_offs?(", "+d.n_offs+" off-target"):""}; designed on a ${d.reference_len} nt reference; ${d.n_candidates} candidate(s). Screen only — confirm in OligoAnalyzer.</small>${d.constraint_note?`<div class="note" style="margin-top:4px"><b class="WARN">heads up:</b> ${esc(d.constraint_note)}</div>`:""}
    <div class="card" style="margin-top:8px;border-color:var(--acc)">chemistry chosen: <b>${d.profile_pretty||d.profile_used}</b></div>`;
  d.candidates.forEach((c,i)=>{const a=c.assay,cn=c.conservation,ds=c.discrimination;
   const rows=[["Fwd",a.forward,a.f_tm,"F"],["Rev",a.reverse,a.r_tm,"R"]];
