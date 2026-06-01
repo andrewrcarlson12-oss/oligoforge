@@ -217,10 +217,44 @@ def gene_lookup(gene, organism=None, max_candidates=8):
                          score=_gene_match_score(d, gene)))
     cand.sort(key=lambda c: c["score"], reverse=True)
     best = cand[0] if cand else None
+    # Ortholog fallback: the typed name resolved only in another organism (e.g. chicken "INFG"),
+    # but the requested organism may carry the same gene under its own symbol — find it by the
+    # resolved description so "INFG" + Aphelocoma still lands on Aphelocoma IFNG.
+    if org and not scoped and best and best.get("description"):
+        desc = best["description"]
+        for term in (f'{desc}[All Fields] AND {org}[Organism] AND alive[prop]',
+                     f'"{desc}"[Gene Name] AND {org}[Organism]'):
+            try:
+                h = Entrez.esearch(db="gene", term=term, retmax=max_candidates)
+                oids = Entrez.read(h)["IdList"]; h.close()
+            except Exception:
+                oids = []
+            if oids:
+                try:
+                    h = Entrez.esummary(db="gene", id=",".join(oids[:max_candidates]))
+                    odocs = list(Entrez.read(h)["DocumentSummarySet"]["DocumentSummary"]); h.close()
+                except Exception:
+                    odocs = []
+                ocand = []
+                for d in odocs:
+                    try:
+                        uid = d.attributes.get("uid")
+                    except Exception:
+                        uid = None
+                    ocand.append(dict(symbol=str(d.get("Name") or ""), description=str(d.get("Description") or ""),
+                                      organism=str((d.get("Organism") or {}).get("ScientificName") or ""),
+                                      aliases=str(d.get("OtherAliases") or ""), gene_id=uid,
+                                      score=_gene_match_score(d, desc)))
+                ocand.sort(key=lambda c: c["score"], reverse=True)
+                if ocand and ocand[0]["score"] >= 25:
+                    best = ocand[0]; scoped = True
+                    cand = ocand + [c for c in cand if c["symbol"] != ocand[0]["symbol"]]
+                    break
+            time.sleep(0.11 if Entrez.api_key else 0.34)
     n_rec, acc = 0, []
     if best and best["symbol"]:
-        torg = org or best["organism"]
-        nq = (f'{best["symbol"]}[Gene Name] AND {torg}[Organism]') if torg else f'{best["symbol"]}[Gene Name]'
+        rorg = org if scoped else best["organism"]       # count where the gene actually is
+        nq = (f'{best["symbol"]}[Gene Name] AND {rorg}[Organism]') if rorg else f'{best["symbol"]}[Gene Name]'
         try:
             n_rec = count_hits(nq)
             acc = [a.split()[0] for a, _ in search_fetch_fasta(nq, 3)]

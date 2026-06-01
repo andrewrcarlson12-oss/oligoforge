@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
 
-app = FastAPI(title="OligoForge", version="1.11.0")
+app = FastAPI(title="OligoForge", version="1.11.1")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -463,8 +463,8 @@ def api_scan_markers(r: MarkerReq):
         for m in base_info["markers"]:
             d = by.get(m["gene"])
             if d:
-                m.update(count=d["count"], n_seqs=d["n"], median_len=d["median_len"],
-                         min_len=d["min_len"], max_len=d["max_len"], scanned=True)
+                m.update(count=d["count"], off_count=d.get("off_count"), n_seqs=d["n"],
+                         median_len=d["median_len"], min_len=d["min_len"], max_len=d["max_len"], scanned=True)
         base_info["scanned"] = True; base_info["n_scanned"] = len(sc["results"])
         return base_info
     except Exception as e:

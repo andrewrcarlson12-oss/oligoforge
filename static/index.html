@@ -232,6 +232,16 @@ table tr:hover td.FAIL{background:rgba(251,109,99,.18)}
 .kv b{font-size:20px}
 button{box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 1px 2px rgba(0,0,0,.45),0 12px 26px -12px rgba(92,200,255,.7)}
 @supports not (background-clip:text){.gene-sym{-webkit-text-fill-color:#bfe9ff}.hero h2{-webkit-text-fill-color:#eef7ff}}
+.gf-rec{position:relative;margin:12px 0;border-radius:12px;border:1px solid rgba(110,231,168,.42);background:linear-gradient(180deg,rgba(110,231,168,.12),rgba(110,231,168,.03));box-shadow:0 16px 36px -24px rgba(110,231,168,.65),var(--edge);padding:13px 16px}
+.gf-rec-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:#04261a;background:linear-gradient(180deg,var(--acc2),#43c787);border-radius:20px;padding:2px 11px;margin-bottom:9px;box-shadow:0 4px 10px -5px rgba(110,231,168,.7)}
+.gf-rec-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.gf-rec-gene{font-family:var(--mono);font-size:20px;font-weight:600;color:#c3f4d8}
+.gf-rec-why{color:var(--ink2);font-size:12.5px;line-height:1.55;margin:6px 0 11px}
+.gf-rec-act{display:flex;gap:8px;flex-wrap:wrap}
+.gf-rec-act button:first-child{background:linear-gradient(180deg,#8ef0c0,#43c787);color:#04261a;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 10px 22px -12px rgba(110,231,168,.75)}
+.gf-star{color:var(--acc2);font-weight:700;text-align:center;width:22px}
+.gf-row-rec td{background:rgba(110,231,168,.10)!important}
+table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
 </style>
 </head>
 <body>
@@ -524,7 +534,7 @@ button{box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 1px 2px rgba(0,0,0,.45),
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.11.0</footer>
+<footer>OligoForge v1.11.1</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -1016,30 +1026,45 @@ function geneRender(d){const b=d.best||{};const inorg=d.in_requested_organism;
  return h;}
 function fmtNum(n){try{return Number(n).toLocaleString();}catch(e){return ""+n;}}
 function gfFit(c,goal){if(goal==="separate"&&c==="variable")return "PASS";if(goal==="detect"&&c==="conserved")return "PASS";return "";}
+function gfScore(m,goal){
+ if(m.count===0)return -1e9;
+ const recs=(m.count==null)?0:m.count;const len=m.median_len||m.max_len||0;
+ let s=Math.min(recs,30000)/2000;
+ if(len){if(len>=80&&len<=1500)s+=8;else if(len<=3000)s+=2;else s-=6;}
+ if(goal==="separate")s+=(m.conservation==="variable")?12:(m.conservation==="moderate"?4:-8);
+ else if(goal==="detect")s+=(m.conservation==="conserved")?12:(m.conservation==="moderate"?4:-3);
+ if(goal==="separate"&&m.off_count!=null)s+=(m.off_count>0?4:-10);
+ return s;}
 function gfRender(d){const _i=(document.getElementById("gf_intent")||{}).value||"any";const goal=d.exclude?"separate":(_i==="genotype"?"separate":(_i==="detect"?"detect":""));
+ const ms=(d.markers||[]).slice();let ranked=ms,rec=null;
+ if(goal&&ms.length){ranked=ms.slice().sort((a,b)=>gfScore(b,goal)-gfScore(a,goal));if(gfScore(ranked[0],goal)>-1e8)rec=ranked[0];}
+ const sc=d.scanned;
  let h=`<div class="note" style="margin-top:8px">${d.resolved_ok?`resolved <b>${esc(d.resolved)}</b>${d.rank?` (${esc(d.rank)})`:""} \u2014 ${esc(d.group)}`:`couldn\u2019t resolve via NCBI \u2014 matched on name as <b>${esc(d.group)}</b>`}${d.lineage?`<br><span style="opacity:.65">${esc(d.lineage)}</span>`:""}</div>`;
- h+=`<div class="hint" style="margin-top:6px">“detect the group” = a <b>conserved</b> marker that reads the same across the whole genus — good for catching any member or quantifying load. “separate species/lineages” = a <b>variable</b> marker that differs between close relatives — good for telling them apart. Neither is better in the abstract; it depends on your goal. <b>Already have a specific named gene</b> (IL4, IFNG, a reference gene)? Skip this — type “Organism Gene” in the box above and Design. This finder is only for choosing a barcoding/typing marker when you don’t have a gene in mind.</div>`;
- if(d.relatives&&d.relatives.length){h+=`<div style="margin-top:6px"><span class="hint">common relatives to exclude:</span> `+d.relatives.map(rl=>`<button class="ghost gf-chip gf-rel" onclick='setExcl(${JSON.stringify(rl)})'>not in ${esc(rl)}</button>`).join(" ")+`</div>`;}
- if(d.exclude)h+=`<div class="note" style="margin-top:4px">Separating <b>${esc(d.resolved||"the target")}</b> from <b>${esc(d.exclude)}</b>: a <b>conserved</b> marker reads almost the same in both and can’t tell them apart, while a <b>variable</b> one (highlighted) carries the differences you need. Click a marker to set it as the off-target so the design scores the actual separation.</div>`;
- if(d.markers&&d.markers.length){
-  const sc=d.scanned;
-  h+=`<div class="gf-chips">`+d.markers.map(m=>`<button class="ghost gf-chip" title="${esc(m.good_for)} \u00b7 ${esc(m.copies)}${m.region?" \u00b7 "+esc(m.region):""}" onclick='useMarker(${JSON.stringify(m.query)},${JSON.stringify(m.chemistry)},${JSON.stringify(m.qwords)})'><b>${esc(m.gene)}</b> <span class="hint ${gfFit(m.conservation,goal)}">${esc(m.conservation)}</span></button>`).join("")+`</div>`;
-  h+=`<table><tr><th>marker</th><th>best for</th><th title="A conserved marker detects the whole group; a variable one separates close species/lineages.">detects group / separates species</th><th>sensitivity</th>`+(sc?`<th title="GenBank nucleotide records matching the query">records</th><th>med len</th><th>length range</th>`:`<th>typical region</th>`)+`<th>chem</th></tr>`+
-   d.markers.map(m=>{
+ if(rec){
+  const goalTxt=goal==="separate"?(d.exclude?`tell <b>${esc(d.resolved||"your target")}</b> apart from <b>${esc(d.exclude)}</b>`:`tell close species or lineages apart`):`detect or quantify <b>${esc(d.resolved||"the group")}</b>`;
+  const why=[];why.push(rec.conservation==="variable"?"variable enough to carry the differences":(rec.conservation==="conserved"?"conserved across the whole group":"moderately variable"));
+  if(sc&&rec.count!=null)why.push(`<b>${fmtNum(rec.count)}</b> records`);
+  if(sc&&d.exclude&&rec.off_count!=null)why.push(`${fmtNum(rec.off_count)} in ${esc(d.exclude)}`);
+  if(sc&&rec.median_len)why.push(`~${rec.median_len} bp`);
+  h+=`<div class="gf-rec"><span class="gf-rec-tag">\u2605 recommended</span><div class="gf-rec-head"><span class="gf-rec-gene">${esc(rec.gene)}</span> <span class="hint">${esc(rec.name)}</span></div><div class="gf-rec-why">To ${goalTxt}, start here \u2014 ${why.join(" \u00b7 ")}. ${esc(rec.good_for)}</div><div class="gf-rec-act"><button onclick='useMarker(${JSON.stringify(rec.query)},${JSON.stringify(rec.chemistry)},${JSON.stringify(rec.qwords)})'>Design with ${esc(rec.gene)}${d.exclude?` vs ${esc(d.exclude)}`:""} \u2192</button>${!sc?` <button class="ghost" onclick="scanMarkers()">Check availability first</button>`:""}</div></div>`;
+ }
+ h+=`<div class="hint" style="margin-top:8px">\u201cdetect the group\u201d = a <b>conserved</b> marker (same across the genus, catches any member); \u201cseparate species/lineages\u201d = a <b>variable</b> marker (differs between relatives, tells them apart). For a <b>specific named gene</b> (IL4, IFNG, a reference gene), use the gene finder above instead.</div>`;
+ if(!d.exclude&&d.relatives&&d.relatives.length){h+=`<div style="margin-top:6px"><span class="hint">separating from a relative? click one to set the off-target:</span> `+d.relatives.map(rl=>`<button class="ghost gf-chip gf-rel" onclick='setExcl(${JSON.stringify(rl)})'>vs ${esc(rl)}</button>`).join(" ")+`</div>`;}
+ if(ranked.length){
+  h+=`<table><tr><th></th><th>marker</th><th>best for</th><th title="A conserved marker detects the whole group; a variable one separates close species/lineages.">group vs species</th><th>sensitivity</th>`+(sc?`<th title="GenBank records for the target">records</th>`+(d.exclude?`<th title="GenBank records for the off-target \u2014 you need data in BOTH to validate a separation">in ${esc(d.exclude)}</th>`:"")+`<th>med len</th>`:`<th>typical region</th>`)+`<th>chem</th></tr>`+
+   ranked.map(m=>{const isRec=rec&&m.gene===rec.gene;
     const head=`<td><b>${esc(m.gene)}</b><br><span class="hint">${esc(m.name)}</span></td><td>${esc(m.good_for)}</td><td><b class="${gfFit(m.conservation,goal)}">${esc(m.conservation)}</b> \u00b7 ${esc(m.level)}</td><td>${esc(m.copies)}</td>`;
     let mid;
-    if(sc){
-     const c=(m.count==null)?"\u2014":(m.count===0?`<b class="WARN">0</b>`:fmtNum(m.count));
-     const rng=(m.min_len!=null&&m.max_len!=null)?`${m.min_len}\u2013${m.max_len} bp`:"\u2014";
-     mid=`<td>${c}</td><td>${m.median_len!=null?m.median_len:"\u2014"}</td><td class="hint">${rng}</td>`;
-    }else{mid=`<td>${m.region?esc(m.region):"\u2014"}</td>`;}
-    return `<tr>${head}${mid}<td class="mono">${esc(m.chemistry)}</td></tr>`;
+    if(sc){const c=(m.count==null)?"\u2014":(m.count===0?`<b class="WARN">0</b>`:fmtNum(m.count));
+     const oc=d.exclude?`<td>${m.off_count==null?"\u2014":(m.off_count===0?`<b class="WARN">0</b>`:fmtNum(m.off_count))}</td>`:"";
+     mid=`<td>${c}</td>${oc}<td>${m.median_len!=null?m.median_len:"\u2014"}</td>`;}
+    else{mid=`<td>${m.region?esc(m.region):"\u2014"}</td>`;}
+    return `<tr class="${isRec?"gf-row-rec":""}"><td class="gf-star">${isRec?"\u2605":""}</td>${head}${mid}<td class="mono">${esc(m.chemistry)}</td></tr>`;
    }).join("")+`</table>`;
-  if(goal&&!d.exclude)h+=`<small class="note">colour = fit for <b>${_i==="detect"?"detection":"telling species apart"}</b>: ${_i==="detect"?'<b class="PASS">conserved</b> catches the whole group; a <b class="WARN">variable</b> marker can miss divergent members':'<b class="PASS">variable</b> separates close relatives; a <b class="FAIL">conserved</b> marker is too similar in all of them'}.</small>`;
  }
  if(d.note)h+=`<small class="note">${esc(d.note)}</small>`;
- if(d.markers&&d.markers.length&&!d.scanned)h+=`<div style="margin-top:8px"><button class="ghost" onclick="scanMarkers()">Measure from GenBank</button> <span class="hint">fetches sequences per marker (slower) \u2014 shows how much data exists and the typical length</span></div>`;
- if(d.scanned)h+=`<small class="note"><b>records</b> = GenBank sequences matching that query \u2014 a hard availability signal for this taxon (\u201c0\u201d usually means it isn\u2019t sequenced under that name; prefer a marker with data). <b>length</b> is the typical amplifiable size. For measured conservation and how cleanly a marker separates from a relative, click it (fills the target${d.exclude?" and off-target":""}) and run Design \u2014 the Conservation tab measures that per-position on the aligned sequences.</small>`;
+ if(ranked.length&&!sc)h+=`<div style="margin-top:8px"><button class="ghost" onclick="scanMarkers()">Measure from GenBank</button> <span class="hint">fetches per-marker record counts${d.exclude?" for both taxa":""} and typical length \u2014 turns the ranking above into hard availability numbers</span></div>`;
+ if(sc)h+=`<small class="note"><b>records</b> = GenBank sequences for that marker (availability; \u201c0\u201d means it isn\u2019t deposited under that name). ${d.exclude?`The <b>in ${esc(d.exclude)}</b> column is the off-target\u2019s availability \u2014 you need sequences in <b>both</b> taxa to validate a separation. `:""}For measured per-position conservation/separation, click <b>Design with\u2026</b> (it fills the target${d.exclude?" and off-target":""}) and check the Conservation tab.</small>`;
  return h;
 }
 function setExcl(t){fld("gf_excl",t);suggestGenes();}
