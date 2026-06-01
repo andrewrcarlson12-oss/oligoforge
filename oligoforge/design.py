@@ -32,21 +32,37 @@ def enumerate_primers(template, c):
     return fwd, rev
 
 
+_PAIR_CAP = 300   # rank pairs by Tm-fit first, then dimer-test down the list only this far.
+                  # Callers consume the best pair(s); on AT-rich templates hundreds of primers
+                  # pass _ok_primer, so the naive O(F x R) hetero-dimer pass cost ~20 s/window.
+
 def pair_primers(fwd, rev, c):
-    pairs = []
+    """Best primer pairs, ranked by Tm-fit. Reverse-primer Tms are computed ONCE (were
+    recomputed for every f x r pair, twice each); size/Tm-gap-valid pairs are scored cheaply,
+    then the expensive hetero-dimer check is applied walking the ranked list until _PAIR_CAP
+    dimer-clean pairs are collected. Identical output to the prior filter-then-sort for the
+    top pairs every caller actually uses; just orders of magnitude fewer dimer calls."""
+    amin, amax = c["amp_min"], c["amp_max"]
+    gmin, gapmax, topt = c["min_probe_gap"], c["pair_tm_gap_max"], c["tm_opt"]
+    rtm = [(rs, re, r, T.tm(r)) for (rs, re, r) in rev]
+    prelim = []
     for (fs, fe, f) in fwd:
         ftm = T.tm(f)
-        for (rs, re, r) in rev:
+        for (rs, re, r, rt) in rtm:
             amp = re - fs
-            if not (c["amp_min"] <= amp <= c["amp_max"]): continue
-            if rs - fe < c["min_probe_gap"]: continue
-            gap = abs(ftm - T.tm(r))
-            if gap > c["pair_tm_gap_max"]: continue
-            if T.hetero_dimer(f, r) <= c["pair_dimer_min"]: continue
-            score = abs((ftm + T.tm(r)) / 2 - c["tm_opt"]) + gap
-            pairs.append(dict(score=score, fstart=fs, fend=fe, f=f,
-                              rstart=rs, rend=re, r=r, amp=amp, gap=gap))
-    pairs.sort(key=lambda d: d["score"])
+            if not (amin <= amp <= amax): continue
+            if rs - fe < gmin: continue
+            gap = abs(ftm - rt)
+            if gap > gapmax: continue
+            score = abs((ftm + rt) / 2 - topt) + gap
+            prelim.append((score, fs, fe, f, rs, re, r, amp, gap))
+    prelim.sort(key=lambda x: x[0])
+    pairs = []
+    for (score, fs, fe, f, rs, re, r, amp, gap) in prelim:
+        if T.hetero_dimer(f, r) <= c["pair_dimer_min"]: continue
+        pairs.append(dict(score=score, fstart=fs, fend=fe, f=f,
+                          rstart=rs, rend=re, r=r, amp=amp, gap=gap))
+        if len(pairs) >= _PAIR_CAP: break
     return pairs
 
 
