@@ -273,8 +273,17 @@ def in_silico_pcr(forward, reverse, mode="remote", db="nt", db_path=None,
     hits = ([dict(primer="F", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in F] +
             [dict(primer="R", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in R])
     prod = epcr(hits, min_product, max_product)
-    return dict(forward_hits=len(F), reverse_hits=len(R),
-                n_products=len(prod), products=prod[:25])
+    sizes = [p["size"] for p in prod]
+    summ = {}
+    if sizes:
+        ss = sorted(sizes)
+        med = ss[len(ss) // 2]
+        tol = max(10, int(round(0.10 * med)))
+        summ = dict(size_min=ss[0], size_max=ss[-1], size_modal=med, size_tol=tol,
+                    n_on_size=sum(1 for s in sizes if abs(s - med) <= tol),
+                    n_subjects=len({p["subject"] for p in prod}))
+    return dict(forward_hits=len(F), reverse_hits=len(R), organism=(organism or None),
+                n_products=len(prod), products=prod[:25], **summ)
 
 
 def blast_summary(seq, mode="remote", db="nt", db_path=None, organism=None, top=40):

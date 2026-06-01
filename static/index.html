@@ -534,7 +534,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.11.1</footer>
+<footer>OligoForge v1.11.2</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -783,9 +783,38 @@ async function doEpcr(){const o=document.getElementById("ep_out");const mode=doc
  const d=await api("/api/epcr",{forward:document.getElementById("ep_f").value,reverse:document.getElementById("ep_r").value,mode,db:document.getElementById("ep_db").value,db_path:document.getElementById("ep_dbp").value,organism:document.getElementById("ep_org").value||null,max_product:parseInt(document.getElementById("ep_max").value)||3000,email:email.value});
  if(d.error){o.innerHTML=err(d.error);return;}
  renderEpcr(d,o);}
-function renderEpcr(d,o){if(!d||!o)return;
- o.innerHTML=`<div class="kv"><div><span>forward hits</span><b>${d.forward_hits}</b></div><div><span>reverse hits</span><b>${d.reverse_hits}</b></div><div><span>predicted products</span><b>${d.n_products}</b></div></div>`+
-  ((d.products&&d.products.length)?`<table><tr><th>subject</th><th>size</th><th>primers</th><th>span</th></tr>`+d.products.map(p=>`<tr><td class="mono">${p.subject}</td><td>${p.size}</td><td>${p.left}→${p.right}</td><td>${p.span?p.span[0]:"?"}–${p.span?p.span[1]:"?"}</td></tr>`).join("")+`</table>`:`<p class="hint">no products in the size window</p>`);}
+// qPCR amplicon-size fitness (verified vs IDT/Bio-Rad/MIQE guidance): 70-200 ideal (70-150 optimal),
+// 50-70 or 200-400 usable, <50 (primer-dimer range) or >400 (low efficiency) poor.
+function epSizeClass(s){if(s==null||isNaN(s))return"";if(s>=70&&s<=200)return"PASS";if((s>=50&&s<70)||(s>200&&s<=400))return"WARN";return"FAIL";}
+function epcrSummary(d){
+ const np=d.n_products||0,fh=d.forward_hits||0,rh=d.reverse_hits||0,mod=d.size_modal,lo=d.size_min,hi=d.size_max,on=d.n_on_size,tol=d.size_tol||10,subj=d.n_subjects;
+ let h=`<div class="kv"><div><span>forward hits</span><b>${fh}</b></div><div><span>reverse hits</span><b>${rh}</b></div><div><span>predicted products</span><b>${np}</b></div>`;
+ if(subj!=null)h+=`<div><span>distinct subjects</span><b>${subj}</b></div>`;
+ if(mod!=null)h+=`<div><span>dominant size</span><b class="${epSizeClass(mod)}">${mod} bp</b></div>`;
+ h+=`</div>`;
+ if(np===0)return h+`<p class="hint">No convergent products in the size window \u2014 no mispriming <i>and</i> no target amplicon was predicted here. For a single-copy target with an organism filter this can be normal; otherwise widen <b>max product</b> or recheck the primers.</p>`;
+ const spread=(lo!=null&&hi!=null)?(hi-lo):0;
+ let vc="PASS",vlab="",vexpl="";
+ if(mod!=null){
+  const tight=(on===np)||(spread<=Math.max(15,tol));
+  if(tight){vc="PASS";vlab="Consistent";vexpl=`all ${np} predicted products fall in one tight band (${lo}\u2013${hi} bp) \u2014 the signature of a <b>specific</b> pair against nt: one amplicon, just present in many database records of the target. `+(epSizeClass(mod)==="PASS"?"The size sits in the ideal qPCR range (70\u2013150 bp).":(epSizeClass(mod)==="WARN"?"The size is usable but outside the 70\u2013200 bp sweet spot.":"The size is poor for qPCR (flagged below)."));}
+  else{vc="WARN";vlab="Mixed sizes";vexpl=`products span ${lo}\u2013${hi} bp and only ${on}/${np} cluster near ${mod} bp. Off-size products usually mean the pair primes a second locus \u2014 inspect the \u26a0 rows; on a real template these can surface as extra melt peaks or gel bands.`;}
+  h+=`<p class="note"><b class="${vc}">${vlab}.</b> ${vexpl}</p>`;
+ }
+ h+=`<p class="hint">A high forward/reverse hit count is normal for a conserved or multi-copy marker (rRNA, mtDNA) \u2014 it only means the primer site is common in the database, not that the assay is non-specific. Specificity is read from the <b>product sizes</b> above, not the raw hit counts.${d.organism?"":" No organism filter was set, so products span every nt record carrying this amplicon \u2014 add an organism to focus on your target."}</p>`;
+ return h;
+}
+function epcrTable(d,withSpan){
+ if(!(d.products&&d.products.length))return "";
+ const mod=d.size_modal,tol=d.size_tol||10;
+ return `<table><tr><th>subject</th><th>size</th><th>primers</th>${withSpan?"<th>span</th>":""}</tr>`+d.products.map(p=>{
+  const off=(mod!=null&&Math.abs(p.size-mod)>tol);const sc=epSizeClass(p.size);
+  const flag=off?` <span class="WARN" title="off the dominant ${mod} bp band \u2014 possible second product">\u26a0</span>`:"";
+  return `<tr${off?' style="background:rgba(232,168,124,.06)"':''}><td class="mono">${p.subject}</td><td><b class="${sc}">${p.size}</b>${flag}</td><td>${p.left}\u2192${p.right}</td>${withSpan?`<td>${p.span?p.span[0]:"?"}\u2013${p.span?p.span[1]:"?"}</td>`:""}</tr>`;
+ }).join("")+`</table>`;
+}
+function epColourKey(){return `<p class="hint">size colour: <b class="PASS">70\u2013200 bp</b> ideal \u00b7 <b class="WARN">50\u201370 / 200\u2013400</b> usable \u00b7 <b class="FAIL">&lt;50 / &gt;400</b> poor for qPCR \u00b7 \u26a0 = off the dominant size band. Thresholds follow standard qPCR guidance (70\u2013150 bp optimal, \u226575 bp to clear primer-dimers, efficiency drops above ~300\u2013400 bp).</p>`;}
+function renderEpcr(d,o){if(!d||!o)return;o.innerHTML=epcrSummary(d)+epcrTable(d,true)+epColourKey();}
 
 async function doStd(){const o=document.getElementById("std_out");o.innerHTML="…";
  const pts=[];document.getElementById("std_in").value.split("\n").forEach(l=>{l=l.trim();if(!l)return;
@@ -858,8 +887,7 @@ async function doAuto(){const o=document.getElementById("au_out");
  h+=nestedHtml(d);
  if(d.specificity){const sp=d.specificity;
   if(sp.error)h+=`<div class="card" style="margin-top:8px"><b>in-silico PCR</b> <span class="note">${sp.error}</span></div>`;
-  else h+=`<div class="card" style="margin-top:8px"><b>in-silico PCR on the winner</b> — searched NCBI nt: the <b>forward</b> primer matched <b>${sp.forward_hits}</b> place(s) and the <b>reverse</b> matched <b>${sp.reverse_hits}</b>; <b>${sp.n_products}</b> of those line up (convergent, 3′ ends pointing in, spacing in the product-size window) into a predicted amplicon. A clean assay shows one product on the intended template and nothing else.`+
-   (sp.products&&sp.products.length?`<table><tr><th>subject</th><th>size</th><th>primers</th></tr>`+sp.products.map(pr=>`<tr><td class="mono">${pr.subject}</td><td>${pr.size}</td><td>${pr.left}→${pr.right}</td></tr>`).join("")+`</table>`:` <span class="note">— no off-target products in the size window (good)</span>`)+`</div>`;
+  else h+=`<div class="card" style="margin-top:8px"><b>in-silico PCR on the winner</b> \u2014 BLASTed both primers against NCBI nt and paired convergent hits (3\u2032 ends pointing in, spacing in the size window) into predicted amplicons. A specific pair gives one product size on the intended template and nothing else.`+epcrSummary(sp)+epcrTable(sp,false)+epColourKey()+`</div>`;
  }
  o.innerHTML=h;}
 function autoToOrder(f,r,p,kind){
@@ -906,7 +934,7 @@ function autoAddCand(i){if(!LAST_AUTO_FULL||!LAST_AUTO_FULL.candidates||!LAST_AU
   probe_lna:(a.probe_lna&&a.probe_lna.notation)?a.probe_lna.notation:null,
   amplicon:a.amplicon,amplicon_tm:a.amplicon_tm,f_tm:a.f_tm,r_tm:a.r_tm,
   probe_tm:a.probe_info?a.probe_info.tm:null,chemistry:d.profile_pretty||"",
-  accession:d.source_accession||"",gblock:a.gblock||null});}
+  accession:d.source_accession||"",gblock:a.gblock||null,off_query:d.off_query||null});}
 function autoAdd(){autoAddCand(0);}
 function gblockToOrder(name,seq){addGbRow(name,seq);gotab("order");toast("gBlock added to the Order tab as a standard.","ok");}
 function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,amplicon_tm:d.amplicon_tm,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||"",gblock:d.gblock});}
@@ -1085,8 +1113,11 @@ function toIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("i_gene"
  else if(a.gene&&a.organism){doIntron();}
  else{o.innerHTML=`<div class="ph">Loaded ${esc(a.name||"assay")} primers. Set the gene and organism (above, or on the Workbench card), then this locates the amplicon and checks the exon junctions.</div>`;}}
 async function toConsAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("consrows").innerHTML="";addConsRow((a.name||"a")+"_F",a.forward);addConsRow((a.name||"a")+"_R",a.reverse);if(a.probe)addConsRow((a.name||"a")+"_P",a.probe);gotab("cons");const o=document.getElementById("cons_out");const gw=(a.gene||"").replace(/\(.*?\)/g,"").trim();
- if(gw&&a.organism){fld("cons_tq",a.organism+"[Organism] AND "+gw);o.innerHTML='<div class="working">fetching target sequences for '+esc(a.name||"assay")+' from NCBI…</div><div class="ofbar"></div>';await fetchNuc("cons_targets","cons_tq","cons_tn");const t=document.getElementById("cons_targets").value||"";if(t&&t.indexOf(">ERROR")!==0){doCons();}else{o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'’s oligos but couldn’t auto-fetch targets — adjust the query above and click fetch, or paste target FASTA, then Analyze.</div>';}}
- else{o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'’s oligos. Set its gene + organism to auto-fetch targets, or paste target FASTA, then Analyze.</div>';}}
+ const oqraw=(a.off_query||"").trim();let offq="";
+ if(oqraw){const m=oqraw.match(/^([A-Z][a-z]+(?:\s+[a-z]+)?)\s+(.+)$/);offq=(m&&oqraw.indexOf("[")<0)?(m[1]+"[Organism] AND "+m[2]):oqraw;fld("cons_oq",offq);}
+ if(gw&&a.organism){fld("cons_tq",a.organism+"[Organism] AND "+gw);o.innerHTML='<div class="working">fetching target'+(offq?" + off-target":"")+' sequences for '+esc(a.name||"assay")+' from NCBI\u2026</div><div class="ofbar"></div>';await fetchNuc("cons_targets","cons_tq","cons_tn");if(offq){await fetchNuc("cons_offs","cons_oq","cons_on");}const t=document.getElementById("cons_targets").value||"";if(t&&t.indexOf(">ERROR")!==0){doCons();}else{o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'\u2019s oligos but couldn\u2019t auto-fetch targets \u2014 adjust the query above and click fetch, or paste target FASTA, then Analyze.</div>';}}
+ else if(offq){o.innerHTML='<div class="working">fetching off-target sequences\u2026</div><div class="ofbar"></div>';await fetchNuc("cons_offs","cons_oq","cons_on");o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'\u2019s oligos and off-target. Set its gene + organism to auto-fetch targets, or paste target FASTA, then Analyze.</div>';}
+ else{o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'\u2019s oligos. Set its gene + organism to auto-fetch targets, or paste target FASTA, then Analyze.</div>';}}
 function toOrderAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("orderrows").innerHTML="";const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);if(a.gblock){const gb=document.getElementById("gbrows");if(gb)gb.innerHTML="";addGbRow((a.name||"assay")+"_gBlock",a.gblock);}gotab("order");toast("Filled "+(a.name||"assay")+"'s F/R"+(a.probe?" + probe":"")+(a.gblock?" + gBlock":"")+" into the Order tab.","ok");}
 async function checkAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;const c=document.getElementById("wk_status_"+id);if(c)c.textContent="checking\u2026";
  const md=document.getElementById("ep_mode")?document.getElementById("ep_mode").value:"remote";
