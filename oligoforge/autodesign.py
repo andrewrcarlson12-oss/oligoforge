@@ -399,6 +399,9 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
     profile_key may be a specific profile, or "auto": Auto tries the IDT-orderable
     chemistries in order and returns the first that yields a clean assay, so an
     AT-rich parasite target lands on the low-Tm TaqMan instead of just failing."""
+    target_query = (target_query or "").strip()
+    if not target_query:
+        return dict(error='enter a target: an organism plus a gene or marker (e.g. "Plasmodium cytochrome b"), or paste sequences in the Design tab')
     _org, _gene = _split_query(target_query)
     _resolved, _fetch_q = None, target_query
     if _gene and _org and not _is_marker(_gene) and not RM.gold_standard_query(_org, _gene):

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
 
-app = FastAPI(title="OligoForge", version="1.11.9")
+app = FastAPI(title="OligoForge", version="1.11.10")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -456,8 +456,11 @@ class MarkerReq(BaseModel):
 @app.post("/api/scan_markers")
 def api_scan_markers(r: MarkerReq):
     _set_email(r.email, r.ncbi_key)
+    org = (r.organism or "").strip()
+    if not org:
+        return JSONResponse({"error": 'enter an organism (a genus or species, e.g. "Plasmodium" or "Aphelocoma coerulescens")'}, status_code=200)
     try:
-        base_info = RM.suggest(r.organism, r.exclude, r.intent)
+        base_info = RM.suggest(org, r.exclude, r.intent)
         sc = MS.scan(base_info["resolved"], base_info["markers"], r.exclude)
         by = {x["gene"]: x for x in sc["results"]}
         for m in base_info["markers"]:

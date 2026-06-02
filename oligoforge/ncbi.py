@@ -133,13 +133,15 @@ def resolve_gene(gene, organism=None):
     if org:
         tiers += [(f'"{gene}"[Gene Name] AND "{org}"[Organism]', True),
                   (f'{gene}[Gene Name] AND {org}[Organism]', True),
+                  (f'{gene}[Gene Full Name] AND {org}[Organism]', True),
                   (f'{gene}[All Fields] AND {org}[Organism] AND alive[prop]', True)]
     tiers += [(f'"{gene}"[Gene Name]', False), (f'{gene}[Gene Name]', False),
+              (f'{gene}[Gene Full Name]', False),
               (f'{gene}[All Fields] AND alive[prop]', False)]
 
     def best_of(ids):
         try:
-            h = Entrez.esummary(db="gene", id=",".join(ids[:20])); s = Entrez.read(h); h.close()
+            h = Entrez.esummary(db="gene", id=",".join(ids[:50])); s = Entrez.read(h); h.close()
             docs = list(s["DocumentSummarySet"]["DocumentSummary"])
         except Exception:
             return None, 0.0
@@ -150,7 +152,7 @@ def resolve_gene(gene, organism=None):
 
     for term, in_org in tiers:
         try:
-            h = Entrez.esearch(db="gene", term=term, retmax=20)
+            h = Entrez.esearch(db="gene", term=term, retmax=50)
             ids = Entrez.read(h)["IdList"]; h.close()
         except Exception:
             ids = []
