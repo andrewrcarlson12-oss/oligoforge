@@ -58,11 +58,24 @@ def pair_primers(fwd, rev, c):
             prelim.append((score, fs, fe, f, rs, re, r, amp, gap))
     prelim.sort(key=lambda x: x[0])
     pairs = []
+    _sd = {}
+    def _self(s):
+        v = _sd.get(s)
+        if v is None:
+            v = T.self_dimer(s); _sd[s] = v
+        return v
     for (score, fs, fe, f, rs, re, r, amp, gap) in prelim:
-        if T.hetero_dimer(f, r) <= c["pair_dimer_min"]: continue
+        h = T.hetero_dimer(f, r)
+        if h <= c["pair_dimer_min"]: continue
+        worst = min(_self(f), _self(r), h)
         pairs.append(dict(score=score, fstart=fs, fend=fe, f=f,
-                          rstart=rs, rend=re, r=r, amp=amp, gap=gap))
+                          rstart=rs, rend=re, r=r, amp=amp, gap=gap, dimer=round(worst, 2)))
         if len(pairs) >= _PAIR_CAP: break
+    # Final pick is dimer-aware, not Tm-fit alone: a penalty that bites only below a safe dimer
+    # floor (-5.5 kcal/mol) lets a clean pair overtake a marginally-better-Tm pair that self- or
+    # hetero-dimerizes. Pairs at/above the floor keep their Tm-fit order, so existing designs whose
+    # worst dimer is milder than -5.5 are unchanged.
+    pairs.sort(key=lambda p: p["score"] + 2.0 * max(0.0, -5.5 - p["dimer"]))
     return pairs
 
 
@@ -87,8 +100,12 @@ def find_probe(template, fend, rstart, fseq, rseq, c):
                 if T.self_dimer(sub) <= c["self_dimer_min"]: continue
                 if T.hetero_dimer(sub, fseq) <= c["pair_dimer_min"]: continue
                 if T.hetero_dimer(sub, rseq) <= c["pair_dimer_min"]: continue
-                mid = (c["probe_offset_min"] + c["probe_offset_max"]) / 2
-                key = (-hdg, abs((t - maxp) - mid))
+                # Prefer a probe ~9 C over the hotter primer -- the standard 8-10 C TaqMan placement --
+                # whenever one is reachable, clamped to the profile's allowed window (AT-rich profiles
+                # whose window caps below 9 fall back to their ceiling). Offset distance is bucketed to
+                # whole degrees so near-equal offsets defer to the weakest-hairpin probe.
+                target = min(max(c["probe_offset_min"], 9.0), c["probe_offset_max"])
+                key = (round(abs((t - maxp) - target)), -hdg)
                 if best is None or key < best[0]:
                     best = (key, dict(probe=sub, strand=strand, tm=t, offset=t - maxp,
                                       hairpin_dg=hdg, hairpin_tm=htm,
@@ -147,3 +164,50 @@ def build_gblock(template, fstart, rend, flank=40, min_len=125):
         need = min_len - len(block)
         block += (_GBLOCK_FILLER * (need // len(_GBLOCK_FILLER) + 1))[:need]
     return block, s, e
+
+
+def build_offtarget_gblock(amplicon, off_seqs, flank=50, min_len=125):
+    """Worst-case off-target discrimination control. Finds the off-target sequence whose
+    region homologous to the assay's amplicon is the CLOSEST match -- the off-target the
+    assay is most likely to fail to reject -- and returns it plus flanks as a synthesizable
+    gene fragment. Ordering this next to the positive-control gBlock lets the bench test
+    whether off-target rejection holds against the MOST similar off-target, not an average
+    one (an average off-target makes a leaky block look clean).
+    Returns {seq, off_index, amplicon_identity, span} or None."""
+    if not amplicon or not off_seqs:
+        return None
+    L = len(amplicon)
+    if L < 20:
+        return None
+    best = None  # (identity, off_index, oriented_seq, pos)
+    for oi, raw in enumerate(off_seqs):
+        for s in (raw, T.revcomp(raw)):
+            if len(s) < L:
+                continue
+            for i in range(len(s) - L + 1):
+                cutoff = L if best is None else int(L * (1 - best[0] / 100.0))
+                mm = 0
+                for a, b in zip(amplicon, s[i:i + L]):
+                    if a != b:
+                        mm += 1
+                        if mm > cutoff:
+                            break
+                else:
+                    ident = 100.0 * (L - mm) / L
+                    if best is None or ident > best[0]:
+                        best = (ident, oi, s, i)
+    if best is None:
+        return None
+    ident, oi, s, pos = best
+    a = max(0, pos - flank)
+    e = min(len(s), pos + L + flank)
+    while (e - a) < min_len and (a > 0 or e < len(s)):
+        if a > 0:
+            a -= 1
+        if e < len(s):
+            e += 1
+    block = s[a:e]
+    if len(block) < min_len:
+        need = min_len - len(block)
+        block += (_GBLOCK_FILLER * (need // len(_GBLOCK_FILLER) + 1))[:need]
+    return dict(seq=block, off_index=oi, amplicon_identity=round(ident, 1), span=(a, e))

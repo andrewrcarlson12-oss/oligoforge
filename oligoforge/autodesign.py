@@ -119,6 +119,12 @@ def _score(assay, targets, offs, min_ident):
             # extra 3'-block: a pair that fails the off-target at BOTH 3' ends is far more robust --
             # both terminal mismatches must independently read through to make a false product.
             s += 9.0 * sum(blocks) + 5.0 * max(blocks)
+    # Cross-candidate dimer preference: among windows, demote a candidate whose worst self/hetero
+    # dimer is worse than a safe floor (-5.5 kcal/mol) so a comparable dimer-clean candidate wins.
+    # Candidates milder than the floor get zero penalty, so existing picks are unchanged.
+    _wd = min(T.self_dimer(assay["forward"]), T.self_dimer(assay["reverse"]),
+              T.hetero_dimer(assay["forward"], assay["reverse"]))
+    s -= 4.0 * max(0.0, -5.5 - _wd)
     return round(s, 1), cons, disc
 
 
@@ -583,6 +589,25 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
                         c["assay"]["probe_lna"] = T.suggest_lna(pb)
                     except Exception:
                         pass
+        # discrimination-control gBlocks for the lead candidate: positive control (target
+        # amplicon + flanks) and the worst-case off-target, so the block can be tested on the bench.
+        try:
+            _a0 = out["candidates"][0].get("assay") or {}
+            _fi = _ref.find(_a0.get("forward", "")) if _ref else -1
+            _rcr = T.revcomp(_a0["reverse"]) if _a0.get("reverse") else ""
+            _ri = _ref.find(_rcr) if (_ref and _rcr) else -1
+            if _ref and _fi >= 0 and _ri >= 0:
+                _amp = _ref[_fi:_ri + len(_a0["reverse"])]
+                if not _a0.get("gblock"):
+                    _gb, _gs, _ge = D.build_gblock(_ref, _fi, _ri + len(_a0["reverse"]))
+                    _a0["gblock"] = _gb
+                if off:
+                    _og = D.build_offtarget_gblock(_amp, off)
+                    if _og:
+                        _a0["offtarget_gblock"] = _og["seq"]
+                        _a0["offtarget_gblock_identity"] = _og["amplicon_identity"]
+        except Exception:
+            pass
         if nested:
             _prof = PROF.PROFILES.get(out.get("profile_used")) or {}
             try:
