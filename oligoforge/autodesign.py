@@ -100,10 +100,22 @@ def _score(assay, targets, offs, min_ident):
     if "P" in cons:
         s += cons["P"]["mean_ident"]
     if disc:
-        if "P" in disc and disc["P"].get("n"):
-            s -= disc["P"]["max_ident"]
-        else:
-            s -= (disc["F"].get("max_ident", 0) + disc["R"].get("max_ident", 0)) / 2
+        # A primer whose 3' end mismatches the off-target won't extend on it, so a single such
+        # primer stops the off-target amplicon -- reward the STRONGEST 3'-end blocker, and
+        # separately penalize broad off-target similarity across all oligos.
+        ids, blocks = [], []
+        for k in ("F", "R"):
+            dk = disc.get(k)
+            if dk and dk.get("n"):
+                ids.append(dk.get("max_ident", 0))
+                blocks.append(min(dk.get("min_3prime_mismatch", 0), 3))
+        dp = disc.get("P")
+        if dp and dp.get("n"):
+            ids.append(dp.get("max_ident", 0))
+        if ids:
+            s -= sum(ids) / len(ids)
+        if blocks:
+            s += 14.0 * max(blocks)
     return round(s, 1), cons, disc
 
 

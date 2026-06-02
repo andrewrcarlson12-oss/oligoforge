@@ -242,6 +242,9 @@ button{box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 1px 2px rgba(0,0,0,.45),
 .gf-star{color:var(--acc2);font-weight:700;text-align:center;width:22px}
 .gf-row-rec td{background:rgba(110,231,168,.10)!important}
 table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
+.gf-pick{cursor:pointer}
+.gf-pick:hover td{background:rgba(92,200,255,.12)}
+.gf-pick td:first-child{position:relative}
 
 /* ---- intro splash (shown once per browser; replayable from footer) ---- */
 #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
@@ -250,13 +253,15 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
 #splash.gone{opacity:0;visibility:hidden;pointer-events:none}
 #splash .scard{position:relative;text-align:center;padding:34px 46px;max-width:520px;animation:splashIn .8s cubic-bezier(.2,.8,.2,1) both}
 @keyframes splashIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
-#splash .helix{width:104px;height:104px;margin:0 auto 4px;display:block}
-#splash .helix g{transform-origin:54px 54px;animation:helixSpin 9s linear infinite}
-@keyframes helixSpin{to{transform:rotate(360deg)}}
-#splash .helix .strand{fill:none;stroke:var(--acc);stroke-width:3;stroke-linecap:round;opacity:.9}
-#splash .helix .strand.b{stroke:var(--acc2)}
-#splash .helix .rung{stroke:var(--line2);stroke-width:2.2;stroke-linecap:round;animation:rungPulse 2.6s ease-in-out infinite}
-@keyframes rungPulse{0%,100%{stroke:var(--line2)}50%{stroke:var(--acc)}}
+#splash .helix{width:118px;height:148px;margin:0 auto 2px;display:block;animation:helixGlow 4.5s ease-in-out infinite}
+@keyframes helixGlow{0%,100%{filter:drop-shadow(0 0 7px rgba(92,200,255,.32))}50%{filter:drop-shadow(0 0 14px rgba(110,231,168,.5))}}
+#splash .helix path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+#splash .helix .sa{stroke:var(--acc)}
+#splash .helix .sb{stroke:var(--acc2)}
+#splash .helix .fr{stroke-width:3.4}
+#splash .helix .bk{stroke-width:2.6;opacity:.42}
+#splash .helix .rung{stroke-linecap:round;opacity:var(--o,.6);animation:rungGlow 3s ease-in-out infinite}
+@keyframes rungGlow{0%,100%{opacity:var(--o,.6)}45%{opacity:1}}
 #splash h1{margin:.3em 0 .1em;font:700 40px/1 var(--ui);letter-spacing:-.5px;background:linear-gradient(92deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
 #splash .tag{color:var(--ink2);font:13px/1.5 var(--mono);letter-spacing:.4px}
 #splash .seqticker{color:var(--dim);font:11px/1.4 var(--mono);letter-spacing:3px;height:15px;overflow:hidden;margin:9px 0 14px;-webkit-mask:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
@@ -269,24 +274,38 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
 #splash button:hover{transform:translateY(-2px);box-shadow:0 16px 38px -12px rgba(92,200,255,.78)}
 #splash button:active{transform:translateY(0)}
 #splash .hint{margin-top:13px;color:var(--dim);font:11px/1 var(--mono);letter-spacing:1px}
-#introReplay{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--line2);cursor:pointer}
-#introReplay:hover{color:var(--acc)}
-@media (prefers-reduced-motion:reduce){#splash .helix g,#splash .seqticker span{animation:none}#splash .curve path{animation:cdraw .01s linear forwards}#splash .scard{animation:none}}
+@media (prefers-reduced-motion:reduce){#splash .helix,#splash .helix .rung,#splash .seqticker span{animation:none}#splash .curve path{animation:cdraw .01s linear forwards}#splash .scard{animation:none}}
 </style>
 </head>
 <body>
 <div id="splash" role="dialog" aria-label="Welcome to OligoForge" tabindex="-1">
   <div class="scard">
-    <svg class="helix" viewBox="0 0 108 108" aria-hidden="true"><g>
-      <path class="strand"   d="M30 6 C66 28 66 28 30 54 C-6 80 -6 80 30 102"/>
-      <path class="strand b" d="M78 6 C42 28 42 28 78 54 C114 80 114 80 78 102"/>
-      <line class="rung" x1="34" y1="16" x2="74" y2="16" style="animation-delay:0s"/>
-      <line class="rung" x1="48" y1="30" x2="60" y2="30" style="animation-delay:.25s"/>
-      <line class="rung" x1="34" y1="44" x2="74" y2="44" style="animation-delay:.5s"/>
-      <line class="rung" x1="48" y1="64" x2="60" y2="64" style="animation-delay:.75s"/>
-      <line class="rung" x1="34" y1="78" x2="74" y2="78" style="animation-delay:1s"/>
-      <line class="rung" x1="48" y1="92" x2="60" y2="92" style="animation-delay:1.25s"/>
-    </g></svg>
+    <svg class="helix" viewBox="0 0 120 150" aria-hidden="true">
+      <path class="sa bk" d="M 60 30 L 53.8 32 L 47.8 34 L 42.4 36 L 37.7 38 L 34 40 L 31.5 42 L 30.2 44 L 30.2 46 L 31.5 48 L 34 50 L 37.7 52 L 42.4 54 L 47.8 56 L 53.8 58 L 60 60 M 60 90 L 53.8 92 L 47.8 94 L 42.4 96 L 37.7 98 L 34 100 L 31.5 102 L 30.2 104 L 30.2 106 L 31.5 108 L 34 110 L 37.7 112 L 42.4 114 L 47.8 116 L 53.8 118 L 60 120"/>
+      <path class="sb bk" d="M 60 0 L 53.8 2 L 47.8 4 L 42.4 6 L 37.7 8 L 34 10 L 31.5 12 L 30.2 14 L 30.2 16 L 31.5 18 L 34 20 L 37.7 22 L 42.4 24 L 47.8 26 L 53.8 28 L 60 30 M 60 60 L 53.8 62 L 47.8 64 L 42.4 66 L 37.7 68 L 34 70 L 31.5 72 L 30.2 74 L 30.2 76 L 31.5 78 L 34 80 L 37.7 82 L 42.4 84 L 47.8 86 L 53.8 88 L 60 90 M 60 120 L 53.8 122 L 47.8 124 L 42.4 126 L 37.7 128 L 34 130 L 31.5 132 L 30.2 134 L 30.2 136 L 31.5 138 L 34 140 L 37.7 142 L 42.4 144 L 47.8 146 L 53.8 148 L 60 150"/>
+      <line class="rung" x1="77.6" y1="6" x2="42.4" y2="6" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:0.12s"/>
+      <line class="rung" x1="88.5" y1="12" x2="31.5" y2="12" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:0.24s"/>
+      <line class="rung" x1="88.5" y1="18" x2="31.5" y2="18" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:0.36s"/>
+      <line class="rung" x1="77.6" y1="24" x2="42.4" y2="24" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:0.48s"/>
+      <line class="rung" x1="42.4" y1="36" x2="77.6" y2="36" stroke="var(--acc)" stroke-width="2.1" style="--o:0.42;animation-delay:0.72s"/>
+      <line class="rung" x1="31.5" y1="42" x2="88.5" y2="42" stroke="var(--acc2)" stroke-width="2.1" style="--o:0.42;animation-delay:0.84s"/>
+      <line class="rung" x1="31.5" y1="48" x2="88.5" y2="48" stroke="var(--acc)" stroke-width="2.1" style="--o:0.42;animation-delay:0.96s"/>
+      <line class="rung" x1="42.4" y1="54" x2="77.6" y2="54" stroke="var(--acc2)" stroke-width="2.1" style="--o:0.42;animation-delay:1.08s"/>
+      <line class="rung" x1="77.6" y1="66" x2="42.4" y2="66" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:1.32s"/>
+      <line class="rung" x1="88.5" y1="72" x2="31.5" y2="72" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:1.44s"/>
+      <line class="rung" x1="88.5" y1="78" x2="31.5" y2="78" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:1.56s"/>
+      <line class="rung" x1="77.6" y1="84" x2="42.4" y2="84" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:1.68s"/>
+      <line class="rung" x1="42.4" y1="96" x2="77.6" y2="96" stroke="var(--acc)" stroke-width="2.1" style="--o:0.42;animation-delay:1.92s"/>
+      <line class="rung" x1="31.5" y1="102" x2="88.5" y2="102" stroke="var(--acc2)" stroke-width="2.1" style="--o:0.42;animation-delay:2.04s"/>
+      <line class="rung" x1="31.5" y1="108" x2="88.5" y2="108" stroke="var(--acc)" stroke-width="2.1" style="--o:0.42;animation-delay:2.16s"/>
+      <line class="rung" x1="42.4" y1="114" x2="77.6" y2="114" stroke="var(--acc2)" stroke-width="2.1" style="--o:0.42;animation-delay:2.28s"/>
+      <line class="rung" x1="77.6" y1="126" x2="42.4" y2="126" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:2.52s"/>
+      <line class="rung" x1="88.5" y1="132" x2="31.5" y2="132" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:2.64s"/>
+      <line class="rung" x1="88.5" y1="138" x2="31.5" y2="138" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:2.76s"/>
+      <line class="rung" x1="77.6" y1="144" x2="42.4" y2="144" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:2.88s"/>
+      <path class="sb fr" d="M 60 30 L 66.2 32 L 72.2 34 L 77.6 36 L 82.3 38 L 86 40 L 88.5 42 L 89.8 44 L 89.8 46 L 88.5 48 L 86 50 L 82.3 52 L 77.6 54 L 72.2 56 L 66.2 58 L 60 60 M 60 90 L 66.2 92 L 72.2 94 L 77.6 96 L 82.3 98 L 86 100 L 88.5 102 L 89.8 104 L 89.8 106 L 88.5 108 L 86 110 L 82.3 112 L 77.6 114 L 72.2 116 L 66.2 118 L 60 120"/>
+      <path class="sa fr" d="M 60 0 L 66.2 2 L 72.2 4 L 77.6 6 L 82.3 8 L 86 10 L 88.5 12 L 89.8 14 L 89.8 16 L 88.5 18 L 86 20 L 82.3 22 L 77.6 24 L 72.2 26 L 66.2 28 L 60 30 M 60 60 L 66.2 62 L 72.2 64 L 77.6 66 L 82.3 68 L 86 70 L 88.5 72 L 89.8 74 L 89.8 76 L 88.5 78 L 86 80 L 82.3 82 L 77.6 84 L 72.2 86 L 66.2 88 L 60 90 M 60 120 L 66.2 122 L 72.2 124 L 77.6 126 L 82.3 128 L 86 130 L 88.5 132 L 89.8 134 L 89.8 136 L 88.5 138 L 86 140 L 82.3 142 L 77.6 144 L 72.2 146 L 66.2 148 L 60 150"/>
+    </svg>
     <h1>OligoForge</h1>
     <div class="tag">qPCR primer &amp; probe design · validation · QC</div>
     <div class="seqticker"><span>ACGT · CYTB · COI · 16S · ITS · rbcL · rpoB · IFNG · ACGT · CYTB · COI · 16S · ITS · rbcL · rpoB · IFNG · </span></div>
@@ -297,7 +316,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
 </div>
 
 <header>
-  <div class="brand"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="flex:0 0 auto"><defs><linearGradient id="ofg" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop stop-color="#6fd2ff"/><stop offset="1" stop-color="#7ee787"/></linearGradient></defs><path d="M8 3C16 7.5 8 16.5 16 21" stroke="url(#ofg)" stroke-width="1.7" stroke-linecap="round"/><path d="M16 3C8 7.5 16 16.5 8 21" stroke="url(#ofg)" stroke-width="1.7" stroke-linecap="round"/><line x1="9.4" y1="6.1" x2="14.6" y2="6.1" stroke="url(#ofg)" stroke-width="1.2" stroke-linecap="round"/><line x1="9.4" y1="12" x2="14.6" y2="12" stroke="url(#ofg)" stroke-width="1.2" stroke-linecap="round"/><line x1="9.4" y1="17.9" x2="14.6" y2="17.9" stroke="url(#ofg)" stroke-width="1.2" stroke-linecap="round"/></svg><h1>Oligo<b>Forge</b></h1></div><span class="sub">qPCR primer / probe design + QC · local</span>
+  <div class="brand"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="flex:0 0 auto"><defs><linearGradient id="ofg" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse"><stop stop-color="#6fd2ff"/><stop offset="1" stop-color="#7ee787"/></linearGradient></defs><line x1="17.2" y1="4.8" x2="6.8" y2="4.8" stroke="url(#ofg)" stroke-width="1.15" stroke-linecap="round" opacity="0.95"/><line x1="6.8" y1="9.2" x2="17.2" y2="9.2" stroke="url(#ofg)" stroke-width="1.15" stroke-linecap="round" opacity="0.5"/><line x1="17.2" y1="13.8" x2="6.8" y2="13.8" stroke="url(#ofg)" stroke-width="1.15" stroke-linecap="round" opacity="0.95"/><line x1="6.8" y1="18.2" x2="17.2" y2="18.2" stroke="url(#ofg)" stroke-width="1.15" stroke-linecap="round" opacity="0.5"/><path d="M 12 2.5 L 15.3 3.5 L 17.1 4.5 L 16.5 5.5 L 13.8 6.5 L 10.2 7.5 L 7.5 8.5 L 6.9 9.5 L 8.7 10.5 L 12 11.5 L 15.3 12.5 L 17.1 13.5 L 16.5 14.5 L 13.8 15.5 L 10.2 16.5 L 7.5 17.5 L 6.9 18.5 L 8.7 19.5 L 12 20.5 L 15.3 21.5" fill="none" stroke="url(#ofg)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M 12 2.5 L 8.7 3.5 L 6.9 4.5 L 7.5 5.5 L 10.2 6.5 L 13.8 7.5 L 16.5 8.5 L 17.1 9.5 L 15.3 10.5 L 12 11.5 L 8.7 12.5 L 6.9 13.5 L 7.5 14.5 L 10.2 15.5 L 13.8 16.5 L 16.5 17.5 L 17.1 18.5 L 15.3 19.5 L 12 20.5 L 8.7 21.5" fill="none" stroke="#6fd2ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/></svg><h1>Oligo<b>Forge</b></h1></div><span class="sub">qPCR primer / probe design + QC · local</span>
   <div class="cond" title="reaction salt used for every Tm — match it to your master mix">
     <span class="u">Mg²⁺</span><input id="cond_dv" type="number" step="0.1">
     <span class="u">mono</span><input id="cond_mv" type="number" step="1">
@@ -587,7 +606,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.11.10 · <a href="#" id="introReplay">replay intro</a></footer>
+<footer>OligoForge v1.11.11</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -773,7 +792,7 @@ function loadWorkbenchToOrder(){document.getElementById("orderrows").innerHTML="
  if(!PANEL.length){toast("No assays in the Workbench yet — add one first.","warn");return;}
  PANEL.forEach(a=>{const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";
   addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");
-  if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);if(a.gblock)addGbRow((a.name||"assay")+"_gBlock",a.gblock);});
+  if(a.probe)addOrderRow((a.name||"assay")+"_P",(pk==="probe_lna"&&a.probe_lna)?a.probe_lna:a.probe,pk);if(a.gblock)addGbRow((a.name||"assay")+"_gBlock",a.gblock);});
  toast("Pulled "+PANEL.length+" assay(s) from the Workbench into this order.","ok");}
 addOrderRow("HMBS_F","GAGCTATACCCCGACCTCTG","primer");addOrderRow("HMBS_P","ATCTTGTCCCCAGTTGTTGACATGGCC","probe_zen");addGbRow("HMBS_gBlock","");
 async function doOrder(){const o=document.getElementById("o_out");
@@ -929,6 +948,9 @@ async function doAuto(){const o=document.getElementById("au_out");
  let h=`<small class="note">fetched ${d.n_targets} target${d.n_offs?(", "+d.n_offs+" off-target"):""}; designed on a ${d.reference_len} nt reference; ${d.n_candidates} candidate(s). Screen only — confirm in OligoAnalyzer.</small>${!d.n_offs?`<div class="hint" style="margin-top:4px"><b>No off-target set.</b> To score cross-reactivity (e.g. Plasmodium vs Haemoproteus), put an off-target query in the <b>off-target to discriminate against</b> field above, or use the marker finder’s <b>Design with … vs …</b> button — the off-target column appears once one is set.</div>`:''}${d.constraint_note?`<div class="note" style="margin-top:4px"><b class="WARN">heads up:</b> ${esc(d.constraint_note)}</div>`:""}
    <div class="card" style="margin-top:8px;border-color:var(--acc)">chemistry chosen: <b>${d.profile_pretty||d.profile_used}</b></div>`;
  d.candidates.forEach((c,i)=>{const a=c.assay,cn=c.conservation,ds=c.discrimination;
+  let discWarn="";
+  if(i===0&&ds){const bad=[];["F","R"].forEach(k=>{const o=ds[k];if(o&&o.n&&o.max_ident>=90&&(o.min_3prime_mismatch||0)===0)bad.push(k==="F"?"forward":"reverse");});
+   if(bad.length)discWarn=`<div class="card" style="margin:8px 0 0;border-color:var(--warn)"><b class="WARN">⚠ weak separation</b> the ${bad.join(" & ")} primer matches the off-target at full identity with no 3′-end mismatch — this pair will likely co-amplify it. Conserved priming regions are often shared between close relatives (the classic cytb Plasmodium/Haemoproteus case); rely on the probe over a diagnostic base (see the Conservation tab), choose a region with 3′-discriminating primers, or run nested PCR.</div>`;}
   const rows=[["Fwd",a.forward,a.f_tm,"F"],["Rev",a.reverse,a.r_tm,"R"]];
   if(a.probe)rows.push(["Probe",a.probe,(a.probe_info?a.probe_info.tm:0),"P"]);
   h+=`<div class="card${i==0?' best':''}" style="margin-top:10px"><b>${i==0?'★ best':'alt '+i}</b> · score ${c.score} · amplicon ${a.amplicon} nt${a.amplicon_tm!=null?' · Tm ≈ '+a.amplicon_tm+' °C':''}${a.probe?'':' · <span class="note">primers only</span>'}
@@ -937,9 +959,9 @@ async function doAuto(){const o=document.getElementById("au_out");
      return `<tr><td>${lab}</td><td class="mono">${seq}</td><td>${tm?tm.toFixed(1):'—'}</td><td class="${cc.mean_ident<90?'WARN':'PASS'}">${cc.mean_ident!=null?cc.mean_ident:'—'}%</td><td class="${cc.worst_3prime<90?'FAIL':'PASS'}">${cc.worst_3prime!=null?cc.worst_3prime:'—'}%</td>${ds?('<td class="'+dcls+'">'+dd+'</td>'):''}</tr>`;}).join("")+
    `</table><div class="legend">↑ higher is better &nbsp;·&nbsp; ↓ lower is better &nbsp;·&nbsp; <b class="PASS">green</b> = good, <b class="WARN">amber</b> = check, <b class="FAIL">red</b> = problem${ds?' &nbsp;·&nbsp; off-target shows closest identity&nbsp;/&nbsp;mismatches (<b>mm</b>)':''}</div>`+
    (a.probe_lna&&a.probe_lna.notation?`<div class="card" style="margin:6px 0"><b>LNA placement (suggested)</b> <span class="mono">${a.probe_lna.notation}</span><br><span class="hint">${a.probe_lna.n_lna} LNA · ${a.probe_lna.mode||""} · est. Tm ${a.probe_lna.est_tm_low!=null?a.probe_lna.est_tm_low+"–"+a.probe_lna.est_tm_high+" °C":"(confirm in OligoAnalyzer)"}. ${a.probe_lna.note||""}</span></div>`:"")+
-   candExtras(c)+
+   discWarn+candExtras(c)+
    ampliconMap(a)+
-   `<div style="margin-top:8px"><button class="ghost" onclick='autoAddCand(${i})'>${i==0?'★ ':''}add to workbench</button> <button class="ghost" onclick='autoToOrder(${JSON.stringify(a.forward)},${JSON.stringify(a.reverse)},${JSON.stringify(a.probe)},"${probeKind}")'>→ send to Order tab</button></div>`+
+   `<div style="margin-top:8px"><button class="ghost" onclick='autoAddCand(${i})'>${i==0?'★ ':''}add to workbench</button> <button class="ghost" onclick='autoToOrder(${JSON.stringify(a.forward)},${JSON.stringify(a.reverse)},${JSON.stringify(probeKind==="probe_lna"&&a.probe_lna&&a.probe_lna.notation?a.probe_lna.notation:a.probe)},"${probeKind}")'>→ send to Order tab</button></div>`+
    `</div>`;});
  h+=nestedHtml(d);
  if(d.specificity){const sp=d.specificity;
@@ -1136,7 +1158,7 @@ function gfRender(d){const _i=(document.getElementById("gf_intent")||{}).value||
  h+=`<div class="hint" style="margin-top:8px">\u201cdetect the group\u201d = a <b>conserved</b> marker (same across the genus, catches any member); \u201cseparate species/lineages\u201d = a <b>variable</b> marker (differs between relatives, tells them apart). For a <b>specific named gene</b> (IL4, IFNG, a reference gene), use the gene finder above instead.</div>`;
  if(!d.exclude&&d.relatives&&d.relatives.length){h+=`<div style="margin-top:6px"><span class="hint">separating from a relative? click one to set the off-target:</span> `+d.relatives.map(rl=>`<button class="ghost gf-chip gf-rel" onclick='setExcl(${JSON.stringify(rl)})'>vs ${esc(rl)}</button>`).join(" ")+`</div>`;}
  if(ranked.length){
-  h+=`<table><tr><th></th><th>marker</th><th>best for</th><th title="A conserved marker detects the whole group; a variable one separates close species/lineages.">group vs species</th><th>sensitivity</th>`+(sc?`<th title="GenBank records for the target">records</th>`+(d.exclude?`<th title="GenBank records for the off-target \u2014 you need data in BOTH to validate a separation">in ${esc(d.exclude)}</th>`:"")+`<th>med len</th>`:`<th>typical region</th>`)+`<th>chem</th></tr>`+
+  h+=`<div class="hint" style="margin:7px 0 5px">↗ Click any marker row to load it into the designer${d.exclude?" (with the off-target prefilled)":""}.</div><table><tr><th></th><th>marker</th><th>best for</th><th title="A conserved marker detects the whole group; a variable one separates close species/lineages.">group vs species</th><th>sensitivity</th>`+(sc?`<th title="GenBank records for the target">records</th>`+(d.exclude?`<th title="GenBank records for the off-target \u2014 you need data in BOTH to validate a separation">in ${esc(d.exclude)}</th>`:"")+`<th>med len</th>`:`<th>typical region</th>`)+`<th>chem</th></tr>`+
    ranked.map(m=>{const isRec=rec&&m.gene===rec.gene;
     const head=`<td><b>${esc(m.gene)}</b><br><span class="hint">${esc(m.name)}</span></td><td>${esc(m.good_for)}</td><td><b class="${gfFit(m.conservation,goal)}">${esc(m.conservation)}</b> \u00b7 ${esc(m.level)}</td><td>${esc(m.copies)}</td>`;
     let mid;
@@ -1144,7 +1166,7 @@ function gfRender(d){const _i=(document.getElementById("gf_intent")||{}).value||
      const oc=d.exclude?`<td>${m.off_count==null?"\u2014":(m.off_count===0?`<b class="WARN">0</b>`:fmtNum(m.off_count))}</td>`:"";
      mid=`<td>${c}</td>${oc}<td>${m.median_len!=null?m.median_len:"\u2014"}</td>`;}
     else{mid=`<td>${m.region?esc(m.region):"\u2014"}</td>`;}
-    return `<tr class="${isRec?"gf-row-rec":""}"><td class="gf-star">${isRec?"\u2605":""}</td>${head}${mid}<td class="mono">${esc(m.chemistry)}</td></tr>`;
+    return `<tr class="gf-pick${isRec?' gf-row-rec':''}" onclick='useMarker(${JSON.stringify(m.query)},${JSON.stringify(m.chemistry)},${JSON.stringify(m.qwords)})' title="click to load this marker into the designer"><td class="gf-star">${isRec?"\u2605":""}</td>${head}${mid}<td class="mono">${esc(m.chemistry)}</td></tr>`;
    }).join("")+`</table>`;
  }
  if(d.note)h+=`<small class="note">${esc(d.note)}</small>`;
@@ -1175,7 +1197,7 @@ async function toConsAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;doc
  if(gw&&a.organism){fld("cons_tq",a.organism+"[Organism] AND "+gw);o.innerHTML='<div class="working">fetching target'+(offq?" + off-target":"")+' sequences for '+esc(a.name||"assay")+' from NCBI\u2026</div><div class="ofbar"></div>';await fetchNuc("cons_targets","cons_tq","cons_tn");if(offq){await fetchNuc("cons_offs","cons_oq","cons_on");}const t=document.getElementById("cons_targets").value||"";if(t&&t.indexOf(">ERROR")!==0){doCons();}else{o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'\u2019s oligos but couldn\u2019t auto-fetch targets \u2014 adjust the query above and click fetch, or paste target FASTA, then Analyze.</div>';}}
  else if(offq){o.innerHTML='<div class="working">fetching off-target sequences\u2026</div><div class="ofbar"></div>';await fetchNuc("cons_offs","cons_oq","cons_on");o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'\u2019s oligos and off-target. Set its gene + organism to auto-fetch targets, or paste target FASTA, then Analyze.</div>';}
  else{o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'\u2019s oligos. Set its gene + organism to auto-fetch targets, or paste target FASTA, then Analyze.</div>';}}
-function toOrderAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("orderrows").innerHTML="";const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");if(a.probe)addOrderRow((a.name||"assay")+"_P",a.probe,pk);if(a.gblock){const gb=document.getElementById("gbrows");if(gb)gb.innerHTML="";addGbRow((a.name||"assay")+"_gBlock",a.gblock);}gotab("order");toast("Filled "+(a.name||"assay")+"'s F/R"+(a.probe?" + probe":"")+(a.gblock?" + gBlock":"")+" into the Order tab.","ok");}
+function toOrderAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("orderrows").innerHTML="";const k=(a.chemistry||"").toLowerCase();const pk=(k.indexOf("lna")>=0||k.indexOf("affinity")>=0||k.indexOf("low-tm taqman")>=0)?"probe_lna":"probe_zen";addOrderRow((a.name||"assay")+"_F",a.forward,"primer");addOrderRow((a.name||"assay")+"_R",a.reverse,"primer");if(a.probe)addOrderRow((a.name||"assay")+"_P",(pk==="probe_lna"&&a.probe_lna)?a.probe_lna:a.probe,pk);if(a.gblock){const gb=document.getElementById("gbrows");if(gb)gb.innerHTML="";addGbRow((a.name||"assay")+"_gBlock",a.gblock);}gotab("order");toast("Filled "+(a.name||"assay")+"'s F/R"+(a.probe?" + probe":"")+(a.gblock?" + gBlock":"")+" into the Order tab.","ok");}
 async function checkAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;const c=document.getElementById("wk_status_"+id);if(c)c.textContent="checking\u2026";
  const md=document.getElementById("ep_mode")?document.getElementById("ep_mode").value:"remote";
  const d=await api("/api/epcr",{forward:a.forward,reverse:a.reverse,mode:md,db:"nt",organism:a.organism||null,email:email.value});
@@ -1221,11 +1243,9 @@ renderPanel();
 (function(){try{
   var sp=document.getElementById('splash'); if(!sp) return;
   function enter(){ try{localStorage.setItem('of_seen_intro','1');}catch(e){} sp.classList.add('gone'); }
-  function open(){ try{sp.style.display='';}catch(e){} try{void sp.offsetHeight;}catch(e){} sp.classList.remove('gone'); var x=document.getElementById('splashEnter'); if(x){try{x.focus();}catch(e){}} }
   var b=document.getElementById('splashEnter'); if(b){ b.addEventListener('click',enter); }
   sp.addEventListener('click',function(ev){ if(ev&&ev.target===sp) enter(); });
   sp.addEventListener('keydown',function(ev){ if(ev&&(ev.key==='Enter'||ev.key==='Escape')) enter(); });
-  var rep=document.getElementById('introReplay'); if(rep){ rep.addEventListener('click',function(ev){ if(ev&&ev.preventDefault)ev.preventDefault(); open(); }); }
   var seen=false; try{ seen=localStorage.getItem('of_seen_intro')==='1'; }catch(e){}
   if(seen){ try{sp.style.display='none';}catch(e){} } else if(b){ try{b.focus();}catch(e){} }
 }catch(e){}})();
