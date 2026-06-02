@@ -606,7 +606,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.11.14</footer>
+<footer>OligoForge v1.11.15</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -946,7 +946,8 @@ async function doAuto(){const o=document.getElementById("au_out");
  LAST_AUTO_FULL=d;
  const probeKind=(d.profile_used==="idt_affinity"||d.profile_used==="parasite_mtdna")?"probe_lna":"probe_zen";
  let h=`<small class="note">fetched ${d.n_targets} target${d.n_offs?(", "+d.n_offs+" off-target"):""}; designed on a ${d.reference_len} nt reference; ${d.n_candidates} candidate(s). Screen only — confirm in OligoAnalyzer.</small>${!d.n_offs?`<div class="hint" style="margin-top:4px"><b>No off-target set.</b> To score cross-reactivity (e.g. Plasmodium vs Haemoproteus), put an off-target query in the <b>off-target to discriminate against</b> field above, or use the marker finder’s <b>Design with … vs …</b> button — the off-target column appears once one is set.</div>`:''}${d.constraint_note?`<div class="note" style="margin-top:4px"><b class="WARN">heads up:</b> ${esc(d.constraint_note)}</div>`:""}
-   <div class="card" style="margin-top:8px;border-color:var(--acc)">chemistry chosen: <b>${d.profile_pretty||d.profile_used}</b></div>`;
+   <div class="card" style="margin-top:8px;border-color:var(--acc)">chemistry chosen: <b>${d.profile_pretty||d.profile_used}</b></div>
+   <details style="margin-top:8px"><summary class="note" style="cursor:pointer">sequences used (${(d.target_subjects||[]).length} target${d.off_subjects&&d.off_subjects.length?" / "+d.off_subjects.length+" off-target":""}) — accessions behind the conservation / discrimination</summary><div class="hint" style="margin-top:4px"><b>Target:</b><br>${((d.target_subjects||[]).map(s=>'<span class="mono">'+esc(s.acc)+'</span> '+esc((s.title||"").slice(0,90))).join("<br>"))||"&mdash;"}</div>${d.off_subjects&&d.off_subjects.length?('<div class="hint" style="margin-top:6px"><b>Off-target:</b><br>'+d.off_subjects.map(s=>'<span class="mono">'+esc(s.acc)+'</span> '+esc((s.title||"").slice(0,90))).join("<br>")+'</div>'):""}</details>`;
  d.candidates.forEach((c,i)=>{const a=c.assay,cn=c.conservation,ds=c.discrimination;
   let discWarn="";
   if(i===0&&ds){const bad=[];["F","R"].forEach(k=>{const o=ds[k];if(o&&o.n&&o.max_ident>=90&&(o.min_3prime_mismatch||0)===0)bad.push(k==="F"?"forward":"reverse");});
@@ -1193,7 +1194,7 @@ function toIntron(id){const a=PANEL.find(x=>x.id===id);if(!a)return;fld("i_gene"
  else{o.innerHTML=`<div class="ph">Loaded ${esc(a.name||"assay")} primers. Set the gene and organism (above, or on the Workbench card), then this locates the amplicon and checks the exon junctions.</div>`;}}
 async function toConsAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;document.getElementById("consrows").innerHTML="";addConsRow((a.name||"a")+"_F",a.forward);addConsRow((a.name||"a")+"_R",a.reverse);if(a.probe)addConsRow((a.name||"a")+"_P",a.probe);gotab("cons");const o=document.getElementById("cons_out");const gw=(a.gene||"").replace(/\(.*?\)/g,"").trim();
  const oqraw=(a.off_query||"").trim();let offq="";
- if(oqraw){const m=oqraw.match(/^([A-Z][a-z]+(?:\s+[a-z]+)?)\s+(.+)$/);offq=(m&&oqraw.indexOf("[")<0)?(m[1]+"[Organism] AND "+m[2]):oqraw;fld("cons_oq",offq);}
+ if(oqraw){offq=oqraw;if(oqraw.indexOf("[")<0){const GW=/^(cytochrome|cyt|cytb|cob|coi|coii|coiii|co|nadh|nad|its|rrna|ribosomal|rbcl|matk|trnl|trnh|psba|rdrp|ssu|lsu|spacer|intergenic|transcribed|minicircle|kinetoplast|control|region|oxidase)$/i;const tk=oqraw.split(/\s+/);if(tk.length>=2&&/^[A-Z][a-z]+$/.test(tk[0])){let org=[tk[0]],i=1;if(tk.length>=3&&/^[a-z]+$/.test(tk[1])&&!GW.test(tk[1])){org.push(tk[1]);i=2;}const gene=tk.slice(i).join(" ");if(gene)offq=org.join(" ")+"[Organism] AND "+gene;}}fld("cons_oq",offq);}
  if(gw&&a.organism){fld("cons_tq",a.organism+"[Organism] AND "+gw);o.innerHTML='<div class="working">fetching target'+(offq?" + off-target":"")+' sequences for '+esc(a.name||"assay")+' from NCBI\u2026</div><div class="ofbar"></div>';await fetchNuc("cons_targets","cons_tq","cons_tn");if(offq){await fetchNuc("cons_offs","cons_oq","cons_on");}const t=document.getElementById("cons_targets").value||"";if(t&&t.indexOf(">ERROR")!==0){doCons();}else{o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'\u2019s oligos but couldn\u2019t auto-fetch targets \u2014 adjust the query above and click fetch, or paste target FASTA, then Analyze.</div>';}}
  else if(offq){o.innerHTML='<div class="working">fetching off-target sequences\u2026</div><div class="ofbar"></div>';await fetchNuc("cons_offs","cons_oq","cons_on");o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'\u2019s oligos and off-target. Set its gene + organism to auto-fetch targets, or paste target FASTA, then Analyze.</div>';}
  else{o.innerHTML='<div class="ph">Filled '+esc(a.name||"assay")+'\u2019s oligos. Set its gene + organism to auto-fetch targets, or paste target FASTA, then Analyze.</div>';}}

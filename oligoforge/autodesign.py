@@ -115,7 +115,10 @@ def _score(assay, targets, offs, min_ident):
         if ids:
             s -= sum(ids) / len(ids)
         if blocks:
-            s += 14.0 * max(blocks)
+            # 9*sum + 5*max equals the old 14*max for a SINGLE blocker (unchanged), and adds 9 per
+            # extra 3'-block: a pair that fails the off-target at BOTH 3' ends is far more robust --
+            # both terminal mismatches must independently read through to make a false product.
+            s += 9.0 * sum(blocks) + 5.0 * max(blocks)
     return round(s, 1), cons, disc
 
 
@@ -216,7 +219,7 @@ def _degenerate(oligo, targets, max_mm_frac=0.25, min_minor=0.18, min_count=2, c
     return "".join(out), ndeg, used
 
 
-def _disc_candidates(reference, profile, offs, want=6, window=350, screen=120):
+def _disc_candidates(reference, profile, offs, want=6, window=350, screen=300):
     """When an off-target set is given, surface primer pairs that DISCRIMINATE it.
     The normal path keeps only the single Tm-optimal pair per window, so a pair whose
     primer 3' end mismatches the off-target -- and would block its amplicon -- is thrown
@@ -237,6 +240,8 @@ def _disc_candidates(reference, profile, offs, want=6, window=350, screen=120):
     def blk3(seq):
         v = dcache.get(seq)
         if v is None:
+            if len(dcache) >= 1000:            # bound total alignment work on long, many-window references
+                return (0, 100)
             d = C.discrimination(seq, offs)
             v = ((d.get("min_3prime_mismatch", 0), d.get("max_ident", 100)) if d.get("n") else (0, 100))
             dcache[seq] = v
@@ -254,11 +259,13 @@ def _disc_candidates(reference, profile, offs, want=6, window=350, screen=120):
             blk = max(fb, rb)
             if blk < 1:                       # neither primer 3'-blocks the off-target -> not a discriminator
                 continue
-            ranked.append((-blk, round((fid + rid) / 2.0, 1), p["score"], s, win, p))
-    ranked.sort(key=lambda x: (x[0], x[1], x[2]))
+            # rank by TOTAL 3'-block first (a pair that fails the off-target at BOTH ends beats one that
+            # leans on a single primer), then strongest single block, then low off-target identity, Tm-fit.
+            ranked.append((-(fb + rb), -blk, round((fid + rid) / 2.0, 1), p["score"], s, win, p))
+    ranked.sort(key=lambda x: (x[0], x[1], x[2], x[3]))
     out, seen = [], set()
     no_probe = profile.get("no_probe")
-    for _b, _id, _sc, s, win, p in ranked:
+    for _sum, _b, _id, _sc, s, win, p in ranked:
         if p["f"] in seen:
             continue
         if no_probe:
@@ -296,7 +303,7 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
     cands = _candidates(ref, profile, n_candidates)
     if offs:                                  # augment with discrimination-aware pairs (3'-blockers the
         try:                                  # Tm-only path never surfaces); best-effort, must not break design
-            _dc = _disc_candidates(ref, profile, offs, want=6)
+            _dc = _disc_candidates(ref, profile, offs, want=8)
             _have = {c["forward"] for c in cands}
             for _a in _dc:
                 if _a["forward"] not in _have:
@@ -514,7 +521,8 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
             msg += (f". {_resolved['symbol']} ({_resolved.get('description','')}) is annotated in "
                     f"{_resolved.get('organism','another species')}, not in {_org}.")
         return dict(error=msg)
-    off = [seq for _, seq in N.search_fetch_fasta(off_query, max(8, n_fetch // 2))] if off_query else None
+    _off_pairs = N.search_fetch_fasta(off_query, max(8, n_fetch // 2)) if off_query else []
+    off = [seq for _, seq in _off_pairs] if off_query else None
 
     if profile_key == "auto":
         out, tried = None, []
@@ -550,6 +558,14 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
     out["resolved_gene"] = (_resolved.get("symbol") if (_resolved and _resolved.get("found")) else _gene) or ""
     out["resolved_organism"] = _org or (_resolved.get("organism") if _resolved else "") or ""
     out["off_query"] = off_query
+    def _subjects(pairs):
+        rows = []
+        for desc, _sq in (pairs or [])[:40]:
+            parts = (desc or "").split(None, 1)
+            rows.append({"acc": parts[0] if parts else "", "title": parts[1] if len(parts) > 1 else "", "len": len(_sq)})
+        return rows
+    out["target_subjects"] = _subjects(_pairs)   # actual accessions/species behind the conservation call
+    out["off_subjects"] = _subjects(_off_pairs)   # ...and the off-target set behind the discrimination call
 
     if out.get("candidates"):
         try:
