@@ -216,6 +216,71 @@ def _degenerate(oligo, targets, max_mm_frac=0.25, min_minor=0.18, min_count=2, c
     return "".join(out), ndeg, used
 
 
+def _disc_candidates(reference, profile, offs, want=6, window=350, screen=120):
+    """When an off-target set is given, surface primer pairs that DISCRIMINATE it.
+    The normal path keeps only the single Tm-optimal pair per window, so a pair whose
+    primer 3' end mismatches the off-target -- and would block its amplicon -- is thrown
+    away before scoring even when it sits right there in the enumeration. Here we enumerate
+    per window, keep every pair whose forward OR reverse primer has a 3'-end mismatch to the
+    off-target, rank by 3'-block strength / low off-target identity / Tm-fit, attach a probe,
+    and hand them to the scorer next to the Tm-optimal candidates. Best-effort and bounded;
+    only runs when offs are provided, so the no-off-target path is unchanged."""
+    ref = (reference or "").upper(); L = len(ref)
+    offs = [o for o in (offs or []) if o][:12]
+    if not offs or L < 40:
+        return []
+    if L <= window:
+        starts = [0]
+    else:
+        starts = list(range(0, L - window + 1, max(100, (L - window) // 29 + 1)))
+    dcache = {}
+    def blk3(seq):
+        v = dcache.get(seq)
+        if v is None:
+            d = C.discrimination(seq, offs)
+            v = ((d.get("min_3prime_mismatch", 0), d.get("max_ident", 100)) if d.get("n") else (0, 100))
+            dcache[seq] = v
+        return v
+    ranked = []
+    for s in starts:
+        win = ref[s:s + window]
+        try:
+            fwd, rev = D.enumerate_primers(win, profile)
+            pairs = D.pair_primers(fwd, rev, profile)
+        except Exception:
+            continue
+        for p in pairs[:screen]:
+            fb, fid = blk3(p["f"]); rb, rid = blk3(p["r"])
+            blk = max(fb, rb)
+            if blk < 1:                       # neither primer 3'-blocks the off-target -> not a discriminator
+                continue
+            ranked.append((-blk, round((fid + rid) / 2.0, 1), p["score"], s, win, p))
+    ranked.sort(key=lambda x: (x[0], x[1], x[2]))
+    out, seen = [], set()
+    no_probe = profile.get("no_probe")
+    for _b, _id, _sc, s, win, p in ranked:
+        if p["f"] in seen:
+            continue
+        if no_probe:
+            assay = dict(forward=p["f"], reverse=p["r"], probe=None, amplicon=p["amp"],
+                         amplicon_tm=round(T.amplicon_tm(win[p["fstart"]:p["rend"]]), 1),
+                         f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]), probe_info=None,
+                         f_xy=(p["fstart"], p["fend"]), r_xy=(p["rstart"], p["rend"]))
+        else:
+            probe = D.find_probe(win, p["fend"], p["rstart"], p["f"], p["r"], profile)
+            if not probe:
+                continue
+            gb, gs, ge = D.build_gblock(win, p["fstart"], p["rend"])
+            assay = dict(forward=p["f"], reverse=p["r"], probe=probe["probe"], amplicon=p["amp"],
+                         pair_tm_gap=p.get("gap"), amplicon_tm=round(T.amplicon_tm(win[p["fstart"]:p["rend"]]), 1),
+                         f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]), probe_info=probe,
+                         gblock=gb, gblock_span=(gs, ge), f_xy=(p["fstart"], p["fend"]), r_xy=(p["rstart"], p["rend"]))
+        seen.add(p["f"]); out.append(assay)
+        if len(out) >= want:
+            break
+    return out
+
+
 def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidates=5):
     # defensive: de-gap / uppercase / RNA->DNA each sequence and drop anything unusable, so a
     # pasted alignment or RNA sequence is corrected here rather than reaching the Tm engine dirty.
@@ -229,6 +294,15 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
         return dict(error="no usable target sequences (need >=1, ideally several)")
     ref = _reference(targets)
     cands = _candidates(ref, profile, n_candidates)
+    if offs:                                  # augment with discrimination-aware pairs (3'-blockers the
+        try:                                  # Tm-only path never surfaces); best-effort, must not break design
+            _dc = _disc_candidates(ref, profile, offs, want=6)
+            _have = {c["forward"] for c in cands}
+            for _a in _dc:
+                if _a["forward"] not in _have:
+                    cands.append(_a); _have.add(_a["forward"])
+        except Exception:
+            pass
     if not cands:
         return dict(error="no primer/probe set met this chemistry's Tm window on the reference. "
                           "AT-rich targets like parasite mtDNA can't reach a high-Tm probe — use the "

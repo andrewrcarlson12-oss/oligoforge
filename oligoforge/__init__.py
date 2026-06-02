@@ -1,2 +1,2 @@
 """OligoForge — local primer/probe design + QC cockpit for qPCR assays."""
-__version__ = "1.11.11"
+__version__ = "1.11.14"

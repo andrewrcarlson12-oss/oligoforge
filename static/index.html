@@ -606,7 +606,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.11.11</footer>
+<footer>OligoForge v1.11.14</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -1242,11 +1242,11 @@ renderPanel();
    Element-level handlers + guards only, so the headless test harness can't trip on it. */
 (function(){try{
   var sp=document.getElementById('splash'); if(!sp) return;
-  function enter(){ try{localStorage.setItem('of_seen_intro','1');}catch(e){} sp.classList.add('gone'); }
+  function enter(){ try{sessionStorage.setItem('of_seen_intro','1');}catch(e){} sp.classList.add('gone'); }
   var b=document.getElementById('splashEnter'); if(b){ b.addEventListener('click',enter); }
   sp.addEventListener('click',function(ev){ if(ev&&ev.target===sp) enter(); });
   sp.addEventListener('keydown',function(ev){ if(ev&&(ev.key==='Enter'||ev.key==='Escape')) enter(); });
-  var seen=false; try{ seen=localStorage.getItem('of_seen_intro')==='1'; }catch(e){}
+  var seen=false; try{ seen=sessionStorage.getItem('of_seen_intro')==='1'; }catch(e){}
   if(seen){ try{sp.style.display='none';}catch(e){} } else if(b){ try{b.focus();}catch(e){} }
 }catch(e){}})();
 </script>

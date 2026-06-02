@@ -114,6 +114,28 @@ def set_conditions(mv_conc=None, dv_conc=None, dntp_conc=None, dna_conc=None):
     Lets the Tm match your actual master mix (free Mg2+, monovalent, dNTP, oligo nM)
     instead of a generic default. Session-global for this local single-user server.
     """
+    # Validate physical ranges BEFORE mutating: this salt is session-global and feeds every Tm
+    # and structure calc, so a bad value (negative, non-finite, zero oligo, no salt, or absurdly
+    # high) must not be allowed to corrupt it and silently poison downstream Tm.
+    LIMITS = {"mv_conc": (0.0, 2000.0), "dv_conc": (0.0, 200.0),
+              "dntp_conc": (0.0, 100.0), "dna_conc": (1e-6, 1e6)}
+    given = {"mv_conc": mv_conc, "dv_conc": dv_conc, "dntp_conc": dntp_conc, "dna_conc": dna_conc}
+    for _name, _val in given.items():
+        if _val is None:
+            continue
+        try:
+            _v = float(_val)
+        except (TypeError, ValueError):
+            return dict(error="%s must be a number" % _name)
+        if _v != _v or _v in (float("inf"), float("-inf")):
+            return dict(error="%s must be a finite number" % _name)
+        _lo, _hi = LIMITS[_name]
+        if _v < _lo or _v > _hi:
+            return dict(error="%s out of range (%g..%g)" % (_name, _lo, _hi))
+    _eff_mv = float(mv_conc) if mv_conc is not None else COND["mv_conc"]
+    _eff_dv = float(dv_conc) if dv_conc is not None else COND["dv_conc"]
+    if _eff_mv + _eff_dv <= 0:
+        return dict(error="need some salt: monovalent + divalent must be > 0 mM")
     if mv_conc is not None:
         COND["mv_conc"] = float(mv_conc)
     if dv_conc is not None:
