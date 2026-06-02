@@ -330,6 +330,12 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
         if a.get("probe"):
             pqf, ppen = _seq_quality(a["probe"]); qf += pqf; pen += ppen
         a["quality_flags"] = qf
+        # qPCR-practical ranking: prefer shorter amplicons. Beyond the ~150 bp efficiency ceiling a
+        # mild per-base penalty keeps a longer pair from out-ranking an in-range one of comparable
+        # biology, while leaving every set at/under 150 bp (all pinned panel assays) untouched. The
+        # hard amp_min/amp_max gate is unchanged; this only orders candidates within it.
+        _amp = a.get("amplicon")
+        amp_pen = 0.25 * (_amp - 150) if isinstance(_amp, int) and _amp > 150 else 0.0
         if multi:                         # genus / multi-template: add degenerate coverage
             df, ndf, nu = _degenerate(a["forward"], targets)
             dr, ndr, _ = _degenerate(a["reverse"], targets)
@@ -342,7 +348,8 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
                     a["probe_deg"] = dp
                 a["n_degenerate"] = ndf + ndr + ndp
                 a["deg_targets"] = nu
-        scored.append(dict(score=round(sc - pen, 1), score_raw=sc, quality_penalty=round(pen, 1),
+        scored.append(dict(score=round(sc - pen - amp_pen, 1), score_raw=sc, quality_penalty=round(pen, 1),
+                           amplicon_penalty=round(amp_pen, 1),
                            assay=a, conservation=cons, discrimination=disc))
     scored.sort(key=lambda x: -x["score"])
     out = dict(n_targets=len(targets), n_offs=len(offs) if offs else 0,

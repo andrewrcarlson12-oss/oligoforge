@@ -8,7 +8,7 @@ and within-assay dimers are out of scope here (use QC / the panel matrix for tho
 from . import thermo as T
 
 
-def check(assays, dimer_threshold=-9.0, amp_tm_gap=2.0):
+def check(assays, dimer_threshold=-6.0, amp_tm_gap=2.0):
     by_dye = {}
     for a in assays:
         dye = (a.get("dye") or "").strip()

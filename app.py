@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
 
-app = FastAPI(title="OligoForge", version="1.11.19")
+app = FastAPI(title="OligoForge", version="1.11.22")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -245,8 +245,7 @@ def project_save(r: ProjectSaveReq):
               open(fn, "w"), indent=1)
     return dict(saved=r.name, n=len(r.assays))
 
-@app.api_route("/api/project/list", methods=["GET", "POST"])
-def project_list():
+def _project_list():
     out = []
     if os.path.isdir(PROJECTS_DIR):
         for f in sorted(os.listdir(PROJECTS_DIR)):
@@ -258,6 +257,16 @@ def project_list():
                 except Exception:
                     pass
     return dict(projects=out)
+
+
+@app.get("/api/project/list")
+def project_list_get():
+    return _project_list()
+
+
+@app.post("/api/project/list")
+def project_list_post():
+    return _project_list()
 
 @app.post("/api/project/load")
 def project_load(r: ProjectNameReq):
@@ -449,7 +458,7 @@ def api_report(r: ReportReq):
         return JSONResponse({"error": "report failed: %s" % e}, status_code=200)
 
 class MultiplexReq(BaseModel):
-    assays: List[dict]; dimer_threshold: float = -9.0
+    assays: List[dict]; dimer_threshold: float = -6.0
 class MarkerReq(BaseModel):
     organism: str; exclude: Optional[str] = None; intent: Optional[str] = "any"
     email: Optional[str] = None; ncbi_key: Optional[str] = None

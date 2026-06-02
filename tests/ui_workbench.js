@@ -11,7 +11,7 @@ const RESP={
  "/api/intron":{ok:true,verdict:"amplicon spans an exon-exon junction",info:"located on mRNA",amp_start:40,amp_end:176,amplicon:136,amp_located:true,junctions:[88,204],spanned:[88]},
  "/api/standard_curve":{efficiency_pct:99.2,slope:-3.33,r2:0.998,amp_factor:2,lod_practical:10,efficiency_ok:true,slope_ok:true,r2_ok:true,levels:[{quantity:"1e6",n:1,detected:1,mean_cq:20,sd_cq:null,detection_rate:100}],notes:"MIQE"},
  "/api/report":{html:"<html>r</html>",csv:"a,b\n1,2",n_assays:2},
- "/api/multiplex":{n_assays:2,n_oligos:4,threshold:-9,channel_conflicts:[{dye:"FAM",assays:["A","B"]}],cross_dimers:[{dg:-12,assay_a:"A",oligo_a:"F",assay_b:"B",oligo_b:"R"}],n_flagged:1},
+ "/api/multiplex":{n_assays:2,n_oligos:4,threshold:-6,channel_conflicts:[{dye:"FAM",assays:["A","B"]}],cross_dimers:[{dg:-12,assay_a:"A",oligo_a:"F",assay_b:"B",oligo_b:"R"}],n_flagged:1},
 };
 ctx.api=async(path)=>RESP[path]||{};
 (async()=>{let ok=0,bad=[];const T=async(label,fn)=>{try{await fn();ok++;console.log("  \u2713 "+label);}catch(e){bad.push(label);console.log("  \u2717 "+label+" -> "+e.message);}};

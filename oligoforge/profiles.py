@@ -78,7 +78,7 @@ PARASITE_MTDNA = dict(
     # AT-rich: allow 6-mer poly-A/T runs (G-run still capped at 4)
     no_three_prime_T=False, max_3prime_gc=3, max_g_run=4, max_any_run=7,
     hairpin_min=-2.0, self_dimer_min=-6.0, pair_dimer_min=-6.0, pair_tm_gap_max=2.5,
-    amp_min=70, amp_max=200, min_probe_gap=10,
+    amp_min=70, amp_max=150, min_probe_gap=10,
     probe_len_min=12, probe_len_max=28, probe_offset_min=6.0, probe_offset_max=12.0,
     probe_hairpin_min=-1.5,
     notes="AT-rich mitochondrial targets (e.g. apicomplexan cytb), ~54C anneal. "
