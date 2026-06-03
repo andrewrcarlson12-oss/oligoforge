@@ -385,22 +385,28 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 #splash.gone{opacity:0;visibility:hidden;pointer-events:none}
 #splash .scard{position:relative;text-align:center;padding:34px 46px;max-width:520px;animation:splashIn .7s cubic-bezier(.2,.8,.2,1) both}
 @keyframes splashIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-#splash .helix{width:96px;height:120px;margin:0 auto 6px;display:block;animation:helixFloat 3.6s ease-in-out 2.4s infinite}
-#splash .helix path{fill:none;stroke-linecap:round;stroke-linejoin:round}
-#splash .helix .sa{stroke:var(--acc)}
-#splash .helix .sb{stroke:var(--acc2)}
-#splash .helix .fr{stroke-width:3.4}
-#splash .helix .bk{stroke-width:2.6;opacity:.4}
-#splash .helix .rung{stroke-linecap:round;opacity:0;transform-box:fill-box;transform-origin:center;animation:rungIn .5s ease both}
-@keyframes rungIn{from{opacity:0;transform:scaleX(.35)}to{opacity:var(--o,.55);transform:scaleX(1)}}
+#splash .helix3d{position:relative;width:160px;height:216px;margin:2px auto 4px;perspective:640px;animation:helixFloat 3.8s ease-in-out 1.6s infinite}
+#splash .helix3d-rot{position:absolute;inset:0;transform-style:preserve-3d;animation:helixSpin 9s linear infinite}
+#splash .bp{position:absolute;left:50%;top:50%;width:88px;height:3px;margin:-1.5px 0 0 -44px;transform-style:preserve-3d;transform:translateY(var(--ty)) rotateY(var(--ry));opacity:0;animation:bpIn .5s ease both}
+#splash .bp .bar{position:absolute;left:10px;right:10px;top:50%;height:2.6px;margin-top:-1.3px;border-radius:2px;opacity:.92}
+#splash .bp.at .bar{background:var(--acc)}
+#splash .bp.gc .bar{background:var(--acc2)}
+#splash .bp .node{position:absolute;top:50%;width:7.5px;height:7.5px;margin-top:-3.75px;border-radius:50%;background:var(--ink2);box-shadow:0 0 0 1.5px var(--bg)}
+#splash .bp .node.l{left:0}
+#splash .bp .node.r{right:0}
+@keyframes bpIn{from{opacity:0}to{opacity:1}}
+@keyframes helixSpin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
 @keyframes helixFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-#splash h1{margin:.3em 0 .1em;font:800 38px/1 var(--display);letter-spacing:-.5px;color:var(--ink)}
-#splash .tag{color:var(--ink2);font:13px/1.5 var(--mono);letter-spacing:.02em}
+#splash h1{margin:.3em 0 .1em;font:800 38px/1 var(--display);letter-spacing:-.5px;color:var(--ink);opacity:0;animation:wmIn .7s ease 1.25s both}
+#splash .tag{color:var(--ink2);font:13px/1.5 var(--mono);letter-spacing:.02em;opacity:0;animation:wmIn .7s ease 1.45s both}
 #splash .seqticker{color:var(--dim);font:11px/1.4 var(--mono);letter-spacing:3px;height:15px;overflow:hidden;margin:9px 0 14px}
+#splash .seqticker span{display:inline-block;white-space:nowrap;animation:seqScroll 22s linear infinite}
+@keyframes wmIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes seqScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 #splash .curve{width:236px;height:40px;margin:0 auto 18px;display:block;opacity:.85}
 #splash .curve path{fill:none;stroke:var(--acc);stroke-width:2.4;stroke-linecap:round;stroke-dasharray:320;stroke-dashoffset:320;animation:curveDraw 1.5s cubic-bezier(.6,0,.2,1) .45s forwards}
 @keyframes curveDraw{to{stroke-dashoffset:0}}
-@media (prefers-reduced-motion: reduce){#splash .helix,#splash .helix .rung{animation:none}#splash .helix .rung{opacity:var(--o,.55)}#splash .curve path{animation:none;stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){#splash .helix3d,#splash .helix3d-rot{animation:none}#splash .helix3d-rot{transform:rotateY(22deg)}#splash .bp{animation:none;opacity:1}#splash h1,#splash .tag{animation:none;opacity:1}#splash .seqticker span{animation:none}#splash .curve path{animation:none;stroke-dashoffset:0}}
 #splash button{font:600 15px var(--ui);color:#fff;background:var(--acc);border:0;border-radius:11px;padding:13px 32px;cursor:pointer;transition:background .15s}
 #splash button:hover{background:var(--acc-d)}
 #splash .hint{margin-top:13px;color:var(--dim);font:11px/1 var(--mono);letter-spacing:.08em}
@@ -428,32 +434,38 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <svg class="grain" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><filter id="grainf"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#grainf)"/></svg>
 <div id="splash" role="dialog" aria-label="Welcome to OligoForge" tabindex="-1">
   <div class="scard">
-    <svg class="helix" viewBox="0 0 120 150" aria-hidden="true">
-      <path class="sa bk" d="M 60 30 L 53.8 32 L 47.8 34 L 42.4 36 L 37.7 38 L 34 40 L 31.5 42 L 30.2 44 L 30.2 46 L 31.5 48 L 34 50 L 37.7 52 L 42.4 54 L 47.8 56 L 53.8 58 L 60 60 M 60 90 L 53.8 92 L 47.8 94 L 42.4 96 L 37.7 98 L 34 100 L 31.5 102 L 30.2 104 L 30.2 106 L 31.5 108 L 34 110 L 37.7 112 L 42.4 114 L 47.8 116 L 53.8 118 L 60 120"/>
-      <path class="sb bk" d="M 60 0 L 53.8 2 L 47.8 4 L 42.4 6 L 37.7 8 L 34 10 L 31.5 12 L 30.2 14 L 30.2 16 L 31.5 18 L 34 20 L 37.7 22 L 42.4 24 L 47.8 26 L 53.8 28 L 60 30 M 60 60 L 53.8 62 L 47.8 64 L 42.4 66 L 37.7 68 L 34 70 L 31.5 72 L 30.2 74 L 30.2 76 L 31.5 78 L 34 80 L 37.7 82 L 42.4 84 L 47.8 86 L 53.8 88 L 60 90 M 60 120 L 53.8 122 L 47.8 124 L 42.4 126 L 37.7 128 L 34 130 L 31.5 132 L 30.2 134 L 30.2 136 L 31.5 138 L 34 140 L 37.7 142 L 42.4 144 L 47.8 146 L 53.8 148 L 60 150"/>
-      <line class="rung" x1="77.6" y1="6" x2="42.4" y2="6" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:0.12s"/>
-      <line class="rung" x1="88.5" y1="12" x2="31.5" y2="12" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:0.24s"/>
-      <line class="rung" x1="88.5" y1="18" x2="31.5" y2="18" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:0.36s"/>
-      <line class="rung" x1="77.6" y1="24" x2="42.4" y2="24" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:0.48s"/>
-      <line class="rung" x1="42.4" y1="36" x2="77.6" y2="36" stroke="var(--acc)" stroke-width="2.1" style="--o:0.42;animation-delay:0.72s"/>
-      <line class="rung" x1="31.5" y1="42" x2="88.5" y2="42" stroke="var(--acc2)" stroke-width="2.1" style="--o:0.42;animation-delay:0.84s"/>
-      <line class="rung" x1="31.5" y1="48" x2="88.5" y2="48" stroke="var(--acc)" stroke-width="2.1" style="--o:0.42;animation-delay:0.96s"/>
-      <line class="rung" x1="42.4" y1="54" x2="77.6" y2="54" stroke="var(--acc2)" stroke-width="2.1" style="--o:0.42;animation-delay:1.08s"/>
-      <line class="rung" x1="77.6" y1="66" x2="42.4" y2="66" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:1.32s"/>
-      <line class="rung" x1="88.5" y1="72" x2="31.5" y2="72" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:1.44s"/>
-      <line class="rung" x1="88.5" y1="78" x2="31.5" y2="78" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:1.56s"/>
-      <line class="rung" x1="77.6" y1="84" x2="42.4" y2="84" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:1.68s"/>
-      <line class="rung" x1="42.4" y1="96" x2="77.6" y2="96" stroke="var(--acc)" stroke-width="2.1" style="--o:0.42;animation-delay:1.92s"/>
-      <line class="rung" x1="31.5" y1="102" x2="88.5" y2="102" stroke="var(--acc2)" stroke-width="2.1" style="--o:0.42;animation-delay:2.04s"/>
-      <line class="rung" x1="31.5" y1="108" x2="88.5" y2="108" stroke="var(--acc)" stroke-width="2.1" style="--o:0.42;animation-delay:2.16s"/>
-      <line class="rung" x1="42.4" y1="114" x2="77.6" y2="114" stroke="var(--acc2)" stroke-width="2.1" style="--o:0.42;animation-delay:2.28s"/>
-      <line class="rung" x1="77.6" y1="126" x2="42.4" y2="126" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:2.52s"/>
-      <line class="rung" x1="88.5" y1="132" x2="31.5" y2="132" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:2.64s"/>
-      <line class="rung" x1="88.5" y1="138" x2="31.5" y2="138" stroke="var(--acc)" stroke-width="2.8" style="--o:0.92;animation-delay:2.76s"/>
-      <line class="rung" x1="77.6" y1="144" x2="42.4" y2="144" stroke="var(--acc2)" stroke-width="2.8" style="--o:0.92;animation-delay:2.88s"/>
-      <path class="sb fr" d="M 60 30 L 66.2 32 L 72.2 34 L 77.6 36 L 82.3 38 L 86 40 L 88.5 42 L 89.8 44 L 89.8 46 L 88.5 48 L 86 50 L 82.3 52 L 77.6 54 L 72.2 56 L 66.2 58 L 60 60 M 60 90 L 66.2 92 L 72.2 94 L 77.6 96 L 82.3 98 L 86 100 L 88.5 102 L 89.8 104 L 89.8 106 L 88.5 108 L 86 110 L 82.3 112 L 77.6 114 L 72.2 116 L 66.2 118 L 60 120"/>
-      <path class="sa fr" d="M 60 0 L 66.2 2 L 72.2 4 L 77.6 6 L 82.3 8 L 86 10 L 88.5 12 L 89.8 14 L 89.8 16 L 88.5 18 L 86 20 L 82.3 22 L 77.6 24 L 72.2 26 L 66.2 28 L 60 30 M 60 60 L 66.2 62 L 72.2 64 L 77.6 66 L 82.3 68 L 86 70 L 88.5 72 L 89.8 74 L 89.8 76 L 88.5 78 L 86 80 L 82.3 82 L 77.6 84 L 72.2 86 L 66.2 88 L 60 90 M 60 120 L 66.2 122 L 72.2 124 L 77.6 126 L 82.3 128 L 86 130 L 88.5 132 L 89.8 134 L 89.8 136 L 88.5 138 L 86 140 L 82.3 142 L 77.6 144 L 72.2 146 L 66.2 148 L 60 150"/>
-    </svg>
+    <div class="helix3d" aria-hidden="true"><div class="helix3d-rot">
+    <div class="bp at" style="--ty:-98.6px;--ry:0.0deg;animation-delay:0.18s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:-91.8px;--ry:36.0deg;animation-delay:0.23s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:-85.0px;--ry:72.0deg;animation-delay:0.28s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:-78.2px;--ry:108.0deg;animation-delay:0.33s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:-71.4px;--ry:144.0deg;animation-delay:0.38s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:-64.6px;--ry:180.0deg;animation-delay:0.43s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:-57.8px;--ry:216.0deg;animation-delay:0.48s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:-51.0px;--ry:252.0deg;animation-delay:0.53s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:-44.2px;--ry:288.0deg;animation-delay:0.58s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:-37.4px;--ry:324.0deg;animation-delay:0.63s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:-30.6px;--ry:360.0deg;animation-delay:0.68s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:-23.8px;--ry:396.0deg;animation-delay:0.73s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:-17.0px;--ry:432.0deg;animation-delay:0.78s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:-10.2px;--ry:468.0deg;animation-delay:0.83s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:-3.4px;--ry:504.0deg;animation-delay:0.88s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:3.4px;--ry:540.0deg;animation-delay:0.93s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:10.2px;--ry:576.0deg;animation-delay:0.98s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:17.0px;--ry:612.0deg;animation-delay:1.03s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:23.8px;--ry:648.0deg;animation-delay:1.08s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:30.6px;--ry:684.0deg;animation-delay:1.13s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:37.4px;--ry:720.0deg;animation-delay:1.18s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:44.2px;--ry:756.0deg;animation-delay:1.23s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:51.0px;--ry:792.0deg;animation-delay:1.28s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:57.8px;--ry:828.0deg;animation-delay:1.33s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:64.6px;--ry:864.0deg;animation-delay:1.38s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp at" style="--ty:71.4px;--ry:900.0deg;animation-delay:1.43s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:78.2px;--ry:936.0deg;animation-delay:1.48s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:85.0px;--ry:972.0deg;animation-delay:1.53s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:91.8px;--ry:1008.0deg;animation-delay:1.58s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+    <div class="bp gc" style="--ty:98.6px;--ry:1044.0deg;animation-delay:1.63s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
+  </div></div>
     <h1>OligoForge</h1>
     <div class="tag">qPCR primer &amp; probe design · validation · QC</div>
     <div class="seqticker"><span>ACGT · CYTB · COI · 16S · ITS · rbcL · rpoB · IFNG · ACGT · CYTB · COI · 16S · ITS · rbcL · rpoB · IFNG · </span></div>
@@ -466,7 +478,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <header class="topbar">
   <div class="brand">
     <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2c0 4 12 4 12 8s-12 4-12 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M16 2c0 4-12 4-12 8s12 4 12 8" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/><path d="M5.6 5h8.8M5 10h10M5.6 15h8.8" stroke="rgba(255,255,255,.5)" stroke-width="1" stroke-linecap="round"/></svg></span>
-    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.21.1</span>
+    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.21.2</span>
   </div>
   <div class="spacer"></div>
   <div class="toolset">
@@ -938,7 +950,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
 </main>
 </div><!--/shell-->
-<footer>OligoForge v1.21.1</footer>
+<footer>OligoForge v1.21.2</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
