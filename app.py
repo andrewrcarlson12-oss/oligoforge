@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO
 
-app = FastAPI(title="OligoForge", version="1.19.0")
+app = FastAPI(title="OligoForge", version="1.20.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -24,6 +24,29 @@ elif getattr(sys, "frozen", False):
     DATA_DIR = os.path.join(_base, "OligoForge")
 else:
     DATA_DIR = HERE
+
+
+# ---------- build identity (so a deployed instance can prove which commit it is) ----------
+import subprocess, datetime
+
+
+def _build_commit():
+    """Short commit of the running build. Render/most hosts inject this as an env var;
+    fall back to git if a checkout is present, else 'unknown'. Surfaced in /healthz and
+    the page footer so a stale deploy or a browser-cached page is immediately obvious."""
+    for _k in ("RENDER_GIT_COMMIT", "GIT_COMMIT", "SOURCE_COMMIT", "COMMIT_SHA"):
+        _c = os.environ.get(_k)
+        if _c:
+            return _c[:7]
+    try:
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"],
+                                       cwd=HERE, stderr=subprocess.DEVNULL, text=True).strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
+BUILD_COMMIT = _build_commit()
+BOOT_TIME = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
 
 def _set_email(email=None, key=None):
@@ -91,7 +114,11 @@ class BlastReq(BaseModel):
 # ---------- routes ----------
 @app.get("/")
 def index():
-    return FileResponse(os.path.join(RES_DIR, "static", "index.html"))
+    # no-store: the cockpit HTML must never be served stale, or a redeploy looks like it
+    # "didn't take" (footer/version frozen). The page reads its real version from /healthz.
+    return FileResponse(os.path.join(RES_DIR, "static", "index.html"),
+                        headers={"Cache-Control": "no-store, no-cache, must-revalidate",
+                                 "Pragma": "no-cache", "Expires": "0"})
 
 @app.get("/healthz")
 def healthz():
@@ -102,7 +129,8 @@ def healthz():
         primer3_ok = False
     data_ok = os.path.isdir(DATA_DIR) and os.access(DATA_DIR, os.W_OK)
     email = str(getattr(ncbi.Entrez, "email", "") or "")
-    return dict(ok=bool(primer3_ok and data_ok), version=app.version, primer3=primer3_ok,
+    return dict(ok=bool(primer3_ok and data_ok), version=app.version, commit=BUILD_COMMIT, booted=BOOT_TIME,
+                primer3=primer3_ok,
                 ncbi_email_set=bool(email and "example" not in email),
                 ncbi_api_key=bool(getattr(ncbi.Entrez, "api_key", None)),
                 ncbi_cache=getattr(ncbi, "_CACHE_ON", None),
@@ -122,7 +150,7 @@ def qc(r: OligoReq):
         return JSONResponse({"error": err}, status_code=200)
     hdg37, hdg_an, htm = T.hairpin_full(s)
     sd37, sd_an, sdtm = T.self_dimer_full(s)
-    out = dict(seq=s, length=len(s), gc=round(T.gc_percent(s), 1), tm=round(T.tm(s), 1),
+    out = dict(seq=s, length=len(s), gc=round(T.gc_percent(s), 1), tm=round(T.tm_acc(s), 1),
                hairpin_dg=round(hdg37, 2), hairpin_tm=round(htm, 0),
                self_dimer=round(sd37, 2), max_run=T.max_run(s),
                last5_gc=T.last5_gc(s), revcomp=T.revcomp(s),
@@ -154,8 +182,8 @@ def pair(r: PairReq):
     if er:
         return JSONResponse({"error": "reverse primer: " + er}, status_code=200)
     hx37, hx_an, hxtm = T.hetero_dimer_full(f, rev)
-    out = dict(f_tm=round(T.tm(f), 1), r_tm=round(T.tm(rev), 1),
-               pair_gap=round(abs(T.tm(f) - T.tm(rev)), 1),
+    out = dict(f_tm=round(T.tm_acc(f), 1), r_tm=round(T.tm_acc(rev), 1),
+               pair_gap=round(abs(T.tm_acc(f) - T.tm_acc(rev)), 1),
                fxr=round(hx37, 2),
                f_self=round(T.self_dimer(f), 2), r_self=round(T.self_dimer(rev), 2),
                anneal_c=T.ANNEAL_C, fxr_anneal=round(hx_an, 2), fxr_tm=round(hxtm, 0),

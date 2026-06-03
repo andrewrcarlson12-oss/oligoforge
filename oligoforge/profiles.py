@@ -155,15 +155,16 @@ def lint_oligo(seq, role, profile):
         warn("no G in first 3", "G" not in seq[:3], f"first3={seq[:3]}")
         chk("more C than G", seq.count("C") >= seq.count("G"),
             f"C/G = {seq.count('C')}/{seq.count('G')}")
-        _ptm = T.tm(seq)
+        _ptm = T.tm(seq)            # decision stays on the selection scale (windows are tuned to it)
+        _ptm_disp = T.tm_acc(seq)   # show the user the accurate, IDT-method Tm
         _lna_mgb = any(x in profile.get("name", "") for x in ("LNA", "Affinity", "MGB"))
         if _lna_mgb:
             out.append(("probe Tm (as DNA)", "PASS",
-                        f"{_ptm:.1f} C — {profile.get('name','')} chemistry raises the effective Tm; confirm in OligoAnalyzer"))
+                        f"{_ptm_disp:.1f} C — {profile.get('name','')} chemistry raises the effective Tm; confirm in OligoAnalyzer"))
         else:
             _floor = profile.get("tm_min", 59.0) + profile.get("probe_offset_min", 6.0)
             warn("probe Tm above primers", _ptm >= _floor,
-                 f"{_ptm:.1f} C (want >= {_floor:.0f} C, ~{profile.get('probe_offset_min',6):.0f}+ over the {profile.get('tm_min',59):.0f} C primer floor)")
+                 f"{_ptm_disp:.1f} C (want >= {_floor:.0f} C, ~{profile.get('probe_offset_min',6):.0f}+ over the {profile.get('tm_min',59):.0f} C primer floor)")
         hdg, htm = T.hairpin(seq)
         warn("hairpin", hdg > profile["probe_hairpin_min"], f"dG={hdg:.2f} (Tm {htm:.0f})")
         warn("self-dimer", T.self_dimer(seq) > profile["self_dimer_min"], f"dG={T.self_dimer(seq):.2f}")
@@ -173,7 +174,7 @@ def lint_oligo(seq, role, profile):
         chk("GC%", profile["gc_min"] <= T.gc_percent(seq) <= profile["gc_max"],
             f"{T.gc_percent(seq):.0f}% (allowed {profile['gc_min']:.0f}-{profile['gc_max']:.0f})")
         chk("Tm", profile["tm_min"] <= T.tm(seq) <= profile["tm_max"],
-            f"{T.tm(seq):.1f} C (target {profile['tm_min']}-{profile['tm_max']})")
+            f"{T.tm_acc(seq):.1f} C (target {profile['tm_min']}-{profile['tm_max']})")
         if profile.get("no_three_prime_T"):
             warn("3' not T", seq[-1] != "T", f"3'={seq[-1]}")
         chk("3' clamp <=3 G/C in last 5", T.last5_gc(seq) <= profile["max_3prime_gc"],

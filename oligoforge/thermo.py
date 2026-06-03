@@ -6,6 +6,7 @@ and tracks it exactly for relative comparisons. Running locally means these are
 the REAL primer3 numbers, not a browser approximation.
 """
 import primer3
+from Bio.SeqUtils import MeltingTemp as _mt
 import itertools
 import threading
 from functools import lru_cache
@@ -102,22 +103,27 @@ def amplicon_tm(seq):
     return 81.5 + 16.6 * math.log10(na_eq) + 0.41 * gc_percent(seq) - 600.0 / n
 
 
-# Nearest-neighbor set + monovalent salt model passed to primer3. The salt model is
-# applied AFTER primer3's built-in von Ahsen divalent->monovalent conversion, so Mg2+
-# and dNTP always reach Tm through COND regardless of this choice. "owczarzy" = Owczarzy
-# 2004; "santalucia" = SantaLucia 1998. Koukos & von Ahsen (Brief Bioinform 2010, 475
-# oligos) found the SantaLucia salt correction more accurate at PCR-range [Mg2+]; IDT
-# OligoAnalyzer uses Owczarzy 2008 (neither of these). Which best tracks IDT for THIS
-# panel is empirical -- test_tm_calibration.py compares both against real IDT values.
-# The default is the validated, locked-panel value: do NOT change it without re-running
-# that calibration AND updating test_locked_panel.GOLDEN (the ordered Tms move with it).
-TM_METHOD = "santalucia"
-SALT_METHOD = "owczarzy"
+# ---- Two Tm scales, on purpose ----
+#  * tm()      -> primer3 SantaLucia + Owczarzy-2004. The DESIGN/SELECTION Tm that every candidate
+#                 ranking, acceptance window, and golden test is calibrated to. Kept stable so the
+#                 validated designs (locked panel, autodesign winners) never silently drift.
+#  * tm_acc()  -> SantaLucia 1998 NN + Owczarzy 2008 (free Mg2+ via a Mg:dNTP dissociation constant,
+#                 R=[Mg2+]/[Na+] regime switch) + Ct/4 -- i.e. exactly IDT OligoAnalyzer's method
+#                 (Biopython Tm_NN, nn_table=DNA_NN3, saltcorr=7; dnac1==dnac2 gives Ct/4). This is
+#                 the ACCURATE Tm shown to the user in QC / pair / viewer / report. It reads ~1.6 C
+#                 above the primer3 path, which was the systematic gap users saw vs OligoAnalyzer
+#                 (benchmarks put this method within ~0.5 C of OligoAnalyzer). DNA_NN3 = Allawi &
+#                 SantaLucia 1997, the set underlying the 1998 unified parameters.
+# Selection and display are separated deliberately: improving the displayed accuracy must never
+# change which primers the tool designs.
+TM_METHOD = "santalucia"      # primer3 NN set for the selection Tm
+SALT_METHOD = "owczarzy"      # primer3 monovalent salt model (Owczarzy 2004) for the selection Tm
+_NN_TABLE = _mt.DNA_NN3       # Biopython NN set for the accurate (display) Tm
 
 
 def _calc_tm(seq, salt_method=None):
-    """Tm via primer3 under an explicit salt model (default SALT_METHOD). Uncached
-    so callers like the calibration harness can sweep methods without cache clashes."""
+    """Selection Tm via primer3 under an explicit salt model (uncached; the calibration harness
+    sweeps salt models without cache clashes)."""
     r = _resolve(seq)
     if not r:
         return 0.0
@@ -129,6 +135,22 @@ def _calc_tm(seq, salt_method=None):
 @lru_cache(maxsize=8192)
 def tm(seq):
     return _calc_tm(seq, SALT_METHOD)
+
+
+@lru_cache(maxsize=8192)
+def tm_acc(seq):
+    """Accurate, IDT-method Tm (deg C): SantaLucia 1998 NN + Owczarzy 2008 + Ct/4. Shown to the
+    user wherever a Tm is displayed. Tracks IDT OligoAnalyzer to ~0.5 C for plain DNA."""
+    r = _resolve(seq)
+    if len(r) < 2:
+        return 0.0
+    try:
+        return float(_mt.Tm_NN(r, nn_table=_NN_TABLE,
+                               dnac1=COND["dna_conc"], dnac2=COND["dna_conc"], selfcomp=False,
+                               Na=COND["mv_conc"], K=0.0, Tris=0.0,
+                               Mg=COND["dv_conc"], dNTPs=COND["dntp_conc"], saltcorr=7))
+    except Exception:
+        return 0.0
 
 
 _IUPAC_SETS = {"A": "A", "C": "C", "G": "G", "T": "T", "R": "AG", "Y": "CT", "S": "GC",
@@ -186,7 +208,7 @@ def set_conditions(mv_conc=None, dv_conc=None, dntp_conc=None, dna_conc=None, an
         COND["dna_conc"] = float(dna_conc)
     if anneal_c is not None:
         ANNEAL_C = float(anneal_c)
-    tm.cache_clear(); hairpin.cache_clear(); self_dimer.cache_clear(); hetero_dimer.cache_clear()
+    tm.cache_clear(); tm_acc.cache_clear(); hairpin.cache_clear(); self_dimer.cache_clear(); hetero_dimer.cache_clear()
     hairpin_full.cache_clear(); self_dimer_full.cache_clear()
     hetero_dimer_full.cache_clear(); end_stability.cache_clear()
     return dict(COND, anneal_c=ANNEAL_C)
@@ -203,13 +225,13 @@ def tm_range(seq, cap=64):
     s = seq.upper().replace("U", "T")
     degen = [(i, _IUPAC_SETS.get(b, b)) for i, b in enumerate(s) if len(_IUPAC_SETS.get(b, b)) > 1]
     if not degen:
-        t = round(tm(s), 1)
+        t = round(tm_acc(s), 1)
         return dict(min=t, max=t, n=1, degenerate=False, capped=False)
     ncomb = 1
     for _, opts in degen:
         ncomb *= len(opts)
     if ncomb > cap:
-        t = round(tm(s), 1)
+        t = round(tm_acc(s), 1)
         return dict(min=t, max=t, n=ncomb, degenerate=True, capped=True)
     idxs = [i for i, _ in degen]
     base = list(s)
@@ -217,7 +239,7 @@ def tm_range(seq, cap=64):
     for combo in itertools.product(*[opts for _, opts in degen]):
         for j, b in zip(idxs, combo):
             base[j] = b
-        tms.append(tm("".join(base)))
+        tms.append(tm_acc("".join(base)))
     return dict(min=round(min(tms), 1), max=round(max(tms), 1), n=ncomb, degenerate=True, capped=False)
 
 
@@ -375,21 +397,30 @@ def suggest_lna(seq, snp_pos=None, max_lna=None, spacing=3):
     return out
 
 
-def tm_lna(seq, n_lna=None, per_lna_low=2.0, per_lna_high=8.0):
-    """DNA-backbone Tm plus an honest effective-Tm RANGE for LNA oligos.
+# McTigue 2004 per-LNA Tm increments (deg C), averaged over neighbor context. The full McTigue
+# model is 32 nearest-neighbor terms (ddH/ddS for 5'-MX(L) and 5'-X(L)N) giving ~2 C accuracy;
+# these base-averaged increments are a point estimate that sits inside McTigue's spread. LNA
+# pyrimidines and A stabilize most; purine neighbors add stability. IDT OligoAnalyzer (Affinity
+# Plus) uses the full McTigue model and is authoritative -- always confirm an LNA Tm there.
+_LNA_DTM = {"A": 4.0, "T": 3.0, "C": 4.0, "G": 3.0}
 
-    LNA Tm is not modeled exactly here. IDT OligoAnalyzer's calibrated LNA model
-    is authoritative; this just keeps the tool from reporting the bare-DNA Tm as
-    if it were the probe Tm. The 2-8 C per-LNA span reflects context dependence
-    (McTigue 2004)."""
+
+def tm_lna(seq, n_lna=None):
+    """Effective Tm of an LNA oligo: the accurate all-DNA backbone Tm (SantaLucia + Owczarzy
+    2008) plus a McTigue-informed per-LNA increment. Returns a point estimate plus a +/-2 C
+    band (McTigue's stated accuracy). Consecutive LNAs are slightly less than additive, so the
+    estimate is mildly conservative for runs of LNA."""
     dna, n, pos = strip_lna(seq)
     if n_lna is not None:
         n = n_lna
-    base = tm(dna)
+    base = tm_acc(dna)
     out = dict(dna_backbone_tm=round(base, 1), n_lna=n, lna_pos=pos)
     if n:
-        out.update(est_tm_low=round(base + per_lna_low * n, 1),
-                   est_tm_high=round(base + per_lna_high * n, 1),
-                   note="LNA strongly stabilizes; effective Tm is a range, not a point. "
-                        "Confirm in IDT OligoAnalyzer (calibrated LNA model).")
+        bases = [dna[p - 1] for p in pos] if (pos and all(0 < p <= len(dna) for p in pos)) else []
+        inc = sum(_LNA_DTM.get(b, 3.5) for b in bases) if bases else 3.5 * n
+        est = base + inc
+        out.update(est_tm=round(est, 1), est_tm_low=round(est - 2.0, 1), est_tm_high=round(est + 2.0, 1),
+                   note="LNA Tm = accurate DNA-backbone Tm + McTigue-informed per-LNA increment "
+                        "(point estimate, ~+/-2 C). Consecutive LNAs are less than additive. IDT "
+                        "OligoAnalyzer (Affinity Plus) uses the full McTigue model -- confirm there.")
     return out

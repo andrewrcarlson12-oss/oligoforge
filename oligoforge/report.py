@@ -12,14 +12,14 @@ import io
 
 from . import thermo as T
 
-TOOL_VERSION = "OligoForge v1.19.0"
+TOOL_VERSION = "OligoForge v1.20.0"
 
 
 def _oligo_qc(seq):
     if not seq:
         return None
     s = seq.upper()
-    return dict(seq=s, length=len(s), tm=round(T.tm(s), 1), gc=round(T.gc_percent(s), 1),
+    return dict(seq=s, length=len(s), tm=round(T.tm_acc(s), 1), gc=round(T.gc_percent(s), 1),
                 hairpin=round(T.hairpin(s)[0], 2), self_dimer=round(T.self_dimer(s), 2))
 
 

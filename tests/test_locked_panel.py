@@ -41,19 +41,21 @@ CANON = {
                    "CTTACAAGATATCCACCACA", 157, "LNA"),
 }
 
-# Golden Tm/GC pinned against the current primer3 + qPCR COND.
+# Golden Tm/GC pinned against the ACCURATE, IDT-method display Tm (T.tm_acc = SantaLucia 1998 NN +
+# Owczarzy 2008 + Ct/4 -- what the QC/pair/viewer show and what tracks OligoAnalyzer). Selection-scale
+# (primer3) drift is guarded separately by test_regression. GC is sequence-only.
 # (name, role, gc, tm_or_None, tm_min_or_None, tm_max_or_None) -- degenerate oligos pin a range.
 GOLDEN = [
-    ("IFNG", "F", 45.5, 60.7, None, None), ("IFNG", "R", 42.9, 60.5, None, None),
-    ("IFNG", "P", 45.5, 69.7, None, None),
-    ("IL4", "F", 50.0, 61.5, None, None), ("IL4", "R", 45.5, 60.7, None, None),
-    ("IL4", "P", 66.7, 68.5, None, None),
-    ("RPL13", "F", 50.0, 61.2, None, None), ("RPL13", "R", 55.0, 62.0, None, None),
-    ("RPL13", "P", 56.5, 68.8, None, None),
-    ("YWHAZ", "F", 55.0, 61.5, None, None), ("YWHAZ", "R", 50.0, 61.4, None, None),
-    ("YWHAZ", "P", 50.0, 68.5, None, None),
-    ("Plasmodium", "F", 45.0, None, 56.4, 57.5),   # degenerate W -> Tm range
-    ("Plasmodium", "R", 40.0, 56.0, None, None), ("Plasmodium", "P", 40.0, 54.4, None, None),
+    ("IFNG", "F", 45.5, 62.2, None, None), ("IFNG", "R", 42.9, 62.1, None, None),
+    ("IFNG", "P", 45.5, 70.8, None, None),
+    ("IL4", "F", 50.0, 63.2, None, None), ("IL4", "R", 45.5, 62.2, None, None),
+    ("IL4", "P", 66.7, 70.1, None, None),
+    ("RPL13", "F", 50.0, 62.9, None, None), ("RPL13", "R", 55.0, 63.7, None, None),
+    ("RPL13", "P", 56.5, 70.3, None, None),
+    ("YWHAZ", "F", 55.0, 63.1, None, None), ("YWHAZ", "R", 50.0, 63.0, None, None),
+    ("YWHAZ", "P", 50.0, 69.7, None, None),
+    ("Plasmodium", "F", 45.0, None, 58.0, 59.2),   # degenerate W -> Tm range
+    ("Plasmodium", "R", 40.0, 57.7, None, None), ("Plasmodium", "P", 40.0, 56.0, None, None),
 ]
 
 _fails = []
@@ -111,7 +113,7 @@ for name, role, gc, tm, tmlo, tmhi in GOLDEN:
     g = T.gc_percent(seq)
     check("%s %s GC %.1f" % (name, role, gc), abs(g - gc) <= GC_TOL, "%.1f" % g)
     if tm is not None:
-        t = T.tm(seq)
+        t = T.tm_acc(seq)
         check("%s %s Tm %.1f +-%.2f" % (name, role, tm, TM_TOL), abs(t - tm) <= TM_TOL, "%.2f" % t)
     else:
         tr = T.tm_range(seq)
