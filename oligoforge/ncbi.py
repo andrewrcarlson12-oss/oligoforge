@@ -447,19 +447,47 @@ def count_hits(query):
         return None
 
 
-def search_genomes(query, retmax=40):
-    """List isolate-level nucleotide records (complete genomes / chromosomes) for a taxon.
-    Metadata only via esummary -- NO sequence is fetched here, so it stays light even for a
-    broad taxon. Returns [{acc, title, slen}]. The picker shows title (organism+strain) so the
-    user confirms each isolate before it goes into a validation run."""
+_MARKER_HINT = {"cytb", "cob", "cytochrome", "coi", "co1", "cox1", "coii", "cox2", "coiii", "cox3",
+                "nad1", "nad5", "nad4", "nad2", "atp6", "atp8", "18s", "28s", "16s", "23s", "12s",
+                "its", "its1", "its2", "rrna", "ribosomal", "rbcl", "matk", "trnl", "trnh", "psba",
+                "d-loop", "dhfr", "msp1", "msp2", "ama1", "csp"}
+
+
+def search_genomes(query, retmax=40, gene=None):
+    """List isolate-level records for a taxon, for an inclusivity/exclusivity panel.
+
+    Two modes, picked automatically:
+      * WHOLE-GENOME (default) -- complete genomes / chromosomes >= 100 kb (bacterial / viral isolate
+        panels, e.g. Salmonella enterica strains).
+      * MARKER -- when the query (or `gene`) names a barcode/marker (cytb, COI, 18S, ITS, ...), pulls many
+        short single-gene records across the taxon (e.g. every Plasmodium cytb on file) instead of the
+        almost-nonexistent assembled genomes. This is what an apicomplexan / haemosporidian lineage panel
+        actually needs.
+
+    Metadata only via esummary -- NO sequence fetched here. Returns [{acc, title, slen}]; the picker shows
+    each title so the user confirms exactly what goes into the run."""
     q = (query or "").strip()
     if not q:
         return []
-    tiers = [
-        f'({q}[Organism]) AND complete genome[Title] AND 500000:25000000[SLEN] NOT plasmid[Title]',
-        f'({q}[Organism]) AND (chromosome[Title] OR complete sequence[Title]) AND 500000:25000000[SLEN] NOT plasmid[Title]',
-        f'({q}) AND 100000:25000000[SLEN] NOT plasmid[Title]',
-    ]
+    marker, taxon = (gene or "").strip(), q
+    if not marker:
+        toks = q.split()
+        mk = [t for t in toks if t.lower().strip(",.;") in _MARKER_HINT]
+        if mk:
+            marker = mk[0]
+            taxon = " ".join(t for t in toks if t.lower().strip(",.;") not in _MARKER_HINT).strip() or q
+    if marker:
+        tiers = [
+            f'({taxon}[Organism]) AND {marker}[All Fields] AND 150:30000[SLEN]',
+            f'({taxon}) AND {marker}[All Fields] AND 150:30000[SLEN]',
+            f'({taxon}[Organism]) AND 150:30000[SLEN] NOT genome[Title]',
+        ]
+    else:
+        tiers = [
+            f'({q}[Organism]) AND complete genome[Title] AND 500000:25000000[SLEN] NOT plasmid[Title]',
+            f'({q}[Organism]) AND (chromosome[Title] OR complete sequence[Title]) AND 500000:25000000[SLEN] NOT plasmid[Title]',
+            f'({q}) AND 100000:25000000[SLEN] NOT plasmid[Title]',
+        ]
     ids = []
     for term in tiers:
         h = _net(Entrez.esearch, db="nucleotide", term=term, retmax=int(retmax)); ids = Entrez.read(h)["IdList"]; h.close()

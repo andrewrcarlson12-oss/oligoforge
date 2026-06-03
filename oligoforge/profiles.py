@@ -96,6 +96,25 @@ PARASITE_SYBR = dict(
     probe_hairpin_min=-99, no_probe=True,
     notes="No probe; AT-rich mtDNA primers only (e.g. apicomplexan cytb), ~54C anneal.",
 )
+PARASITE_LNA = dict(
+    name="AT-rich parasite mtDNA + LNA probe (low-Tm primers, short LNA core)",
+    len_min=18, len_max=28, gc_min=25.0, gc_max=60.0,
+    tm_min=52.0, tm_max=58.0, tm_opt=55.0,
+    # AT-rich primers, same as the low-Tm TaqMan profile (6-mer poly-A/T allowed, G-run <= 4)
+    no_three_prime_T=False, max_3prime_gc=3, max_g_run=4, max_any_run=7,
+    hairpin_min=-2.0, self_dimer_min=-6.0, pair_dimer_min=-6.0, pair_tm_gap_max=2.5,
+    amp_min=60, amp_max=150, min_probe_gap=10,
+    probe_len_min=12, probe_len_max=22,            # short LNA core
+    # The probe's ALL-DNA Tm legitimately sits at or below the primer Tm here: on an AT-rich target a short
+    # core can't reach a +8 C offset as plain DNA, and it doesn't need to -- the LNA bases supply the
+    # binding strength (~+2-8 C). So accept a DNA Tm from ~12 C below to ~4 C above the primers.
+    probe_offset_min=-12.0, probe_offset_max=4.0,
+    probe_hairpin_min=-1.5,
+    notes="AT-rich apicomplexan cytb where the probe is ordered as IDT Affinity Plus (LNA). Primers are low-Tm "
+          "(~55C); the reported probe Tm is the ALL-DNA value and will read at/below the primer Tm because the LNA "
+          "bases raise the effective Tm (~+2-8 C). Add <=6 LNA / <=4 sequential and confirm the final probe Tm in "
+          "OligoAnalyzer Affinity Plus.",
+)
 
 GC_RICH = dict(
     name="GC-rich target (high-Tm TaqMan)",
@@ -128,7 +147,7 @@ PROFILES = {
     "idt_taqman": IDT_TAQMAN, "idt_affinity": IDT_AFFINITY,
     "thermo_taqman": THERMO_TAQMAN, "biorad_probe": BIORAD_PROBE,
     "sybr_generic": SYBR_GENERIC,
-    "parasite_mtdna": PARASITE_MTDNA, "parasite_sybr": PARASITE_SYBR,
+    "parasite_mtdna": PARASITE_MTDNA, "parasite_sybr": PARASITE_SYBR, "parasite_lna": PARASITE_LNA,
     "gc_rich": GC_RICH, "gc_rich_sybr": GC_RICH_SYBR,
 }
 

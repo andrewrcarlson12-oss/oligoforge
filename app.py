@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO
 
-app = FastAPI(title="OligoForge", version="1.20.0")
+app = FastAPI(title="OligoForge", version="1.21.1")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -230,18 +230,46 @@ def matrix(r: MatrixReq):
             cells.append(dict(a=a, b=b, dg=round(dg, 2)))
     return dict(names=names, cells=cells)
 
+from oligoforge import autodesign as _AD_design
 @app.post("/api/design")
 def design(r: DesignReq):
     tmpl, notes, err = T.clean_seq(r.template)
     if err:
         return JSONResponse({"error": "template: " + err}, status_code=200)
-    prof = P.PROFILES.get(r.profile, P.PROFILES["idt_taqman"])
-    try:
-        a = D.design_assay(tmpl, prof)
-    except Exception as e:
-        return JSONResponse({"error": f"design failed: {e}"}, status_code=200)
-    if not a:
-        return JSONResponse({"error": "no clean assay found in this template under that profile"}, status_code=200)
+    notes = list(notes or [])
+    gc = 100.0 * sum(c in "GC" for c in tmpl) / max(1, len(tmpl))
+    if (r.profile or "").lower() == "auto":
+        order, _gc = _AD_design._auto_order(tmpl)
+        if _gc < 40.0 and "parasite_lna" not in order:      # offer the LNA-core option for AT-rich targets
+            order = order[:1] + ["parasite_lna"] + order[1:]
+        a = None; used = None
+        for pk in order:
+            try:
+                a = D.design_assay(tmpl, P.PROFILES[pk])
+            except Exception:
+                a = None
+            if a:
+                used = pk; break
+        if not a:
+            return JSONResponse({"error": "no clean assay found under any Auto chemistry (tried: %s; template GC %.0f%%). "
+                                          "Try a longer/cleaner region." % (", ".join(order), gc)}, status_code=200)
+        prof = P.PROFILES[used]
+        notes.append("Auto-selected chemistry: %s (template GC %.0f%%)." % (prof["name"], gc))
+    else:
+        prof = P.PROFILES.get(r.profile, P.PROFILES["idt_taqman"])
+        try:
+            a = D.design_assay(tmpl, prof)
+        except Exception as e:
+            return JSONResponse({"error": f"design failed: {e}"}, status_code=200)
+        if not a:
+            if gc < 40:
+                hint = " This template is AT-rich (GC %.0f%%) \u2014 switch to Auto, 'low-Tm TaqMan', or 'AT-rich + LNA probe'." % gc
+            elif gc > 62:
+                hint = " This template is GC-rich (GC %.0f%%) \u2014 switch to Auto or the 'GC-rich' profile." % gc
+            else:
+                hint = " Try Auto, a longer region, or a different chemistry."
+            return JSONResponse({"error": "no clean assay found in this template under %s.%s" % (prof["name"], hint)},
+                                status_code=200)
     pi = a.get("probe_info")
     return dict(forward=a["forward"], reverse=a["reverse"], probe=a["probe"],
                 amplicon=a["amplicon"], amplicon_tm=a.get("amplicon_tm"),
@@ -253,7 +281,7 @@ def design(r: DesignReq):
                 probe_dimer_f=round(pi["dimer_f"], 2) if pi else None,
                 probe_dimer_r=round(pi["dimer_r"], 2) if pi else None,
                 gblock=a["gblock"], f_xy=a["f_xy"], r_xy=a["r_xy"], profile=prof["name"],
-                note=(" · ".join(notes) if notes else None))
+                note=(" \u00b7 ".join(notes) if notes else None))
 
 @app.post("/api/fetch")
 def fetch(r: FetchReq):
@@ -517,6 +545,21 @@ def api_epcr(r: EpcrReq):
     except Exception as e:
         return JSONResponse({"error": f"in-silico PCR failed: {e}"}, status_code=200)
 
+class AssaySpecReq(BaseModel):
+    forward: str; reverse: str; probe: Optional[str] = None
+    mode: str = "remote"; db: str = "nt"; db_path: Optional[str] = None
+    organism: Optional[str] = None
+    min_product: int = 40; max_product: int = 3000
+    email: Optional[str] = None; ncbi_key: Optional[str] = None
+@app.post("/api/assay_specificity")
+def api_assay_specificity(r: AssaySpecReq):
+    _set_email(r.email, r.ncbi_key)
+    try:
+        return SP.assay_specificity(r.forward, r.reverse, r.probe, r.mode, r.db, r.db_path,
+                                    r.organism, r.min_product, r.max_product)
+    except Exception as e:
+        return JSONResponse({"error": f"assay specificity failed: {e}"}, status_code=200)
+
 @app.post("/api/lna_tm")
 def api_lna_tm(r: LnaReq):
     return T.tm_lna(r.seq, r.n_lna)
@@ -647,6 +690,21 @@ class CqReq(BaseModel):
 def api_cq(r: CqReq):
     return CQ.analyze(r.fluor, cycles=r.cycles, threshold=r.threshold,
                       sd_mult=r.sd_mult, baseline=(r.baseline_start, r.baseline_end))
+
+from oligoforge import expression as EXP
+class ExpressionReq(BaseModel):
+    csv: Optional[str] = None
+    samples: Optional[List[dict]] = None
+    reference_genes: List[str]
+    control_group: str
+    efficiencies: Optional[Dict[str, float]] = None
+@app.post("/api/expression")
+def api_expression(r: ExpressionReq):
+    try:
+        samples = r.samples or EXP.parse_table(r.csv or "")
+        return EXP.analyze(samples, r.reference_genes, r.control_group, r.efficiencies)
+    except Exception as e:
+        return JSONResponse({"error": "expression analysis failed: %s" % e}, status_code=200)
 
 from oligoforge import melt as MELT
 class MeltReq(BaseModel):

@@ -331,3 +331,101 @@ def blast_summary(seq, mode="remote", db="nt", db_path=None, organism=None, top=
                          evalue=("%.0e" % hsp.expect if hsp.expect else "0"),
                          bitscore=round(hsp.bits), strand="plus" if hsp.sbjct_start <= hsp.sbjct_end else "minus"))
     return dict(query_len=qlen, n_hits=len(hits), hits=hits[:top])
+
+
+# ---- probe-aware assay specificity (the whole TaqMan assay vs NCBI, not just the primers) ----
+def _blast_remote_set(seqs, organism=None, db="nt", hitlist=50):
+    """BLAST several oligos (ordered [(label, seq), ...]) in ONE NCBI job, short-query params.
+    Returns ({label: [hits]}, error). Records come back in query order."""
+    if NCBIWWW is None:
+        return None, "biopython Blast unavailable"
+    seqs = [(l, (s or "").strip()) for l, s in seqs if (s or "").strip()]
+    if not seqs:
+        return None, "no oligos to BLAST"
+    eq = f"{organism}[Organism]" if organism else None
+    query = "".join(">%s\n%s\n" % (l, s) for l, s in seqs)
+    longest = max(seqs, key=lambda x: len(x[1]))[1]
+    try:
+        h = NCBIWWW.qblast("blastn", db, query, hitlist_size=hitlist,
+                           entrez_query=eq, **_short_blast_kw(longest))
+        recs = list(NCBIXML.parse(h)); h.close()
+    except Exception as e:
+        return None, f"NCBI BLAST error: {e}"
+    out = {l: [] for l, _ in seqs}
+    for i, rec in enumerate(recs[:len(seqs)]):
+        lab, sq = seqs[i]
+        out[lab] = _hits_from_record(rec, getattr(rec, "query_letters", 0) or len(sq))
+    return out, None
+
+
+def assay_verdict(products, probe_hits, size_tol_frac=0.10):
+    """Pure logic (no network): annotate predicted products with on-size / probe-binding and
+    summarise the off-target picture for a TaqMan assay.
+
+    products   : from epcr() -> [{subject, size, left, right, span:[lo,hi]}, ...]
+    probe_hits : [{subject, lo, hi, ...}] for the probe (may be empty). A probe "binds" a product
+                 when a probe hit lies wholly inside that product's span on the same subject --
+                 i.e. the product would actually generate fluorescence, the real false-positive risk.
+
+    The intended amplicon is taken to be the modal product size; off-size products flag possible
+    mispriming. A genus assay legitimately hits many subjects at the on-size length, so subject
+    count alone is never treated as failure -- only off-size products and probe cross-binding are.
+    """
+    products = [dict(p) for p in products]
+    sizes = sorted(p["size"] for p in products)
+    modal = sizes[len(sizes) // 2] if sizes else None
+    tol = max(10, int(round(size_tol_frac * modal))) if modal else 0
+    phits = probe_hits or []
+    n_off = n_probe = 0
+    for p in products:
+        p["on_size"] = (modal is not None and abs(p["size"] - modal) <= tol)
+        if not p["on_size"]:
+            n_off += 1
+        sp = p.get("span") or [0, 0]
+        binds = any(h.get("subject") == p["subject"] and sp[0] <= h.get("lo", 1e18) and h.get("hi", -1) <= sp[1]
+                    for h in phits)
+        p["probe_binds"] = bool(binds)
+        if binds and not p["on_size"]:
+            n_probe += 1
+    n_subj = len({p["subject"] for p in products})
+    if n_probe:
+        verdict = ("probe binds inside %d off-size predicted product(s) -- inspect those subjects for "
+                   "cross-reactivity" % n_probe)
+    elif n_off:
+        verdict = ("%d off-size product(s) predicted -- possible mispriming; the intended amplicon is the "
+                   "~%d bp product" % (n_off, modal))
+    elif products:
+        verdict = "no off-size or probe-cross-reactive products in the searched set (a BLAST screen, not wet-lab proof)"
+    else:
+        verdict = "no predicted products in the searched set"
+    return dict(products=products, modal_size=modal, size_tol=tol, n_products=len(products),
+                n_subjects=n_subj, n_off_size=n_off, n_probe_binding=n_probe, verdict=verdict)
+
+
+def assay_specificity(forward, reverse, probe=None, mode="remote", db="nt", db_path=None,
+                      organism=None, min_product=40, max_product=3000):
+    """Full-assay specificity: BLAST F + R (+ probe) against NCBI (mode='remote', the default) or a
+    local DB, predict amplicons (epcr), and check whether the probe binds inside any of them."""
+    fwd, rev = forward.upper().strip(), reverse.upper().strip()
+    pr = (probe or "").upper().strip()
+    if mode == "local":
+        pair, err = _blast_local_pair(fwd, rev, db_path or "")
+        phits = []
+        if not err and pr:
+            pp, perr = _blast_local_pair(pr, pr, db_path or "")
+            phits = (pp or {}).get("F", []) if not perr else []
+    else:
+        seqs = [("F", fwd), ("R", rev)] + ([("P", pr)] if pr else [])
+        sets, err = _blast_remote_set(seqs, organism=organism, db=db)
+        pair = {"F": (sets or {}).get("F", []), "R": (sets or {}).get("R", [])} if not err else None
+        phits = (sets or {}).get("P", []) if (not err and pr) else []
+    if err:
+        return dict(error=err)
+    hits = ([dict(primer="F", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in pair.get("F", [])] +
+            [dict(primer="R", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in pair.get("R", [])])
+    products = epcr(hits, min_product, max_product)
+    v = assay_verdict(products, phits)
+    v.update(forward_hits=len(pair.get("F", [])), reverse_hits=len(pair.get("R", [])),
+             probe_hit_count=len(phits), probe_used=bool(pr), organism=(organism or None))
+    v["products"] = v["products"][:25]
+    return v
