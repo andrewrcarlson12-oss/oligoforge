@@ -394,3 +394,6 @@ pairs via /api/pair fxr_end_dg and for multiplex via the three_prime annotation)
 
 Gate: 14/14 Python (test_cq added; locked panel + autodesign golden + regression PASS), 7/7 JS,
 clean-unzip boot under Render Docker CMD -> /healthz 200 v1.17.0; /api/cq + /api/standard_curve live-smoked.
+
+## v1.19.0 — instrument-shell GUI overhaul
+The v2 "instrument" redesign is now LIVE in static/index.html (previously only standalone mockups in outputs/). Changes: header -> sticky command **topbar** (brand + version chip + reaction-conditions cluster + NCBI creds + live /healthz status lamp + density seg); horizontal dropdown nav -> 3-column **shell** (left console **rail** with vertical navbtn nav + fluorophore-channel reference legend | main | right **inspector** with QC ΔG status key, generic TaqMan thermal-protocol reference, shortcuts); .card -> glass **panel** look. buildNav repointed to render the vertical rail (goTab semantics unchanged). All 18 sections kept byte-identical, every functional ID preserved (dropped only the decorative header-logo gradient `ofg`; added `lamp`,`density`). Demo KPI tiles / plots / cross-dimer heatmap from the mockup were deliberately NOT ported (hardcoded fake numbers). Gate: 15/15 py, 7/7 js (incl. jsdom integration), /healthz 200 v1.19.0.

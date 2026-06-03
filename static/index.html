@@ -347,7 +347,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
 @media (prefers-reduced-motion:reduce){#splash .helix,#splash .helix .rung,#splash .seqticker span{animation:none}#splash .curve path{animation:cdraw .01s linear forwards}#splash .scard{animation:none}}
 
 /* ============================================================= */
-/* v1.18.0 INSTRUMENT REFIT - global aesthetic override layer    */
+/* v1.19.0 INSTRUMENT REFIT - global aesthetic override layer    */
 /* dark engineered substrate; dye-channel data palette; glass    */
 /* surfaces; micro-thin gridlines; sharp display type.           */
 /* additive - rides on existing tokens + class names.            */
@@ -407,6 +407,114 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
 .cmdk-foot{display:flex;gap:16px;padding:9px 14px;border-top:1px solid var(--line);font-size:10.5px;color:var(--dim)}
 .cmdk-kbd{font-family:var(--mono);font-size:10px;background:rgba(255,255,255,.05);border:1px solid var(--line2);border-radius:5px;padding:1px 6px;color:var(--ink2)}
 @media (prefers-reduced-motion:reduce){#cmdk.on{animation:none}}
+
+/* ============================================================
+   v1.19.0 INSTRUMENT SHELL — command bar + console rail + inspector
+   additive; overrides element rules via higher-specificity classes
+   ============================================================ */
+:root{
+  --bg2:#080c13; --panel-solid:#0e1420; --raise:#16202f;
+  --line3:rgba(160,185,215,.32); --faint:#566273;
+  --sig-d:#27b6ee; --sig-soft:rgba(79,210,255,.12); --inert:#7d8aa0;
+  --r3b:7px; --r4b:5px;
+  --sh-amb:0 30px 70px -34px rgba(0,0,0,.9); --sh-con:0 2px 8px -3px rgba(0,0,0,.7);
+  --ease:cubic-bezier(.22,.61,.36,1); --ease-out:cubic-bezier(.16,1,.3,1);
+}
+.overline{font-family:var(--display);font-weight:600;font-size:10.5px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--dim);display:inline-flex;align-items:center;gap:8px}
+.overline::before{content:"";width:14px;height:1px;background:var(--line3)}
+
+/* ---- command bar (overrides header{}) ---- */
+header.topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:16px;
+  padding:9px 18px;min-height:56px;flex-wrap:wrap;row-gap:8px;
+  background:linear-gradient(180deg,rgba(10,14,21,.93),rgba(8,12,18,.80));
+  backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);
+  border-bottom:1px solid var(--line2)}
+header.topbar .brand{display:flex;align-items:center;gap:10px;padding-right:14px;border-right:1px solid var(--line)}
+header.topbar .brand b{font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:-.03em;color:var(--ink)}
+.logo{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;
+  background:radial-gradient(120% 120% at 30% 20%,#0f1b27,#0a121b);border:1px solid var(--line2);
+  box-shadow:var(--edge),0 0 18px -6px var(--fam-glow)}
+.ver{font-family:var(--mono);font-size:10px;color:var(--sig);border:1px solid rgba(79,210,255,.3);
+  border-radius:5px;padding:1px 6px;margin-left:2px;background:var(--sig-soft)}
+header.topbar .spacer{flex:1;border:0;background:none}
+.toolset{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ctx-email{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.lamp{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--ink2);font-family:var(--mono);white-space:nowrap}
+.lamp i{width:7px;height:7px;border-radius:50%;background:var(--inert);box-shadow:0 0 0 3px rgba(125,138,160,.14)}
+.lamp.ok i{background:var(--fam);box-shadow:0 0 0 3px rgba(35,230,164,.14),0 0 10px var(--fam-glow);animation:lpulse 2.4s var(--ease) infinite}
+.lamp.bad i{background:var(--fail);box-shadow:0 0 0 3px rgba(255,93,99,.14),0 0 10px rgba(255,93,99,.5)}
+@keyframes lpulse{0%,100%{opacity:1}50%{opacity:.45}}
+.seg{display:inline-flex;background:#0c121c;border:1px solid var(--line2);border-radius:8px;padding:2px}
+.seg button{all:unset;cursor:pointer;font-family:var(--display);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dim);padding:5px 10px;border-radius:6px;transition:.18s var(--ease)}
+.seg button.on{color:#04121a;background:linear-gradient(180deg,var(--sig),var(--sig-d));box-shadow:0 0 14px -2px var(--fam-glow),var(--edge)}
+.seg button:not(.on):hover{color:var(--ink)}
+
+/* ---- shell ---- */
+.shell{display:grid;grid-template-columns:236px minmax(0,1fr) 326px;gap:16px;
+  padding:16px 18px 44px;max-width:1680px;margin:0 auto;align-items:start}
+@media(max-width:1320px){.shell{grid-template-columns:212px minmax(0,1fr)}.inspector{display:none}}
+@media(max-width:940px){.shell{grid-template-columns:1fr}.rail{display:none}}
+.shell>main{min-width:0;display:block}
+
+/* ---- glass panel primitive ---- */
+.panel{background:rgba(15,21,31,.72);backdrop-filter:blur(13px) saturate(1.2);
+  -webkit-backdrop-filter:blur(13px) saturate(1.2);border:1px solid var(--line2);
+  border-radius:var(--r);box-shadow:var(--sh-amb),var(--edge);position:relative}
+.phd{display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--line)}
+.phd h3{font-size:13px;letter-spacing:-.01em;margin:0;font-family:var(--display);color:var(--ink)}
+.phd .spacer{flex:1;border:0;background:none}
+.pbody{padding:13px 15px}
+
+/* ---- left rail + console nav (overrides nav{} and nav a{}) ---- */
+.rail{position:sticky;top:74px;display:flex;flex-direction:column;gap:14px;align-self:start}
+nav.console{display:block;padding:10px;border-bottom:0;
+  background:rgba(15,21,31,.72);backdrop-filter:blur(13px) saturate(1.2);-webkit-backdrop-filter:blur(13px) saturate(1.2)}
+.rail .navgroup{display:block;border:0;height:auto;margin:9px 6px 4px;padding:0;opacity:1;
+  font-family:var(--display);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint)}
+.console .navbtn{display:flex;align-items:center;gap:10px;width:100%;padding:8px 11px;margin:2px 0;
+  border-radius:var(--r3b);color:var(--ink2);cursor:pointer;position:relative;border:1px solid transparent;
+  transition:.16s var(--ease);font-size:12.5px;font-weight:500;text-decoration:none;background:none}
+.console .navbtn .ic{width:15px;height:15px;color:var(--dim);flex:none;transition:.16s var(--ease)}
+.console .navbtn:hover{background:#0d1620;color:var(--ink);border-color:var(--line)}
+.console .navbtn:hover .ic{color:var(--ink2)}
+.console .navbtn.on{background:linear-gradient(90deg,var(--sig-soft),transparent 70%);
+  border-color:rgba(79,210,255,.22);color:#fff}
+.console .navbtn.on .ic{color:var(--sig)}
+.console .navbtn.on::before{content:"";position:absolute;left:-1px;top:7px;bottom:7px;width:2px;
+  border-radius:2px;background:var(--sig);box-shadow:0 0 10px var(--sig)}
+
+/* ---- channel legend (reference) ---- */
+.legend .lrow{display:flex;align-items:center;gap:10px;padding:6px 4px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.legend .lname{font-family:var(--mono);font-size:11.5px;color:var(--ink)}
+.legend .lnm{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim)}
+
+/* ---- inspector (reference panels) ---- */
+.inspector{position:sticky;top:74px;display:flex;flex-direction:column;gap:14px;align-self:start}
+.keyrow{display:flex;gap:9px;align-items:center;margin:7px 0;font-size:12px;color:var(--ink2)}
+.keyrow .pill{flex:none}
+.thermo{display:flex;gap:8px}
+.thermo .stage{flex:1;background:#0b111a;border:1px solid var(--line2);border-radius:var(--r3b);padding:11px 8px 9px;text-align:center;position:relative}
+.thermo .stage .t{font-family:var(--mono);font-size:17px;color:var(--ink)}
+.thermo .stage .t small{font-size:9px;color:var(--dim)}
+.thermo .stage .d{font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:2px}
+.thermo .badge{position:absolute;top:-7px;left:50%;transform:translateX(-50%);font-family:var(--display);
+  font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--sig);background:var(--bg);
+  border:1px solid var(--line2);border-radius:4px;padding:1px 5px}
+
+/* ---- bridge existing cards -> glass panels ---- */
+.shell main .card{background:rgba(15,21,31,.72);backdrop-filter:blur(13px) saturate(1.2);
+  -webkit-backdrop-filter:blur(13px) saturate(1.2);border:1px solid var(--line2);
+  border-radius:var(--r);box-shadow:var(--sh-amb),var(--edge)}
+.shell main .card h2{font-family:var(--display);letter-spacing:-.01em}
+
+/* ---- density (compact) ---- */
+body.dense{font-size:13px}
+body.dense .pbody{padding:10px 12px}
+body.dense .shell main .card{padding:13px 15px}
+body.dense .shell{gap:12px}
 </style>
 </head>
 <body>
@@ -448,8 +556,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
   </div>
 </div>
 
-<header>
-  <div class="brand"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="flex:0 0 auto"><defs><linearGradient id="ofg" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse"><stop stop-color="#6fd2ff"/><stop offset="1" stop-color="#7ee787"/></linearGradient></defs><line x1="17.2" y1="4.8" x2="6.8" y2="4.8" stroke="url(#ofg)" stroke-width="1.15" stroke-linecap="round" opacity="0.95"/><line x1="6.8" y1="9.2" x2="17.2" y2="9.2" stroke="url(#ofg)" stroke-width="1.15" stroke-linecap="round" opacity="0.5"/><line x1="17.2" y1="13.8" x2="6.8" y2="13.8" stroke="url(#ofg)" stroke-width="1.15" stroke-linecap="round" opacity="0.95"/><line x1="6.8" y1="18.2" x2="17.2" y2="18.2" stroke="url(#ofg)" stroke-width="1.15" stroke-linecap="round" opacity="0.5"/><path d="M 12 2.5 L 15.3 3.5 L 17.1 4.5 L 16.5 5.5 L 13.8 6.5 L 10.2 7.5 L 7.5 8.5 L 6.9 9.5 L 8.7 10.5 L 12 11.5 L 15.3 12.5 L 17.1 13.5 L 16.5 14.5 L 13.8 15.5 L 10.2 16.5 L 7.5 17.5 L 6.9 18.5 L 8.7 19.5 L 12 20.5 L 15.3 21.5" fill="none" stroke="url(#ofg)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M 12 2.5 L 8.7 3.5 L 6.9 4.5 L 7.5 5.5 L 10.2 6.5 L 13.8 7.5 L 16.5 8.5 L 17.1 9.5 L 15.3 10.5 L 12 11.5 L 8.7 12.5 L 6.9 13.5 L 7.5 14.5 L 10.2 15.5 L 13.8 16.5 L 16.5 17.5 L 17.1 18.5 L 15.3 19.5 L 12 20.5 L 8.7 21.5" fill="none" stroke="#6fd2ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/></svg><h1>Oligo<b>Forge</b></h1></div><span class="sub">qPCR primer / probe design + QC · local</span>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2c0 4 12 4 12 8s-12 4-12 8" stroke="#23e6a4" stroke-width="1.4" stroke-linecap="round"/><path d="M16 2c0 4-12 4-12 8s12 4 12 8" stroke="#4fd2ff" stroke-width="1.4" stroke-linecap="round"/><path d="M5.6 5h8.8M5 10h10M5.6 15h8.8" stroke="#7d8aa0" stroke-width="1" stroke-linecap="round"/></svg></span>
+    <b>Oligo<span style="color:var(--sig)">Forge</span></b><span class="ver">v1.19.0</span>
+  </div>
   <div class="cond" title="reaction salt used for every Tm — match it to your master mix">
     <span class="u">Mg²⁺</span><input id="cond_dv" type="number" step="0.1">
     <span class="u">mono</span><input id="cond_mv" type="number" step="1">
@@ -458,9 +569,26 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
     <button class="ghost" style="padding:5px 9px" onclick="applyConditions()">apply</button>
     <span id="cond_note" class="ok" style="font-size:11px"></span>
   </div>
-  <div class="email">NCBI email <input id="email" placeholder="you@uni.edu" style="width:150px"> <span style="color:var(--dim)">key</span> <input id="ncbi_key" type="password" placeholder="optional" style="width:120px"></div>
+  <div class="spacer"></div>
+  <div class="toolset">
+    <span class="ctx-email">NCBI <input id="email" placeholder="you@uni.edu" style="width:138px"> <input id="ncbi_key" type="password" placeholder="key (optional)" style="width:112px"></span>
+    <span class="lamp" id="lamp"><i></i> primer3</span>
+    <div class="seg" id="density"><button class="on" data-d="comfortable">Comfortable</button><button data-d="compact">Compact</button></div>
+  </div>
 </header>
-<nav id="nav"></nav>
+<div class="shell">
+<aside class="rail">
+<nav class="panel console" id="nav"></nav>
+<div class="panel legend">
+  <div class="phd" style="padding:11px 14px"><span class="overline">Fluorophore channels</span></div>
+  <div class="pbody" style="padding:6px 10px 10px">
+    <div class="lrow"><span class="dot" style="background:var(--fam);box-shadow:0 0 9px var(--fam-glow)"></span><span class="lname">FAM</span><span class="lnm">~517 nm</span></div>
+    <div class="lrow"><span class="dot" style="background:var(--vic);box-shadow:0 0 9px var(--vic-glow)"></span><span class="lname">VIC / HEX</span><span class="lnm">~554 nm</span></div>
+    <div class="lrow"><span class="dot" style="background:var(--rox);box-shadow:0 0 9px var(--rox-glow)"></span><span class="lname">ROX / TEX</span><span class="lnm">~610 nm</span></div>
+    <div class="lrow"><span class="dot" style="background:var(--cy5);box-shadow:0 0 9px var(--cy5-glow)"></span><span class="lname">Cy5</span><span class="lnm">~670 nm</span></div>
+  </div>
+</div>
+</aside>
 <main>
   <!-- QC -->
   <section id="qc"><div class="card">
@@ -834,7 +962,37 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
     <div class="row"><button class="ghost" style="border-color:rgba(251,109,99,.5);color:#ffc9c4" onclick="factoryReset()">Reset to factory settings…</button></div>
   </div></section>
 </main>
-<footer>OligoForge v1.18.0</footer>
+<aside class="inspector">
+  <div class="panel">
+    <div class="phd"><span class="overline">Reading the QC</span></div>
+    <div class="pbody">
+      <div class="keyrow"><span class="pill b-PASS">PASS</span><span>&Delta;G &gt; &minus;6 kcal/mol &mdash; no meaningful structure</span></div>
+      <div class="keyrow"><span class="pill b-WARN">WARN</span><span>&minus;9 to &minus;6 &mdash; watch, usually tolerable</span></div>
+      <div class="keyrow"><span class="pill b-FAIL">FAIL</span><span>&Delta;G &le; &minus;9 &mdash; likely dimer / hairpin</span></div>
+      <p class="hint" style="margin-top:10px">Tm is real primer3 at your reaction salt. LNA Tm is a range &mdash; confirm in OligoAnalyzer.</p>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="phd"><span class="overline">TaqMan protocol &middot; reference</span></div>
+    <div class="pbody">
+      <div class="thermo">
+        <div class="stage"><span class="badge">HOLD</span><div class="t">95<small>&deg;C</small></div><div class="d">3:00</div></div>
+        <div class="stage"><span class="badge">&times;40</span><div class="t">95<small>&deg;C</small></div><div class="d">0:10</div></div>
+        <div class="stage"><span class="badge">read</span><div class="t">60<small>&deg;C</small></div><div class="d">0:30</div></div>
+      </div>
+      <p class="hint" style="margin-top:9px">Generic two-step starting point &mdash; set anneal per assay (&asymp;55&ndash;57&nbsp;&deg;C for AT-rich targets).</p>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="phd"><span class="overline">Shortcuts</span></div>
+    <div class="pbody" style="font-family:var(--mono);font-size:11.5px;color:var(--ink2)">
+      <div class="keyrow"><span class="cmdk-kbd">Ctrl K</span><span>command palette</span></div>
+      <div class="keyrow"><span class="cmdk-kbd">Enter</span><span>run the focused tool</span></div>
+    </div>
+  </div>
+</aside>
+</div><!--/shell-->
+<footer>OligoForge v1.19.0</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -844,29 +1002,22 @@ const TABS=[
  ["order","Order","Finish"],["help","Help","Finish"]];
 (function buildNav(){
  const nav=document.getElementById("nav"); if(!nav)return;
- const PRIMARY={auto:"prim-auto",work:"prim-work"};
  function goTab(id){
   document.querySelectorAll("nav a").forEach(x=>{if(x.classList)x.classList.remove("on");});
   const tgt=nav.querySelector('a.navitem[data-id="'+id+'"]'); if(tgt&&tgt.classList)tgt.classList.add("on");
-  document.querySelectorAll("nav .navmenu").forEach(m=>{if(!m.classList)return;const has=m.querySelector&&m.querySelector('a.navitem[data-id="'+id+'"].on');m.classList.toggle("active",!!has);m.classList.remove("open");});
   document.querySelectorAll("section").forEach(s=>{if(s.classList)s.classList.remove("on");});
   const sec=document.getElementById(id); if(sec&&sec.classList)sec.classList.add("on");
   try{localStorage.setItem("of_tab",id);}catch(e){}
  }
  window.goTab=goTab;
- function mkItem(id,label,extra){const a=document.createElement("a");a.className="navitem"+(extra?(" "+extra):"");a.textContent=label;if(a.setAttribute)a.setAttribute("data-id",id);a.onclick=()=>goTab(id);return a;}
- TABS.filter(t=>PRIMARY[t[0]]).forEach(t=>nav.appendChild(mkItem(t[0],t[1],"prim "+PRIMARY[t[0]])));
+ function mkItem(id,label){const a=document.createElement("a");a.className="navitem navbtn";
+  if(a.setAttribute)a.setAttribute("data-id",id);
+  a.innerHTML='<svg class="ic" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.3"/></svg><span>'+label+'</span>';
+  a.onclick=()=>goTab(id);return a;}
  const order=[],groups={};
- TABS.forEach(([id,label,group])=>{if(PRIMARY[id])return;if(!groups[group]){groups[group]=[];order.push(group);}groups[group].push([id,label]);});
- order.forEach(group=>{
-  const menu=document.createElement("div");menu.className="navmenu";
-  const head=document.createElement("button");head.className="navhead";head.type="button";head.innerHTML=group+' <span class="navcar">\u25be</span>';
-  head.onclick=(e)=>{if(e&&e.stopPropagation)e.stopPropagation();const open=menu.classList&&menu.classList.contains("open");document.querySelectorAll("nav .navmenu").forEach(m=>{if(m.classList)m.classList.remove("open");});if(!open&&menu.classList)menu.classList.add("open");};
-  const panel=document.createElement("div");panel.className="navpanel";
-  groups[group].forEach(([id,label])=>panel.appendChild(mkItem(id,label)));
-  menu.appendChild(head);menu.appendChild(panel);nav.appendChild(menu);
- });
- if(document.addEventListener){document.addEventListener("click",function(ev){if(!ev||!ev.target||!ev.target.closest||!ev.target.closest(".navmenu")){document.querySelectorAll("nav .navmenu").forEach(m=>{if(m.classList)m.classList.remove("open");});}},true);}
+ TABS.forEach(([id,label,group])=>{if(!groups[group]){groups[group]=[];order.push(group);}groups[group].push([id,label]);});
+ order.forEach(group=>{const g=document.createElement("div");g.className="navgroup";g.textContent=group;nav.appendChild(g);
+  groups[group].forEach(([id,label])=>nav.appendChild(mkItem(id,label)));});
  let start="auto";try{const lt=localStorage.getItem("of_tab");if(lt&&TABS.some(t=>t[0]===lt))start=lt;}catch(e){}
  goTab(start);
 })();
@@ -1775,7 +1926,7 @@ function vwManualToWorkbench(){const f=[...VW.manual].reverse().find(m=>m.role==
  addAssay({name:vwSrcName()+" (manual)",gene:VW.gene||"",organism:VW.org||"",forward:f.disp,reverse:r.disp,probe:p?p.disp:null,
   amplicon:Math.max(0,r.to-f.from),amplicon_tm:null,f_tm:f.tm,r_tm:r.tm,probe_tm:p?p.tm:null,chemistry:"viewer (manual pick)",gblock:null});}
 
-/* ===== v1.18.0 command palette (Ctrl/Cmd-K) - mirrors the live nav, no hardcoded ids ===== */
+/* ===== v1.19.0 command palette (Ctrl/Cmd-K) - mirrors the live nav, no hardcoded ids ===== */
 (function(){
   var ov=document.getElementById('cmdk'); if(!ov) return;
   var inp=document.getElementById('cmdk-input'), list=document.getElementById('cmdk-list');
@@ -1826,6 +1977,22 @@ function vwManualToWorkbench(){const f=[...VW.manual].reverse().find(m=>m.role==
     if((e.metaKey||e.ctrlKey)&&k==='k'){ e.preventDefault(); if(ov.classList.contains('on')) closeP(); else openP(); }
   });
 })();
+
+/* ---- v1.19.0 instrument shell: live status lamp + density toggle ---- */
+(function(){try{
+  var lamp=document.getElementById("lamp");
+  if(lamp&&typeof fetch==="function"){fetch("/healthz").then(function(r){return r.ok?r.json():null;}).then(function(j){
+    if(lamp.classList)lamp.classList.add(j?"ok":"bad");
+    lamp.innerHTML='<i></i> '+(j&&j.version?("primer3 \u00b7 v"+j.version):"primer3 ONLINE");
+  }).catch(function(){if(lamp.classList)lamp.classList.add("bad");lamp.innerHTML='<i></i> offline';});}
+  var seg=document.getElementById("density");
+  if(seg&&seg.addEventListener){seg.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("button[data-d]"):null;if(!b)return;
+    seg.querySelectorAll("button").forEach(function(x){if(x.classList)x.classList.remove("on");});if(b.classList)b.classList.add("on");
+    if(document.body.classList)document.body.classList.toggle("dense",b.getAttribute("data-d")==="compact");
+    try{localStorage.setItem("of_density",b.getAttribute("data-d"));}catch(_){}});
+    try{var d=localStorage.getItem("of_density");if(d==="compact"){if(document.body.classList)document.body.classList.add("dense");
+      seg.querySelectorAll("button").forEach(function(x){if(x.classList)x.classList.toggle("on",x.getAttribute("data-d")==="compact");});}}catch(_){}}
+}catch(e){}})();
 </script>
 <div id="cmdk" aria-hidden="true"><div class="cmdk-box"><input id="cmdk-input" class="cmdk-input" placeholder="Jump to a tool or run a command..." autocomplete="off" spellcheck="false"><div id="cmdk-list" class="cmdk-list"></div><div class="cmdk-foot"><span><span class="cmdk-kbd">UP/DN</span> navigate</span><span><span class="cmdk-kbd">ENTER</span> select</span><span><span class="cmdk-kbd">ESC</span> close</span><span style="margin-left:auto"><span class="cmdk-kbd">Ctrl K</span></span></div></div></div>
 </body></html>
