@@ -46,13 +46,28 @@ _CACHE_DIR = os.path.join(os.environ.get("OLIGOFORGE_DATA_PATH") or tempfile.get
                           "oligoforge_ncbi_cache")
 _TRANSIENT = (socket.timeout, urllib.error.URLError, http.client.HTTPException,
               ConnectionError, TimeoutError)
-_RETRY_HTTP = {429, 500, 502, 503, 504}
+_RETRY_HTTP = {400, 429, 500, 502, 503, 504}   # NCBI intermittently 400s a well-formed query under load (clears on retry)
+# NCBI E-utilities periodically return an <ERROR> element instead of results when their
+# backend is briefly overloaded (more common on broad queries over huge taxa like Plasmodium).
+# Biopython raises this as a RuntimeError at PARSE time -- AFTER the HTTP call returns -- so it
+# escapes the per-call retry in _net. These substrings mark such transient server-side errors,
+# which clear on a retry; matched case-insensitively against str(e).
+_TRANSIENT_MSGS = ("search backend failed", "error reading from backend", "backend failed",
+                   "unable to obtain", "temporarily unavailable", "service unavailable",
+                   "server is temporarily unable", "timed out", "try again")
+# esearch+read is retried more aggressively than _net's default: each attempt is cheap and the
+# backend error is intermittent (~half the time on the worst queries), so a few extra tries take
+# the residual failure rate to near zero.
+_SEARCH_RETRIES = max(_RETRIES, 5)
 
 
 def _is_transient(e):
     if isinstance(e, urllib.error.HTTPError):
         return getattr(e, "code", None) in _RETRY_HTTP
-    return isinstance(e, _TRANSIENT)
+    if isinstance(e, _TRANSIENT):
+        return True
+    msg = str(e).lower()
+    return any(s in msg for s in _TRANSIENT_MSGS)
 
 
 def _net(fn, *a, **k):
@@ -67,6 +82,46 @@ def _net(fn, *a, **k):
                 raise
             time.sleep(min(8.0, 0.5 * (3 ** attempt)))   # 0.5s, 1.5s, 4.5s ...
     raise last
+
+
+def _retry_read(call, *a, **k):
+    """Run an Entrez query AND Entrez.read() inside one retry loop, so a transient backend
+    error surfaced at parse time (e.g. 'Search Backend failed') is retried -- _net only wraps
+    the HTTP call and returns before the read happens. Backoff: 0.4, 0.8, 1.6, 3.2, 6s ...
+    Re-raises a non-transient error immediately; on exhausting retries against a transient
+    server error, raises a clean, user-facing message instead of the raw NCBI string."""
+    last = None
+    for attempt in range(_SEARCH_RETRIES):
+        try:
+            h = call(*a, **k)
+            r = Entrez.read(h)
+            try:
+                h.close()
+            except Exception:
+                pass
+            return r
+        except Exception as e:
+            last = e
+            if not _is_transient(e) or attempt == _SEARCH_RETRIES - 1:
+                break
+            time.sleep(min(6.0, 0.4 * (2 ** attempt)))
+    msg = str(last).lower()
+    if any(s in msg for s in _TRANSIENT_MSGS):
+        raise RuntimeError("NCBI search is temporarily unavailable (retried %d times). "
+                           "Please try again in a moment." % _SEARCH_RETRIES) from last
+    raise last
+
+
+def _esearch_read(db, term, retmax, **extra):
+    """esearch + read with parse-time retry. Returns the parsed esearch result (has IdList, Count)."""
+    return _retry_read(Entrez.esearch, db=db, term=term, retmax=retmax, **extra)
+
+
+def _esummary_read(db, ids, **extra):
+    """esummary + read with parse-time retry. `ids` may be a list or comma-joined string."""
+    if isinstance(ids, (list, tuple)):
+        ids = ",".join(str(x) for x in ids)
+    return _retry_read(Entrez.esummary, db=db, id=ids, **extra)
 
 
 def _cache_key(**k):
@@ -136,8 +191,7 @@ def search_mrna(gene, organism, retmax=20):
     for q in (f'{organism}[Organism] AND {gene}[Gene] AND biomol_mrna[PROP]',
               f'{organism}[Organism] AND {gene}[All Fields] AND biomol_mrna[PROP]',
               f'{organism}[Organism] AND {gene} AND biomol_mrna[PROP]'):
-        h = _net(Entrez.esearch, db="nucleotide", term=q, retmax=retmax)
-        r = Entrez.read(h); h.close()
+        r = _esearch_read("nucleotide", q, retmax)
         if r["IdList"]:
             return r["IdList"], q
         time.sleep(0.11 if Entrez.api_key else 0.34)
@@ -174,8 +228,7 @@ def gene_id(gene, organism):
     for term in (f'{gene}[Gene Name] AND {organism}[Organism]',
                  f'{gene}[Gene] AND {organism}[Organism]',
                  f'{gene}[All Fields] AND {organism}[Organism]'):
-        h = _net(Entrez.esearch, db="gene", term=term)
-        r = Entrez.read(h); h.close()
+        r = _esearch_read("gene", term, 20)
         if r["IdList"]:
             return r["IdList"][0]
         time.sleep(0.11 if Entrez.api_key else 0.34)
@@ -234,7 +287,7 @@ def resolve_gene(gene, organism=None):
 
     def best_of(ids):
         try:
-            h = _net(Entrez.esummary, db="gene", id=",".join(ids[:50])); s = Entrez.read(h); h.close()
+            s = _esummary_read("gene", ids[:50])
             docs = list(s["DocumentSummarySet"]["DocumentSummary"])
         except Exception:
             return None, 0.0
@@ -245,8 +298,7 @@ def resolve_gene(gene, organism=None):
 
     for term, in_org in tiers:
         try:
-            h = _net(Entrez.esearch, db="gene", term=term, retmax=50)
-            ids = Entrez.read(h)["IdList"]; h.close()
+            ids = _esearch_read("gene", term, 50)["IdList"]
         except Exception:
             ids = []
         if ids:
@@ -281,8 +333,7 @@ def gene_lookup(gene, organism=None, max_candidates=8):
         for term in (f'{gene}[Gene Name] AND {org}[Organism]',
                      f'{gene}[All Fields] AND {org}[Organism] AND alive[prop]'):
             try:
-                h = _net(Entrez.esearch, db="gene", term=term, retmax=max_candidates)
-                ids = Entrez.read(h)["IdList"]; h.close()
+                ids = _esearch_read("gene", term, max_candidates)["IdList"]
             except Exception:
                 ids = []
             if ids:
@@ -291,8 +342,7 @@ def gene_lookup(gene, organism=None, max_candidates=8):
     if not ids:
         for term in (f'{gene}[Gene Name]', f'{gene}[All Fields] AND alive[prop]'):
             try:
-                h = _net(Entrez.esearch, db="gene", term=term, retmax=max_candidates)
-                ids = Entrez.read(h)["IdList"]; h.close()
+                ids = _esearch_read("gene", term, max_candidates)["IdList"]
             except Exception:
                 ids = []
             if ids:
@@ -302,8 +352,7 @@ def gene_lookup(gene, organism=None, max_candidates=8):
         return dict(found=False, gene=gene, organism=org,
                     error="NCBI Gene has no record matching \u201c%s\u201d%s" % (gene, (" in " + org) if org else ""))
     try:
-        h = _net(Entrez.esummary, db="gene", id=",".join(ids[:max_candidates]))
-        docs = list(Entrez.read(h)["DocumentSummarySet"]["DocumentSummary"]); h.close()
+        docs = list(_esummary_read("gene", ids[:max_candidates])["DocumentSummarySet"]["DocumentSummary"])
     except Exception:
         docs = []
     cand = []
@@ -326,14 +375,12 @@ def gene_lookup(gene, organism=None, max_candidates=8):
         for term in (f'{desc}[All Fields] AND {org}[Organism] AND alive[prop]',
                      f'"{desc}"[Gene Name] AND {org}[Organism]'):
             try:
-                h = _net(Entrez.esearch, db="gene", term=term, retmax=max_candidates)
-                oids = Entrez.read(h)["IdList"]; h.close()
+                oids = _esearch_read("gene", term, max_candidates)["IdList"]
             except Exception:
                 oids = []
             if oids:
                 try:
-                    h = _net(Entrez.esummary, db="gene", id=",".join(oids[:max_candidates]))
-                    odocs = list(Entrez.read(h)["DocumentSummarySet"]["DocumentSummary"]); h.close()
+                    odocs = list(_esummary_read("gene", oids[:max_candidates])["DocumentSummarySet"]["DocumentSummary"])
                 except Exception:
                     odocs = []
                 ocand = []
@@ -373,8 +420,7 @@ def gene_id_from_accession(acc):
     if not acc:
         return None
     try:
-        h = _net(Entrez.elink, dbfrom="nucleotide", db="gene", id=acc.strip())
-        recs = Entrez.read(h); h.close()
+        recs = _retry_read(Entrez.elink, dbfrom="nucleotide", db="gene", id=acc.strip())
         for r in recs:
             for ls in r.get("LinkSetDb", []):
                 links = ls.get("Link", [])
@@ -397,8 +443,7 @@ def search_fetch_fasta(query, n=10):
     from Bio import SeqIO
     n = max(1, min(int(n), 40))
     term = f"({query}) AND 50:120000[SLEN]"      # keep genes / mitogenomes, drop chromosome & genome records
-    h = _net(Entrez.esearch, db="nucleotide", term=term, retmax=n)
-    ids = Entrez.read(h)["IdList"]; h.close()
+    ids = _esearch_read("nucleotide", term, n)["IdList"]
     if not ids:
         return []
     raw = _efetch_text(db="nucleotide", id=",".join(ids), rettype="fasta", retmode="text")  # SLEN filter caps each record at 120 kb
@@ -420,13 +465,11 @@ def taxonomy_lineage(name):
     Taxonomy, or None if not found / offline. Used by the marker recommender so
     it can classify any taxon, not just a hard-coded genus list."""
     try:
-        h = _net(Entrez.esearch, db="taxonomy", term=name)
-        r = Entrez.read(h); h.close()
+        r = _esearch_read("taxonomy", name, 20)
         ids = r.get("IdList") or []
         if not ids:
             return None
-        h = _net(Entrez.efetch, db="taxonomy", id=ids[0], retmode="xml")
-        recs = Entrez.read(h); h.close()
+        recs = _retry_read(Entrez.efetch, db="taxonomy", id=ids[0], retmode="xml")
         if not recs:
             return None
         rec = recs[0]
@@ -440,11 +483,48 @@ def taxonomy_lineage(name):
 def count_hits(query):
     """Number of nucleotide records matching a query (availability signal). 0 on failure."""
     try:
-        h = _net(Entrez.esearch, db="nucleotide", term=query, retmax=0)
-        r = Entrez.read(h); h.close()
+        r = _esearch_read("nucleotide", query, 0)
         return int(r.get("Count", 0))
     except Exception:
         return None
+
+
+def genes_for_organism(organism, n=20):
+    """Real gene symbols catalogued for an organism in NCBI Gene -- live, specific to exactly what
+    was typed (best-effort). Returns [{symbol, name}] in NCBI relevance order; empty for poorly
+    annotated taxa or on failure. Lets gene suggestions reflect the actual organism instead of a
+    fixed per-clade list."""
+    org = (organism or "").strip()
+    if not org:
+        return []
+    try:
+        ids = _esearch_read("gene", "%s[Organism]" % org, n, sort="relevance").get("IdList", [])
+    except Exception:
+        return []
+    if not ids:
+        return []
+    try:
+        recs = _esummary_read("gene", ids)
+    except Exception:
+        return []
+    rows = recs
+    if isinstance(recs, dict):                       # gene esummary nests under DocumentSummarySet
+        rows = (recs.get("DocumentSummarySet") or {}).get("DocumentSummary") or []
+    out, seen = [], set()
+    for d in rows:
+        try:
+            sym = str(d.get("Name") or d.get("NomenclatureSymbol") or "").strip()
+            desc = str(d.get("Description") or d.get("NomenclatureName")
+                       or d.get("OtherDesignations") or "").strip()
+        except Exception:
+            continue
+        if not sym or sym.lower() in seen:
+            continue
+        seen.add(sym.lower())
+        if desc and "|" in desc:                     # OtherDesignations is pipe-delimited; take the first
+            desc = desc.split("|", 1)[0].strip()
+        out.append({"symbol": sym, "name": desc or sym})
+    return out
 
 
 _MARKER_HINT = {"cytb", "cob", "cytochrome", "coi", "co1", "cox1", "coii", "cox2", "coiii", "cox3",
@@ -490,12 +570,12 @@ def search_genomes(query, retmax=40, gene=None):
         ]
     ids = []
     for term in tiers:
-        h = _net(Entrez.esearch, db="nucleotide", term=term, retmax=int(retmax)); ids = Entrez.read(h)["IdList"]; h.close()
+        ids = _esearch_read("nucleotide", term, int(retmax))["IdList"]
         if ids:
             break
     if not ids:
         return []
-    h = _net(Entrez.esummary, db="nucleotide", id=",".join(ids)); recs = Entrez.read(h); h.close()
+    recs = _esummary_read("nucleotide", ids)
     out = []
     for d in recs:
         out.append(dict(acc=str(d.get("AccessionVersion") or d.get("Caption") or ""),

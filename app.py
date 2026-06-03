@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO
 
-app = FastAPI(title="OligoForge", version="1.21.2")
+app = FastAPI(title="OligoForge", version="1.21.3")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -632,7 +632,7 @@ def api_scan_markers(r: MarkerReq):
 def api_suggest_genes(r: MarkerReq):
     _set_email(r.email, r.ncbi_key)
     try:
-        return RM.suggest(r.organism, r.exclude, r.intent)
+        return RM.suggest_dynamic(r.organism, r.exclude, r.intent)
     except Exception as e:
         return JSONResponse({"error": "suggest_genes failed: %s" % e}, status_code=200)
 

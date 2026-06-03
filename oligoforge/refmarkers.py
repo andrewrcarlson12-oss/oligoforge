@@ -389,3 +389,102 @@ def suggest(name, exclude=None, intent="any"):
     return dict(input=name, resolved=base, rank=rank, lineage=lineage, resolved_ok=bool(info),
                 group=group, markers=out, relatives=rels, exclude=(exclude or "").strip(),
                 intent=intent, note=note)
+
+
+# ---------- dynamic, per-organism suggestion (live GenBank) ----------
+# Collapse near-duplicate marker names so a curated marker and a discovered gene for the same
+# thing don't both appear (e.g. cytb / cob / "cytochrome b").
+_SYN_MAP = {"cob": "cytb", "cytb": "cytb", "cytochrome b": "cytb",
+            "coi": "cox1", "co1": "cox1", "cox1": "cox1", "coxi": "cox1", "cytochrome oxidase subunit 1": "cox1",
+            "coiii": "cox3", "cox3": "cox3",
+            "18s": "18s", "18s rrna": "18s", "28s": "28s", "28s rrna": "28s",
+            "16s": "16s", "16s rrna": "16s", "12s": "12s", "12s rrna": "12s"}
+
+
+def _norm_gene(g):
+    g = (g or "").lower().strip()
+    return _SYN_MAP.get(g, g)
+
+
+def _dyn_marker_from_gene(symbol, name, org):
+    """Wrap a gene symbol discovered in NCBI Gene as a marker row with neutral, honest annotation."""
+    return dict(gene=symbol, name=(name or symbol),
+                good_for="Organism-specific gene from NCBI Gene. Confirm copy number and that enough "
+                         "sequences exist before committing.",
+                copies="varies", level="genotyping", conservation="moderate", region="",
+                chemistry="idt_taqman", qwords=symbol,
+                query=("%s %s" % (org, symbol)).strip(), source="ncbi_gene")
+
+
+def merge_and_rank(base_markers, discovered, org, count_fn, exclude=None, off_count_fn=None, cap=14):
+    """PURE merge/rank (NCBI access is injected as count_fn / off_count_fn, so this is unit-testable):
+    keep every curated marker, add discovered genes that aren't duplicates (up to `cap` total),
+    attach a live per-organism record count to each, DROP markers with a real 0 (absent in GenBank
+    under that name), keep ones whose count call failed (None -> shown as '-'), then sort by record
+    count descending. When an off-target is given, also counts it for the survivors."""
+    seen, merged = set(), []
+    for m in (base_markers or []):
+        g = _norm_gene(m.get("gene", ""))
+        if not g or g in seen:
+            continue
+        seen.add(g)
+        mm = dict(m); mm.setdefault("source", "curated"); merged.append(mm)
+    for d in (discovered or []):
+        sym = (d.get("symbol") or "").strip()
+        g = _norm_gene(sym)
+        if not sym or g in seen:
+            continue
+        seen.add(g)
+        merged.append(_dyn_marker_from_gene(sym, d.get("name"), org))
+    if len(merged) > max(cap, len(base_markers or [])):
+        merged = merged[:max(cap, len(base_markers or []))]
+    out = []
+    for m in merged:
+        term = "%s[Organism] AND %s AND 50:120000[SLEN]" % (org, m.get("qwords") or m.get("gene"))
+        c = count_fn(term)
+        m["count"] = c
+        if c == 0:                                   # genuinely none on file -> not useful for this taxon
+            continue
+        out.append(m)
+    if exclude and off_count_fn:
+        for m in out[:10]:
+            term = "%s[Organism] AND %s AND 50:120000[SLEN]" % (exclude, m.get("qwords") or m.get("gene"))
+            m["off_count"] = off_count_fn(term)
+    out.sort(key=lambda m: (m["count"] if isinstance(m["count"], int) else -1), reverse=True)
+    return out
+
+
+def suggest_dynamic(name, exclude=None, intent="any"):
+    """GenBank-driven gene suggestion: start from the curated clade markers (for their annotation),
+    add organism-specific genes discovered live in NCBI Gene, and rank everything by the actual
+    number of nucleotide records for exactly the organism typed. Falls back to the curated list if
+    NCBI can't be reached, so it never breaks."""
+    base = suggest(name, exclude, intent)
+    org = (base.get("resolved") or (name or "").strip()).strip()
+    if not org:
+        return base
+    excl = (exclude or "").strip() or None
+    try:
+        discovered = ncbi.genes_for_organism(org, n=18)
+    except Exception:
+        discovered = []
+    try:
+        markers = merge_and_rank(base.get("markers", []), discovered, org,
+                                 ncbi.count_hits, exclude=excl, off_count_fn=ncbi.count_hits)
+    except Exception:
+        return base                                  # any failure -> curated list, untouched
+    if not any(isinstance(m.get("count"), int) for m in markers):
+        # couldn't reach GenBank for counts -> don't claim data we don't have; show the curated set
+        base["note"] = (base.get("note") or "") + \
+            " (Couldn\u2019t reach GenBank for live counts just now \u2014 showing the curated set.)"
+        return base
+    n_disc = sum(1 for m in markers if m.get("source") == "ncbi_gene")
+    base["markers"] = markers
+    base["scanned"] = True
+    base["dynamic"] = True
+    base["note"] = ("Ranked by live GenBank records for %s%s.%s"
+                    % (org,
+                       (" \u2014 %d organism-specific gene%s pulled from NCBI Gene"
+                        % (n_disc, "" if n_disc == 1 else "s")) if n_disc else "",
+                       (" " + base["note"]) if base.get("note") else "")).strip()
+    return base
