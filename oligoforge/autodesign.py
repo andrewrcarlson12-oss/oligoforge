@@ -428,18 +428,29 @@ def _annotate(out, ref, prefer_junction):
         c["amp_span"] = list(rspan) if rspan else None
         if STR.available() and ref and rspan:
             amp = ref[rspan[0]:rspan[1]]
-            f = STR.fold(amp)
+            f = STR.fold_ensemble(amp, anneal_c=T.ANNEAL_C)
             if f:
                 fl, rl = len(a["forward"]), len(a["reverse"])
                 pp = SP._locate(a["probe"], amp) if a.get("probe") else None
                 if a.get("probe") and pp is None:
                     pp = SP._locate(SP._rc_iupac(a["probe"]), amp)
+                _pr, _pa = f.get("paired_prob"), f.get("paired_anneal")
+                _has_p = bool(a.get("probe")) and pp is not None
                 c["structure"] = dict(
                     mfe=f["mfe"], mfe_per_nt=f["mfe_per_nt"], dna=f["dna_params"],
                     f_paired=STR.site_paired_fraction(f["paired"], 0, fl),
                     r_paired=STR.site_paired_fraction(f["paired"], len(amp) - rl, len(amp)),
                     p_paired=(STR.site_paired_fraction(f["paired"], pp, pp + len(a["probe"]))
-                              if (a.get("probe") and pp is not None) else None))
+                              if _has_p else None),
+                    # ensemble (partition-function) paired probability -- more honest than MFE alone
+                    f_paired_prob=STR.site_paired_prob(_pr, 0, fl),
+                    r_paired_prob=STR.site_paired_prob(_pr, len(amp) - rl, len(amp)),
+                    p_paired_prob=(STR.site_paired_prob(_pr, pp, pp + len(a["probe"])) if _has_p else None),
+                    # structure that survives at the annealing temperature (what priming actually sees)
+                    anneal_c=f.get("anneal_c"), mfe_anneal=f.get("mfe_anneal"),
+                    f_paired_anneal=STR.site_paired_fraction(_pa, 0, fl),
+                    r_paired_anneal=STR.site_paired_fraction(_pa, len(amp) - rl, len(amp)),
+                    p_paired_anneal=(STR.site_paired_fraction(_pa, pp, pp + len(a["probe"])) if _has_p else None))
         if prefer_junction:
             jspan = _amplicon_on(mrna, a["forward"], a.get("amplicon")) if (mrna and junctions) else None
             c["spans_junction"] = (any(jspan[0] < j < jspan[1] for j in junctions)

@@ -1,0 +1,12 @@
+{
+  "name": "oligoforge-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Dev-only: JS test harnesses for the OligoForge cockpit. Most run on Node stdlib (no install). The jsdom integration harness (tests/ui_integration.js) needs: npm i",
+  "scripts": {
+    "test:integration": "node tests/ui_integration.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  }
+}

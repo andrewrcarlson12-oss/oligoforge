@@ -32,7 +32,12 @@ def check(assays, dimer_threshold=-6.0, amp_tm_gap=2.0):
                 continue
             dg = T.hetero_dimer(s1, s2)
             if dg <= dimer_threshold:
-                cross.append(dict(assay_a=a1, oligo_a=n1, assay_b=a2, oligo_b=n2, dg=round(dg, 2)))
+                # Annotate which flagged dimers are 3'-ENGAGED (extension-competent, the dangerous
+                # kind) vs internal-only. end_dg is the stronger of the two 3'-end stabilities;
+                # three_prime flags a 3'-anchored dimer at the conventional ~-5 kcal/mol screen.
+                end_dg = min(T.end_stability(s1, s2), T.end_stability(s2, s1))
+                cross.append(dict(assay_a=a1, oligo_a=n1, assay_b=a2, oligo_b=n2, dg=round(dg, 2),
+                                  end_dg=round(end_dg, 2), three_prime=end_dg <= -5.0))
     cross.sort(key=lambda x: x["dg"])
 
     # SYBR melt overlap: SYBR assays are told apart by melt-peak Tm, so two SYBR

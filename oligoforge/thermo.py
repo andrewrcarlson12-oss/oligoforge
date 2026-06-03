@@ -15,6 +15,12 @@ _P3_MAXLEN = 60               # primer3 thermo alignment refuses (raises) on seq
 
 # Typical TaqMan/SYBR master-mix conditions. Edit here to match your kit.
 COND = dict(mv_conc=50.0, dv_conc=3.0, dntp_conc=0.8, dna_conc=200.0)
+# qPCR annealing/extension temperature. Secondary structure is evaluated HERE (where priming
+# actually happens) in addition to 37 C: a hairpin or dimer with a strong 37 C dG can be fully
+# melted by ~60 C, so the 37 C value alone over-calls structure. 37 C is kept because it is the
+# IDT OligoAnalyzer-comparable convention. Not part of COND (which is splatted into primer3 Tm
+# calls that do not accept a temp_c kwarg); set via set_conditions(anneal_c=...).
+ANNEAL_C = 60.0
 # full IUPAC complement so a degenerate primer (e.g. the W in Plas_F) never crashes
 _COMP = {"A":"T","T":"A","G":"C","C":"G","N":"N","U":"A",
          "R":"Y","Y":"R","S":"S","W":"W","K":"M","M":"K",
@@ -78,28 +84,51 @@ def gc_percent(seq):
 
 
 def amplicon_tm(seq):
-    """Estimated melt Tm of a PCR product. This is the empirical salt-adjusted
-    formula Tm = 81.5 + 16.6*log10[Na+] + 0.41*%GC - 600/length, NOT a
-    nearest-neighbor calc — a rough predictor for the SYBR melt-curve peak, to be
-    confirmed against the observed melt. Tracks the reaction monovalent salt set
-    via set_conditions()."""
+    """Estimated melt Tm of a PCR product. Empirical salt-adjusted formula
+    Tm = 81.5 + 16.6*log10[Na+]eq + 0.41*%GC - 600/length, NOT a nearest-neighbor
+    calc -- a rough predictor for the SYBR melt-curve peak, to be confirmed against
+    the observed melt. Monovalent salt is taken as the von Ahsen Mg2+-equivalent
+    [Na+]eq = [Na+] + 120*sqrt([Mg2+]_free), [Mg2+]_free = [Mg2+] - [dNTP] (1:1
+    chelation), so the divalent contribution that dominates SYBR product stability
+    is no longer dropped. Tracks the reaction salt set via set_conditions()."""
     import math
     seq = seq.upper().replace("U", "T")
     n = len(seq)
     if n < 1:
         return 0.0
-    na = max(COND.get("mv_conc", 50.0), 1.0) / 1000.0
-    return 81.5 + 16.6 * math.log10(na) + 0.41 * gc_percent(seq) - 600.0 / n
+    na_mM = max(COND.get("mv_conc", 50.0), 0.0)
+    mg_free_mM = max(COND.get("dv_conc", 0.0) - COND.get("dntp_conc", 0.0), 0.0)
+    na_eq = max(na_mM + 120.0 * math.sqrt(mg_free_mM), 1.0) / 1000.0   # von Ahsen, to M
+    return 81.5 + 16.6 * math.log10(na_eq) + 0.41 * gc_percent(seq) - 600.0 / n
 
 
-@lru_cache(maxsize=8192)
-def tm(seq):
+# Nearest-neighbor set + monovalent salt model passed to primer3. The salt model is
+# applied AFTER primer3's built-in von Ahsen divalent->monovalent conversion, so Mg2+
+# and dNTP always reach Tm through COND regardless of this choice. "owczarzy" = Owczarzy
+# 2004; "santalucia" = SantaLucia 1998. Koukos & von Ahsen (Brief Bioinform 2010, 475
+# oligos) found the SantaLucia salt correction more accurate at PCR-range [Mg2+]; IDT
+# OligoAnalyzer uses Owczarzy 2008 (neither of these). Which best tracks IDT for THIS
+# panel is empirical -- test_tm_calibration.py compares both against real IDT values.
+# The default is the validated, locked-panel value: do NOT change it without re-running
+# that calibration AND updating test_locked_panel.GOLDEN (the ordered Tms move with it).
+TM_METHOD = "santalucia"
+SALT_METHOD = "owczarzy"
+
+
+def _calc_tm(seq, salt_method=None):
+    """Tm via primer3 under an explicit salt model (default SALT_METHOD). Uncached
+    so callers like the calibration harness can sweep methods without cache clashes."""
     r = _resolve(seq)
     if not r:
         return 0.0
     with _P3:
-        return primer3.calc_tm(r, tm_method="santalucia",
-                               salt_corrections_method="owczarzy", **COND)
+        return primer3.calc_tm(r, tm_method=TM_METHOD,
+                               salt_corrections_method=salt_method or SALT_METHOD, **COND)
+
+
+@lru_cache(maxsize=8192)
+def tm(seq):
+    return _calc_tm(seq, SALT_METHOD)
 
 
 _IUPAC_SETS = {"A": "A", "C": "C", "G": "G", "T": "T", "R": "AG", "Y": "CT", "S": "GC",
@@ -107,13 +136,15 @@ _IUPAC_SETS = {"A": "A", "C": "C", "G": "G", "T": "T", "R": "AG", "Y": "CT", "S"
                "V": "ACG", "N": "ACGT"}
 
 
-def set_conditions(mv_conc=None, dv_conc=None, dntp_conc=None, dna_conc=None):
+def set_conditions(mv_conc=None, dv_conc=None, dntp_conc=None, dna_conc=None, anneal_c=None):
     """Update, in place, the reaction salt used by every Tm and structure calc.
 
     Only the arguments you pass are changed; the rest keep their current value.
     Lets the Tm match your actual master mix (free Mg2+, monovalent, dNTP, oligo nM)
-    instead of a generic default. Session-global for this local single-user server.
+    instead of a generic default. anneal_c sets the qPCR annealing temperature used for
+    the anneal-temperature structure profiles. Session-global for this local single-user server.
     """
+    global ANNEAL_C
     # Validate physical ranges BEFORE mutating: this salt is session-global and feeds every Tm
     # and structure calc, so a bad value (negative, non-finite, zero oligo, no salt, or absurdly
     # high) must not be allowed to corrupt it and silently poison downstream Tm.
@@ -132,6 +163,15 @@ def set_conditions(mv_conc=None, dv_conc=None, dntp_conc=None, dna_conc=None):
         _lo, _hi = LIMITS[_name]
         if _v < _lo or _v > _hi:
             return dict(error="%s out of range (%g..%g)" % (_name, _lo, _hi))
+    if anneal_c is not None:
+        try:
+            _a = float(anneal_c)
+        except (TypeError, ValueError):
+            return dict(error="anneal_c must be a number")
+        if _a != _a or _a in (float("inf"), float("-inf")):
+            return dict(error="anneal_c must be a finite number")
+        if _a < 30.0 or _a > 85.0:
+            return dict(error="anneal_c out of range (30..85)")
     _eff_mv = float(mv_conc) if mv_conc is not None else COND["mv_conc"]
     _eff_dv = float(dv_conc) if dv_conc is not None else COND["dv_conc"]
     if _eff_mv + _eff_dv <= 0:
@@ -144,8 +184,12 @@ def set_conditions(mv_conc=None, dv_conc=None, dntp_conc=None, dna_conc=None):
         COND["dntp_conc"] = float(dntp_conc)
     if dna_conc is not None:
         COND["dna_conc"] = float(dna_conc)
+    if anneal_c is not None:
+        ANNEAL_C = float(anneal_c)
     tm.cache_clear(); hairpin.cache_clear(); self_dimer.cache_clear(); hetero_dimer.cache_clear()
-    return dict(COND)
+    hairpin_full.cache_clear(); self_dimer_full.cache_clear()
+    hetero_dimer_full.cache_clear(); end_stability.cache_clear()
+    return dict(COND, anneal_c=ANNEAL_C)
 
 
 def tm_range(seq, cap=64):
@@ -203,6 +247,58 @@ def hetero_dimer(a, b):
         return 0.0
     with _P3:
         return primer3.calc_heterodimer(sa, sb, **COND).dg / 1000.0
+
+
+# ---- anneal-temperature structure profiles (additive QC; the design gate still uses the
+# 37 C functions above so validated rankings are unchanged) ----
+# Each returns (dG@37 C, dG@anneal C, structure melting Tm C). dG@37 is byte-identical to the
+# 37 C function above; dG@anneal is the temperature-correct value; the melting Tm answers
+# "does this structure even exist at the anneal temperature" directly (Tm < anneal => melted).
+@lru_cache(maxsize=8192)
+def hairpin_full(seq):
+    s = _resolve(seq)
+    if len(s) > _P3_MAXLEN:
+        return 0.0, 0.0, 0.0
+    with _P3:
+        r37 = primer3.calc_hairpin(s, temp_c=37.0, **COND)
+        ran = primer3.calc_hairpin(s, temp_c=ANNEAL_C, **COND)
+    return r37.dg / 1000.0, ran.dg / 1000.0, r37.tm
+
+
+@lru_cache(maxsize=8192)
+def self_dimer_full(seq):
+    s = _resolve(seq)
+    if len(s) > _P3_MAXLEN:
+        return 0.0, 0.0, 0.0
+    with _P3:
+        r37 = primer3.calc_homodimer(s, temp_c=37.0, **COND)
+        ran = primer3.calc_homodimer(s, temp_c=ANNEAL_C, **COND)
+    return r37.dg / 1000.0, ran.dg / 1000.0, r37.tm
+
+
+@lru_cache(maxsize=8192)
+def hetero_dimer_full(a, b):
+    sa, sb = _resolve(a), _resolve(b)
+    if len(sa) > _P3_MAXLEN or len(sb) > _P3_MAXLEN:
+        return 0.0, 0.0, 0.0
+    with _P3:
+        r37 = primer3.calc_heterodimer(sa, sb, temp_c=37.0, **COND)
+        ran = primer3.calc_heterodimer(sa, sb, temp_c=ANNEAL_C, **COND)
+    return r37.dg / 1000.0, ran.dg / 1000.0, r37.tm
+
+
+@lru_cache(maxsize=8192)
+def end_stability(a, b):
+    """dG (kcal/mol) of the most stable 3'-end-anchored duplex of primer a against b
+    (primer3 calc_end_stability). The 3'-anchored case is the dangerous one: a 3'-engaged
+    primer-dimer can be EXTENDED into an artifact that competes with the target, whereas an
+    internal dimer of equal global dG only titrates primer away. Used to flag which flagged
+    cross-dimers are 3'-engaged. More negative = stronger 3' anchoring."""
+    sa, sb = _resolve(a), _resolve(b)
+    if not sa or not sb or len(sa) > _P3_MAXLEN or len(sb) > _P3_MAXLEN:
+        return 0.0
+    with _P3:
+        return primer3.calc_end_stability(sa, sb, **COND).dg / 1000.0
 
 
 def max_run(seq, base=None):

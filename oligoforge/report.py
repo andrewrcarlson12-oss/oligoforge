@@ -12,7 +12,7 @@ import io
 
 from . import thermo as T
 
-TOOL_VERSION = "OligoForge v1.12.2"
+TOOL_VERSION = "OligoForge v1.18.0"
 
 
 def _oligo_qc(seq):
@@ -105,6 +105,9 @@ def build(panel, meta=None):
            "color:#333;margin:8px 0}.hdr{color:#666;font-size:12px;margin-bottom:14px}</style>")
     hdr = ("<div class=hdr>" + _h.escape(meta.get("title", "OligoForge")) + " &middot; " + now + " &middot; "
            + TOOL_VERSION + " &middot; thermodynamics: SantaLucia 1998 + Owczarzy at " + _h.escape(salt)
+           + " &middot; structure &Delta;G is reported at 37&deg;C (vendor-comparable) and evaluated at the "
+           + ("%.0f" % T.ANNEAL_C) + "&deg;C anneal &mdash; a hairpin/dimer whose melting Tm is below the "
+           "anneal temperature is largely absent during priming"
            + " &middot; " + str(len(panel)) + " assay(s)<br>MIQE-style summary for assembly and review; "
            "confirm final oligos in your vendor tool, and cross-check reference-gene choice in "
            "NormFinder / RefFinder.</div>")

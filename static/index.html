@@ -5,15 +5,20 @@
 <title>OligoForge</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
- --bg:#090d14; --panel:#0e131c; --panel2:#131a25; --panel3:#18202d; --line:#212b39; --line2:#30404f;
- --ink:#eaf1f8; --ink2:#bdcbdc; --dim:#8694a7;
- --acc:#5cc8ff; --acc-d:#33b2f3; --acc2:#6ee7a8; --acc-soft:rgba(92,200,255,.13);
- --pass:#4ccb63; --warn:#e7ad3e; --fail:#fb6d63;
+ --bg:#06090f; --panel:#0d121b; --panel2:#111824; --panel3:#161e2b; --line:rgba(150,172,198,.11); --line2:rgba(150,175,205,.20);
+ --ink:#eef3f9; --ink2:#c3d0de; --dim:#8493a6;
+ --acc:#4fd2ff; --acc-d:#2fb6e8; --acc2:#23e6a4; --acc-soft:rgba(79,210,255,.13);
+ --pass:#3fd47e; --warn:#ffb43c; --fail:#ff5d63;
  --ui:'IBM Plex Sans',ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
- --r:13px; --r2:9px; --sh:0 18px 46px -22px rgba(0,0,0,.86); --sh2:0 5px 16px -9px rgba(0,0,0,.62); --edge:inset 0 1px 0 rgba(255,255,255,.05);
+ --display:'Archivo','IBM Plex Sans',ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+ --r:13px; --r2:9px; --sh:0 22px 60px -26px rgba(0,0,0,.92); --sh2:0 6px 20px -10px rgba(0,0,0,.70); --edge:inset 0 1px 0 rgba(255,255,255,.055);
+ --sig:#4fd2ff;
+ --fam:#23e6a4; --vic:#ffc23d; --rox:#ff6a5d; --cy5:#ff4d86;
+ --fam-glow:rgba(35,230,164,.50); --vic-glow:rgba(255,194,61,.50); --rox-glow:rgba(255,106,93,.50); --cy5-glow:rgba(255,77,134,.50);
 }
 *{box-sizing:border-box;scrollbar-color:#2c3744 transparent;scrollbar-width:thin}
 ::selection{background:rgba(92,200,255,.28)}
@@ -340,9 +345,72 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
 #splash button:active{transform:translateY(0)}
 #splash .hint{margin-top:13px;color:var(--dim);font:11px/1 var(--mono);letter-spacing:1px}
 @media (prefers-reduced-motion:reduce){#splash .helix,#splash .helix .rung,#splash .seqticker span{animation:none}#splash .curve path{animation:cdraw .01s linear forwards}#splash .scard{animation:none}}
+
+/* ============================================================= */
+/* v1.18.0 INSTRUMENT REFIT - global aesthetic override layer    */
+/* dark engineered substrate; dye-channel data palette; glass    */
+/* surfaces; micro-thin gridlines; sharp display type.           */
+/* additive - rides on existing tokens + class names.            */
+/* ============================================================= */
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+::selection{background:rgba(79,210,255,.28)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(120,150,180,.22);border:2px solid transparent;background-clip:content-box;border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:rgba(79,210,255,.42);background-clip:content-box}
+body{background:
+  radial-gradient(1200px 620px at 84% -10%,rgba(79,210,255,.07),transparent 60%),
+  radial-gradient(1000px 560px at -6% 110%,rgba(35,230,164,.045),transparent 55%),
+  linear-gradient(rgba(150,180,220,.030) 1px,transparent 1px) 0 0/100% 30px,
+  linear-gradient(90deg,rgba(150,180,220,.030) 1px,transparent 1px) 0 0/30px 100%,
+  radial-gradient(1200px 1200px at 50% 36%,transparent 64%,rgba(0,0,0,.45)),
+  var(--bg);background-attachment:fixed}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.04}
+nav{position:relative;z-index:20}
+main{position:relative;z-index:2}
+footer{position:relative;z-index:2}
+h1,h2,h3{font-family:var(--display);letter-spacing:-.2px}
+header h1{letter-spacing:.4px}
+nav a,.navhead,.navgroup,.navitem,label,th,.amp-cap,.acard-status,.acard-cur,.reslab,.kv span,.gene-stats span,.gf-rec-tag,.acard-name,.vw-rules-h,.gene-alts-cap,.cond .u{font-family:var(--display)}
+label,th,.amp-cap,.acard-status,.acard-cur,.reslab,.kv span,.gene-stats span,.gene-alts-cap,.cond .u{letter-spacing:.09em}
+.kv b,td,td.mono,.mono,.resval,.gene-stats b{font-variant-numeric:tabular-nums}
+.card{background:linear-gradient(180deg,rgba(19,26,38,.72),rgba(13,18,27,.66));backdrop-filter:blur(14px) saturate(1.08);-webkit-backdrop-filter:blur(14px) saturate(1.08);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--edge),var(--sh),inset 0 0 0 1px rgba(255,255,255,.012)}
+.acard{background:linear-gradient(180deg,rgba(20,28,40,.66),rgba(15,20,29,.60));backdrop-filter:blur(12px) saturate(1.06);-webkit-backdrop-filter:blur(12px) saturate(1.06)}
+.navpanel{background:linear-gradient(180deg,rgba(15,21,31,.96),rgba(11,16,24,.96));backdrop-filter:blur(14px)}
+header{background:linear-gradient(180deg,rgba(13,18,27,.86),rgba(9,13,20,.82));backdrop-filter:blur(13px) saturate(1.05)}
+th,td{border-bottom:1px solid rgba(150,172,198,.085)}
+th{background:rgba(13,19,28,.60);border-bottom:1px solid var(--line2);letter-spacing:.09em}
+tr:last-child td{border-bottom:0}
+button{background:linear-gradient(180deg,#6fdcff,#2fb6e8);color:#031b27;box-shadow:inset 0 1px 0 rgba(255,255,255,.50),0 1px 2px rgba(0,0,0,.50),0 14px 30px -14px rgba(79,210,255,.60)}
+button.ghost{background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,.008));color:var(--ink2);box-shadow:none}
+button.ghost:hover{background:var(--acc-soft);border-color:rgba(79,210,255,.34);color:var(--ink)}
+input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(79,210,255,.18),inset 0 1px 2px rgba(0,0,0,.25)}
+.chip.fam{color:var(--fam);background:rgba(35,230,164,.10);border-color:rgba(35,230,164,.32)}
+.chip.vic{color:var(--vic);background:rgba(255,194,61,.10);border-color:rgba(255,194,61,.32)}
+.chip.rox{color:var(--rox);background:rgba(255,106,93,.10);border-color:rgba(255,106,93,.32)}
+.chip.cy5{color:var(--cy5);background:rgba(255,77,134,.10);border-color:rgba(255,77,134,.32)}
+.dye-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle;box-shadow:0 0 7px currentColor}
+.dye-fam{color:var(--fam)}.dye-vic{color:var(--vic)}.dye-rox{color:var(--rox)}.dye-cy5{color:var(--cy5)}
+.toast{background:linear-gradient(180deg,rgba(22,30,42,.93),rgba(16,22,32,.90));backdrop-filter:blur(10px);border:1px solid var(--line2);border-left:3px solid var(--acc)}
+#splash h1{font-family:var(--display);font-weight:800;letter-spacing:-.5px}
+#splash .tag,#splash .hint{font-family:var(--mono)}
+/* command palette */
+#cmdk{position:fixed;inset:0;z-index:10000;display:none;align-items:flex-start;justify-content:center;padding-top:14vh;background:rgba(4,7,12,.62);backdrop-filter:blur(4px)}
+#cmdk.on{display:flex;animation:ofIn .14s ease}
+.cmdk-box{width:min(560px,92vw);background:linear-gradient(180deg,rgba(17,23,33,.97),rgba(11,16,24,.97));border:1px solid var(--line2);border-radius:14px;box-shadow:var(--sh),0 0 0 1px rgba(79,210,255,.08),0 0 40px -12px rgba(79,210,255,.30);overflow:hidden}
+.cmdk-input{width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;color:var(--ink);font:15px var(--ui);padding:15px 17px;box-shadow:none}
+.cmdk-input:focus{outline:none;box-shadow:none;border-color:var(--line)}
+.cmdk-list{max-height:46vh;overflow:auto;padding:7px}
+.cmdk-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;border-radius:9px;cursor:pointer;border:1px solid transparent}
+.cmdk-item.sel{background:rgba(79,210,255,.12);border-color:rgba(79,210,255,.28)}
+.cmdk-lab{font-size:13.5px;color:var(--ink)}
+.cmdk-hint{font-family:var(--display);font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim)}
+.cmdk-foot{display:flex;gap:16px;padding:9px 14px;border-top:1px solid var(--line);font-size:10.5px;color:var(--dim)}
+.cmdk-kbd{font-family:var(--mono);font-size:10px;background:rgba(255,255,255,.05);border:1px solid var(--line2);border-radius:5px;padding:1px 6px;color:var(--ink2)}
+@media (prefers-reduced-motion:reduce){#cmdk.on{animation:none}}
 </style>
 </head>
 <body>
+<svg class="grain" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><filter id="grainf"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#grainf)"/></svg>
 <div id="splash" role="dialog" aria-label="Welcome to OligoForge" tabindex="-1">
   <div class="scard">
     <svg class="helix" viewBox="0 0 120 150" aria-hidden="true">
@@ -610,6 +678,20 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
     <textarea id="std_in" rows="8" placeholder="1e6, 20.1&#10;1e5, 23.4&#10;1e4, 26.7&#10;1e3, 30.0&#10;1e2, 33.4&#10;1e1, 36.7"></textarea>
     <div class="row" style="margin-top:8px"><button onclick="doStd()">Fit curve</button></div>
     <div id="std_out"><div class="ph">Paste your Cq dilution data to fit a standard curve: efficiency, R², slope and LOD.</div></div>
+  </div>
+  <div class="card">
+    <h2>Cq from raw fluorescence</h2>
+    <p class="hint">Paste one amplification trace: one fluorescence value per cycle (one per line), or “cycle, fluorescence” pairs. OligoForge calls Cq two ways — threshold crossing with log-linear interpolation, and the threshold-free second-derivative maximum (SDM) — so a raw run feeds the standard curve without leaving the app.</p>
+    <textarea id="cq_in" rows="7" placeholder="52&#10;53&#10;51&#10;…&#10;640&#10;980&#10;1010"></textarea>
+    <div class="row" style="margin-top:8px"><label class="hint" style="align-self:center">threshold</label><input id="cq_thr" style="width:110px" placeholder="auto"><button onclick="doCq()">Compute Cq</button></div>
+    <div id="cq_out"><div class="ph">Paste a per-cycle fluorescence trace to get its Cq (threshold + SDM).</div></div>
+  </div>
+  <div class="card">
+    <h2>Melt curve (SYBR dissociation)</h2>
+    <p class="hint">Paste a dissociation curve: “temperature, fluorescence” per line. Reports the melt peak temperature(s) — one sharp peak means a single product, extra peaks usually mean primer-dimer or off-target. Optionally compare against the amplicon Tm OligoForge predicts at design time.</p>
+    <textarea id="melt_in" rows="6" placeholder="65, 980&#10;65.5, 975&#10;…&#10;85, 510&#10;85.5, 300"></textarea>
+    <div class="row" style="margin-top:8px"><label class="hint" style="align-self:center">predicted Tm</label><input id="melt_pred" style="width:110px" placeholder="optional"><button onclick="doMelt()">Find melt peaks</button></div>
+    <div id="melt_out"><div class="ph">Paste a melt/dissociation trace to find its peak temperature(s).</div></div>
   </div></section>
   <section id="auto" class="on">
     <div class="hero">
@@ -708,6 +790,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
     </div>
     <div class="row">
       <button onclick="genReport()">Generate MIQE report (HTML + CSV)</button>
+      <button class="ghost" onclick="genRdml()">Export RDML</button>
       <button class="ghost" onclick="checkMultiplex()">Check multiplex</button>
       <button class="ghost" onclick="exportPanel()">Export panel (JSON)</button>
       <button class="ghost" onclick="document.getElementById('pj_import').click()">Import panel</button>
@@ -751,7 +834,7 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
     <div class="row"><button class="ghost" style="border-color:rgba(251,109,99,.5);color:#ffc9c4" onclick="factoryReset()">Reset to factory settings…</button></div>
   </div></section>
 </main>
-<footer>OligoForge v1.12.2</footer>
+<footer>OligoForge v1.18.0</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -826,6 +909,7 @@ async function doQC(){const o=document.getElementById("qc_out");o.innerHTML="…
  o.innerHTML=`<div class="kv">
    <div><span>Tm${d.tm_min!=null?" (range)":""}</span><b>${d.tm_min!=null?d.tm_min+"–"+d.tm_max:d.tm}</b></div><div><span>GC%</span><b>${d.gc}</b></div>
    <div><span>hairpin ΔG</span><b>${d.hairpin_dg}</b></div><div><span>self-dimer ΔG</span><b>${d.self_dimer}</b></div>
+   ${d.hairpin_dg_anneal!=null?`<div><span>hairpin ΔG @${d.anneal_c}°C</span><b>${d.hairpin_dg_anneal}</b></div><div><span>self-dimer ΔG @${d.anneal_c}°C</span><b>${d.self_dimer_dg_anneal}</b></div><div><span>self-dimer melts</span><b>${d.self_dimer_tm}°C</b></div><div><span>hairpin melts</span><b>${d.hairpin_tm}°C</b></div>`:""}
    <div><span>length</span><b>${d.length}</b></div><div><span>max run</span><b>${d.max_run}</b></div>
    <div><span>3' clamp (G/C in 5)</span><b>${d.last5_gc}</b></div></div>
    <small class="note mono">revcomp: ${d.revcomp}</small> <button class="ghost" style="padding:1px 7px;font-size:11px" onclick='copyText("${d.revcomp}")'>copy</button>${d.note?`<br><small class="note">${d.note}</small>`:""}${d.lna_note?`<br><small class="note">${d.lna_note}</small>`:""}${_degFold((document.getElementById("qc_seq").value||"").replace(/\s+/g,""))>1?`<br><small class="note">degenerate: encodes <b>${_degFold((document.getElementById("qc_seq").value||"").replace(/\s+/g,""))}</b> distinct sequences</small>`:""}`+lintTable(d.lint);}
@@ -940,6 +1024,7 @@ async function doBlast(){const o=document.getElementById("b_out");const mode=doc
   hits.map((hh,i)=>`<tr><td>${i+1}</td><td class="mono"><a href="https://www.ncbi.nlm.nih.gov/nuccore/${esc(hh.accession)}" target="_blank" rel="noopener">${esc(hh.accession)}</a></td><td>${esc(hh.title||"")}</td><td>${hh.pident}%</td><td>${hh.qcov!=null?hh.qcov+"%":"—"}</td><td>${esc(""+hh.evalue)}</td><td>${hh.bitscore!=null?hh.bitscore:"—"}</td><td>${hh.strand?((""+hh.strand)[0]==="m"||hh.strand==="-"?"−":"+"):""}</td></tr>`).join("")+`</table>`;}
 // ---- stage-5 UI ----
 function download(fn,txt){const b=new Blob([txt],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=fn;a.click();}
+function downloadB64(fn,b64,mime){const bin=atob(b64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);const b=new Blob([arr],{type:mime||"application/octet-stream"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=fn;a.click();}
 async function doCopies(){const o=document.getElementById("q_out");
  const len=parseInt(document.getElementById("q_len").value),ng=parseFloat(document.getElementById("q_ng").value);
  if(!Number.isFinite(len)||len<1||!Number.isFinite(ng)||ng<=0){o.innerHTML=err("enter a positive concentration (ng/µL) and the length in bp");return;}
@@ -1069,10 +1154,42 @@ async function doStd(){const o=document.getElementById("std_out");o.innerHTML="�
   `<div><span>slope</span><b class="${d.slope_ok?'PASS':'WARN'}">${d.slope}</b></div>`+
   `<div><span>R&sup2;</span><b class="${d.r2_ok?'PASS':'FAIL'}">${d.r2}</b></div>`+
   `<div><span>amp factor</span><b>${d.amp_factor}</b></div>`+
-  `<div><span>practical LOD</span><b>${d.lod_practical!=null?d.lod_practical:'—'}</b></div></div>`+
+  `<div><span>practical LOD</span><b>${d.lod_practical!=null?d.lod_practical:'—'}</b></div>`+`${d.lod95!=null?`<div><span>LOD (95% detect)</span><b>${d.lod95}</b></div>`:""}`+`${d.efficiency_ci_pct?`<div><span>efficiency 95% CI</span><b>${d.efficiency_ci_pct[0]}–${d.efficiency_ci_pct[1]}%</b></div>`:""}`+`${d.slope_ci95?`<div><span>slope 95% CI</span><b>${d.slope_ci95[0]} to ${d.slope_ci95[1]}</b></div>`:""}</div>`+
   `<table><tr><th>quantity</th><th>n</th><th>detected</th><th>mean Cq</th><th>SD</th><th>detect %</th></tr>`+
   d.levels.map(l=>`<tr><td class="mono">${l.quantity}</td><td>${l.n}</td><td>${l.detected}</td><td>${l.mean_cq!=null?l.mean_cq:'—'}</td><td>${l.sd_cq!=null?l.sd_cq:'—'}</td><td class="${l.detection_rate<100?'WARN':'PASS'}">${l.detection_rate}</td></tr>`).join("")+`</table>`+
   `<small class="note">${d.notes}</small><div style="margin-top:8px"><button class="ghost" onclick="attachStdToCurrent()">attach to current assay</button></div>`;}
+
+async function doCq(){const o=document.getElementById("cq_out");o.innerHTML="…";
+ const cyc=[],flu=[];(document.getElementById("cq_in").value||"").split("\n").forEach(l=>{l=l.trim();if(!l)return;
+  const m=l.split(/[,\t]+/).map(x=>parseFloat(x)).filter(x=>isFinite(x));
+  if(m.length>=2){cyc.push(m[0]);flu.push(m[1]);}else if(m.length===1){flu.push(m[0]);}});
+ if(flu.length<6){o.innerHTML=err("need at least 6 cycles of fluorescence");return;}
+ const thrv=parseFloat((document.getElementById("cq_thr")||{}).value);
+ const body={fluor:flu};if(cyc.length===flu.length)body.cycles=cyc;if(isFinite(thrv))body.threshold=thrv;
+ const d=await api("/api/cq",body);
+ if(d.error){o.innerHTML=err(d.error);return;}
+ o.innerHTML=`<div class="kv"><div><span>Cq (threshold)</span><b>${d.cq_threshold!=null?d.cq_threshold:'—'}</b></div>`+
+  `<div><span>Cq (SDM)</span><b>${d.cq_sdm!=null?d.cq_sdm:'—'}</b></div>`+
+  `<div><span>threshold used</span><b>${d.threshold}</b></div>`+
+  `<div><span>amplified</span><b class="${d.amplified?'PASS':'FAIL'}">${d.amplified?'yes':'no'}</b></div></div>`+
+  (d.note?`<small class="note">${d.note}</small>`:"");}
+
+async function doMelt(){const o=document.getElementById("melt_out");o.innerHTML="…";
+ const tm=[],fl=[];(document.getElementById("melt_in").value||"").split("\n").forEach(l=>{l=l.trim();if(!l)return;
+  const m=l.split(/[,\t]+/).map(x=>parseFloat(x)).filter(x=>isFinite(x));
+  if(m.length>=2){tm.push(m[0]);fl.push(m[1]);}else if(m.length===1){fl.push(m[0]);}});
+ if(fl.length<8){o.innerHTML=err("need at least 8 temperature points");return;}
+ if(tm.length!==fl.length){o.innerHTML=err("give a temperature for each fluorescence value (temp, fluor per line)");return;}
+ const pv=parseFloat((document.getElementById("melt_pred")||{}).value);
+ const body={fluor:fl,temps:tm};if(isFinite(pv))body.predicted_tm=pv;
+ const d=await api("/api/melt",body);
+ if(d.error){o.innerHTML=err(d.error);return;}
+ const bdg=`<span class="${d.single_product?'b-PASS':'b-WARN'}" style="display:inline-block;padding:3px 11px;font-size:11px;font-weight:600;margin-bottom:9px">${d.single_product?'single product':(d.n_peaks>1?d.n_peaks+' peaks — not specific':'no peak')}</span>`;
+ o.innerHTML=bdg+`<div class="kv"><div><span>dominant Tm</span><b>${d.dominant_tm!=null?d.dominant_tm+'°C':'—'}</b></div>`+
+  `<div><span>peaks</span><b>${d.n_peaks}</b></div>`+
+  (d.predicted_tm!=null?`<div><span>predicted Tm</span><b>${d.predicted_tm}°C</b></div><div><span>observed − predicted</span><b>${d.dominant_minus_predicted}°C</b></div>`:"")+`</div>`+
+  (d.peaks&&d.peaks.length?`<table><tr><th>peak</th><th>Tm (°C)</th><th>height</th></tr>`+d.peaks.map((p,i)=>`<tr><td>${i+1}</td><td class="mono">${p.tm}</td><td>${p.height}</td></tr>`).join("")+`</table>`:"")+
+  (d.note?`<small class="note">${d.note}</small>`:"");}
 
 function candExtras(c){let h="";
  if(c.spans_junction!==undefined){const sj=c.spans_junction;
@@ -1386,6 +1503,7 @@ async function checkAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;cons
  a.checks=a.checks||{};if(d.error){a.checks.specificity={error:d.error};}else{a.checks.specificity=d;if(a.status==="designed")a.status="checked";}savePanel();renderPanel();}
 function attachStdToCurrent(){const a=curAssay();if(!a){toast("Pick an assay in the Workbench (tick its radio), then attach.","warn");return;}if(!LAST_STD){toast("Run a standard curve first (Std curve tab).","warn");return;}const d=LAST_STD;a.validation={efficiency_pct:d.efficiency_pct,r2:d.r2,slope:d.slope,lod:(d.lod_practical!=null?d.lod_practical:null)};a.status="validated";savePanel();renderPanel();toast("Attached efficiency "+d.efficiency_pct+"% to "+(a.name||"current assay")+".","ok");}
 async function genReport(){if(!PANEL.length){toast("Add some assays to the workbench first.","warn");return;}const d=await api("/api/report",{panel:PANEL,meta:{title:"OligoForge panel"}});if(d.error){toast(d.error,"err");return;}download("oligoforge_panel_report.html",d.html);setTimeout(()=>download("oligoforge_panel_miqe.csv",d.csv),350);toast("Report downloaded — HTML + CSV.","ok");}
+async function genRdml(){if(!PANEL.length){toast("Add some assays to the workbench first.","warn");return;}const d=await api("/api/rdml",{panel:PANEL,meta:{title:"oligoforge_panel"}});if(d.error){toast(d.error,"err");return;}downloadB64(d.filename||"oligoforge_panel.rdml",d.rdml_b64,"application/xml");toast("RDML exported — "+d.n_assays+" assay(s), "+(d.dyes||[]).join("/")+" · "+d.version+".","ok");}
 async function checkMultiplex(){if(PANEL.length<2){toast("Add at least 2 assays to check multiplexing.","warn");return;}
  const assays=PANEL.map(a=>({name:a.name||"assay",dye:a.dye||"",amplicon_tm:a.amplicon_tm,sybr:!a.probe,oligos:[{name:"F",seq:a.forward},{name:"R",seq:a.reverse}].concat(a.probe?[{name:"P",seq:a.probe}]:[])}));
  const o=document.getElementById("wk_mx");o.innerHTML="\u2026";const d=await api("/api/multiplex",{assays});
@@ -1656,5 +1774,58 @@ function vwManualToWorkbench(){const f=[...VW.manual].reverse().find(m=>m.role==
  if(r.to<=f.from){toast("The reverse region should sit downstream (3') of the forward region.","warn");return;}
  addAssay({name:vwSrcName()+" (manual)",gene:VW.gene||"",organism:VW.org||"",forward:f.disp,reverse:r.disp,probe:p?p.disp:null,
   amplicon:Math.max(0,r.to-f.from),amplicon_tm:null,f_tm:f.tm,r_tm:r.tm,probe_tm:p?p.tm:null,chemistry:"viewer (manual pick)",gblock:null});}
+
+/* ===== v1.18.0 command palette (Ctrl/Cmd-K) - mirrors the live nav, no hardcoded ids ===== */
+(function(){
+  var ov=document.getElementById('cmdk'); if(!ov) return;
+  var inp=document.getElementById('cmdk-input'), list=document.getElementById('cmdk-list');
+  if(!inp||!list) return;
+  if(typeof document.addEventListener!=='function'||typeof inp.addEventListener!=='function'||typeof ov.addEventListener!=='function'){ /* minimal/stub DOM (test harness): palette is a no-op */ return; }
+  var items=[], cur=[], idx=0;
+  function build(){
+    items=[];
+    var navs=document.querySelectorAll('nav a, .navpanel a.navitem');
+    for(var i=0;i<navs.length;i++){ (function(a){
+      var label=(a.textContent||'').replace(/\s+/g,' ').trim();
+      if(label) items.push({label:label,hint:'Go to',run:function(){ a.click(); }});
+    })(navs[i]); }
+    if(typeof window.seedFSJ==='function') items.push({label:'Load FSJ example panel',hint:'Action',run:function(){ window.seedFSJ(); }});
+    if(typeof window.genReport==='function') items.push({label:'Generate QC report',hint:'Action',run:function(){ window.genReport(); }});
+    if(typeof window.genRdml==='function') items.push({label:'Export RDML',hint:'Action',run:function(){ window.genRdml(); }});
+  }
+  function paint(){ var rows=list.querySelectorAll('.cmdk-item'); for(var i=0;i<rows.length;i++) rows[i].classList.toggle('sel', i===idx); }
+  function render(){
+    var q=(inp.value||'').toLowerCase().trim();
+    cur=items.filter(function(it){ return !q || it.label.toLowerCase().indexOf(q)>=0; });
+    if(idx>=cur.length) idx=Math.max(0,cur.length-1);
+    list.innerHTML='';
+    cur.forEach(function(it,i){
+      var row=document.createElement('div');
+      row.className='cmdk-item'+(i===idx?' sel':'');
+      var l=document.createElement('span'); l.className='cmdk-lab'; l.textContent=it.label;
+      var h=document.createElement('span'); h.className='cmdk-hint'; h.textContent=it.hint;
+      row.appendChild(l); row.appendChild(h);
+      row.addEventListener('mousemove',function(){ idx=i; paint(); });
+      row.addEventListener('click',function(){ choose(it); });
+      list.appendChild(row);
+    });
+  }
+  function openP(){ build(); idx=0; inp.value=''; render(); ov.classList.add('on'); ov.setAttribute('aria-hidden','false'); setTimeout(function(){ try{inp.focus();}catch(e){} },30); }
+  function closeP(){ ov.classList.remove('on'); ov.setAttribute('aria-hidden','true'); }
+  function choose(it){ closeP(); if(it&&typeof it.run==='function'){ try{ it.run(); }catch(e){} } }
+  inp.addEventListener('input',function(){ idx=0; render(); });
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='ArrowDown'){ e.preventDefault(); if(idx<cur.length-1){idx++;paint();} }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); if(idx>0){idx--;paint();} }
+    else if(e.key==='Enter'){ e.preventDefault(); if(cur[idx]) choose(cur[idx]); }
+    else if(e.key==='Escape'){ e.preventDefault(); closeP(); }
+  });
+  ov.addEventListener('click',function(e){ if(e.target===ov) closeP(); });
+  document.addEventListener('keydown',function(e){
+    var k=(e.key||'').toLowerCase();
+    if((e.metaKey||e.ctrlKey)&&k==='k'){ e.preventDefault(); if(ov.classList.contains('on')) closeP(); else openP(); }
+  });
+})();
 </script>
+<div id="cmdk" aria-hidden="true"><div class="cmdk-box"><input id="cmdk-input" class="cmdk-input" placeholder="Jump to a tool or run a command..." autocomplete="off" spellcheck="false"><div id="cmdk-list" class="cmdk-list"></div><div class="cmdk-foot"><span><span class="cmdk-kbd">UP/DN</span> navigate</span><span><span class="cmdk-kbd">ENTER</span> select</span><span><span class="cmdk-kbd">ESC</span> close</span><span style="margin-left:auto"><span class="cmdk-kbd">Ctrl K</span></span></div></div></div>
 </body></html>

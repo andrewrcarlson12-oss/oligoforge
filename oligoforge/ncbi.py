@@ -22,12 +22,105 @@ Entrez.email = "set-me@example.com"   # set to your address; NCBI requires it
 Entrez.api_key = None                  # optional: set for 10 req/s instead of 3
 
 
-def _records(ids, rettype="fasta"):
-    h = Entrez.efetch(db="nucleotide", id=list(ids), rettype=rettype, retmode="text")
+# ---- transient-failure retry + on-disk FASTA cache (reliability layer) ----
+# NCBI is the single remote dependency. A transient 502 / timeout used to fail a whole design, and
+# an identical re-run always re-hit the network. _net() retries the network-OPENING call with
+# backoff on transient errors only (a 400/404 is a logical error and is NOT retried); efetch FASTA
+# text (immutable per accession) is cached on disk so repeats are instant and survive a brief NCBI
+# blip. Env knobs: OLIGOFORGE_NCBI_CACHE (1/0, default on), OLIGOFORGE_NCBI_CACHE_TTL (s, default 7d),
+# OLIGOFORGE_NCBI_RETRIES (default 3). Cache dir = OLIGOFORGE_DATA_PATH/ncbi_cache or a temp dir.
+import hashlib, json as _json, tempfile, urllib.error, http.client
+
+
+def _int_env(name, default):
+    try:
+        return int(float(os.environ.get(name, default)))
+    except (TypeError, ValueError):
+        return int(default)
+
+
+_CACHE_ON = os.environ.get("OLIGOFORGE_NCBI_CACHE", "1") not in ("0", "false", "False", "")
+_CACHE_TTL = _int_env("OLIGOFORGE_NCBI_CACHE_TTL", 7 * 24 * 3600)
+_RETRIES = max(1, _int_env("OLIGOFORGE_NCBI_RETRIES", 3))
+_CACHE_DIR = os.path.join(os.environ.get("OLIGOFORGE_DATA_PATH") or tempfile.gettempdir(),
+                          "oligoforge_ncbi_cache")
+_TRANSIENT = (socket.timeout, urllib.error.URLError, http.client.HTTPException,
+              ConnectionError, TimeoutError)
+_RETRY_HTTP = {429, 500, 502, 503, 504}
+
+
+def _is_transient(e):
+    if isinstance(e, urllib.error.HTTPError):
+        return getattr(e, "code", None) in _RETRY_HTTP
+    return isinstance(e, _TRANSIENT)
+
+
+def _net(fn, *a, **k):
+    """Call an Entrez network function, retrying transient failures with backoff; re-raise others."""
+    last = None
+    for attempt in range(_RETRIES):
+        try:
+            return fn(*a, **k)
+        except Exception as e:
+            last = e
+            if not _is_transient(e) or attempt == _RETRIES - 1:
+                raise
+            time.sleep(min(8.0, 0.5 * (3 ** attempt)))   # 0.5s, 1.5s, 4.5s ...
+    raise last
+
+
+def _cache_key(**k):
+    norm = dict(k)
+    if isinstance(norm.get("id"), (list, tuple)):
+        norm["id"] = ",".join(str(x) for x in norm["id"])
+    return hashlib.sha256(repr(sorted(norm.items())).encode("utf-8")).hexdigest()
+
+
+def _cache_get(key):
+    if not _CACHE_ON:
+        return None
+    try:
+        with open(os.path.join(_CACHE_DIR, key + ".json"), encoding="utf-8") as fh:
+            rec = _json.load(fh)
+        if (time.time() - rec.get("ts", 0)) <= _CACHE_TTL:
+            return rec.get("text")
+    except Exception:
+        return None
+    return None
+
+
+def _cache_put(key, text):
+    if not _CACHE_ON:
+        return
+    try:
+        os.makedirs(_CACHE_DIR, exist_ok=True)
+        tmp = os.path.join(_CACHE_DIR, key + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            _json.dump({"ts": time.time(), "text": text}, fh)
+        os.replace(tmp, os.path.join(_CACHE_DIR, key + ".json"))
+    except Exception:
+        pass
+
+
+def _efetch_text(**k):
+    """efetch -> decoded text, with retry + on-disk cache (FASTA/GB is immutable by accession)."""
+    key = _cache_key(op="efetch", **k)
+    hit = _cache_get(key)
+    if hit is not None:
+        return hit
+    h = _net(Entrez.efetch, **k)
     try:
         raw = h.read()
     finally:
         h.close()
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", "replace")
+    _cache_put(key, raw)
+    return raw
+
+
+def _records(ids, rettype="fasta"):
+    raw = _efetch_text(db="nucleotide", id=list(ids), rettype=rettype, retmode="text")
     if rettype == "gb":
         return list(SeqIO.parse(StringIO(raw), "genbank"))
     cut = raw.find(">")                     # drop any NCBI notice/comment before the first FASTA record
@@ -43,7 +136,7 @@ def search_mrna(gene, organism, retmax=20):
     for q in (f'{organism}[Organism] AND {gene}[Gene] AND biomol_mrna[PROP]',
               f'{organism}[Organism] AND {gene}[All Fields] AND biomol_mrna[PROP]',
               f'{organism}[Organism] AND {gene} AND biomol_mrna[PROP]'):
-        h = Entrez.esearch(db="nucleotide", term=q, retmax=retmax)
+        h = _net(Entrez.esearch, db="nucleotide", term=q, retmax=retmax)
         r = Entrez.read(h); h.close()
         if r["IdList"]:
             return r["IdList"], q
@@ -81,7 +174,7 @@ def gene_id(gene, organism):
     for term in (f'{gene}[Gene Name] AND {organism}[Organism]',
                  f'{gene}[Gene] AND {organism}[Organism]',
                  f'{gene}[All Fields] AND {organism}[Organism]'):
-        h = Entrez.esearch(db="gene", term=term)
+        h = _net(Entrez.esearch, db="gene", term=term)
         r = Entrez.read(h); h.close()
         if r["IdList"]:
             return r["IdList"][0]
@@ -141,7 +234,7 @@ def resolve_gene(gene, organism=None):
 
     def best_of(ids):
         try:
-            h = Entrez.esummary(db="gene", id=",".join(ids[:50])); s = Entrez.read(h); h.close()
+            h = _net(Entrez.esummary, db="gene", id=",".join(ids[:50])); s = Entrez.read(h); h.close()
             docs = list(s["DocumentSummarySet"]["DocumentSummary"])
         except Exception:
             return None, 0.0
@@ -152,7 +245,7 @@ def resolve_gene(gene, organism=None):
 
     for term, in_org in tiers:
         try:
-            h = Entrez.esearch(db="gene", term=term, retmax=50)
+            h = _net(Entrez.esearch, db="gene", term=term, retmax=50)
             ids = Entrez.read(h)["IdList"]; h.close()
         except Exception:
             ids = []
@@ -188,7 +281,7 @@ def gene_lookup(gene, organism=None, max_candidates=8):
         for term in (f'{gene}[Gene Name] AND {org}[Organism]',
                      f'{gene}[All Fields] AND {org}[Organism] AND alive[prop]'):
             try:
-                h = Entrez.esearch(db="gene", term=term, retmax=max_candidates)
+                h = _net(Entrez.esearch, db="gene", term=term, retmax=max_candidates)
                 ids = Entrez.read(h)["IdList"]; h.close()
             except Exception:
                 ids = []
@@ -198,7 +291,7 @@ def gene_lookup(gene, organism=None, max_candidates=8):
     if not ids:
         for term in (f'{gene}[Gene Name]', f'{gene}[All Fields] AND alive[prop]'):
             try:
-                h = Entrez.esearch(db="gene", term=term, retmax=max_candidates)
+                h = _net(Entrez.esearch, db="gene", term=term, retmax=max_candidates)
                 ids = Entrez.read(h)["IdList"]; h.close()
             except Exception:
                 ids = []
@@ -209,7 +302,7 @@ def gene_lookup(gene, organism=None, max_candidates=8):
         return dict(found=False, gene=gene, organism=org,
                     error="NCBI Gene has no record matching \u201c%s\u201d%s" % (gene, (" in " + org) if org else ""))
     try:
-        h = Entrez.esummary(db="gene", id=",".join(ids[:max_candidates]))
+        h = _net(Entrez.esummary, db="gene", id=",".join(ids[:max_candidates]))
         docs = list(Entrez.read(h)["DocumentSummarySet"]["DocumentSummary"]); h.close()
     except Exception:
         docs = []
@@ -233,13 +326,13 @@ def gene_lookup(gene, organism=None, max_candidates=8):
         for term in (f'{desc}[All Fields] AND {org}[Organism] AND alive[prop]',
                      f'"{desc}"[Gene Name] AND {org}[Organism]'):
             try:
-                h = Entrez.esearch(db="gene", term=term, retmax=max_candidates)
+                h = _net(Entrez.esearch, db="gene", term=term, retmax=max_candidates)
                 oids = Entrez.read(h)["IdList"]; h.close()
             except Exception:
                 oids = []
             if oids:
                 try:
-                    h = Entrez.esummary(db="gene", id=",".join(oids[:max_candidates]))
+                    h = _net(Entrez.esummary, db="gene", id=",".join(oids[:max_candidates]))
                     odocs = list(Entrez.read(h)["DocumentSummarySet"]["DocumentSummary"]); h.close()
                 except Exception:
                     odocs = []
@@ -280,7 +373,7 @@ def gene_id_from_accession(acc):
     if not acc:
         return None
     try:
-        h = Entrez.elink(dbfrom="nucleotide", db="gene", id=acc.strip())
+        h = _net(Entrez.elink, dbfrom="nucleotide", db="gene", id=acc.strip())
         recs = Entrez.read(h); h.close()
         for r in recs:
             for ls in r.get("LinkSetDb", []):
@@ -304,15 +397,11 @@ def search_fetch_fasta(query, n=10):
     from Bio import SeqIO
     n = max(1, min(int(n), 40))
     term = f"({query}) AND 50:120000[SLEN]"      # keep genes / mitogenomes, drop chromosome & genome records
-    h = Entrez.esearch(db="nucleotide", term=term, retmax=n)
+    h = _net(Entrez.esearch, db="nucleotide", term=term, retmax=n)
     ids = Entrez.read(h)["IdList"]; h.close()
     if not ids:
         return []
-    h = Entrez.efetch(db="nucleotide", id=",".join(ids), rettype="fasta", retmode="text")
-    try:
-        raw = h.read()                            # SLEN filter caps each record at 120 kb, so this is bounded
-    finally:
-        h.close()
+    raw = _efetch_text(db="nucleotide", id=",".join(ids), rettype="fasta", retmode="text")  # SLEN filter caps each record at 120 kb
     cut = raw.find(">")                            # NCBI sometimes prepends a notice/comment that the strict
     raw = raw[cut:] if cut >= 0 else ""            # FASTA parser rejects; drop anything before the first record
     recs, total = [], 0
@@ -331,12 +420,12 @@ def taxonomy_lineage(name):
     Taxonomy, or None if not found / offline. Used by the marker recommender so
     it can classify any taxon, not just a hard-coded genus list."""
     try:
-        h = Entrez.esearch(db="taxonomy", term=name)
+        h = _net(Entrez.esearch, db="taxonomy", term=name)
         r = Entrez.read(h); h.close()
         ids = r.get("IdList") or []
         if not ids:
             return None
-        h = Entrez.efetch(db="taxonomy", id=ids[0], retmode="xml")
+        h = _net(Entrez.efetch, db="taxonomy", id=ids[0], retmode="xml")
         recs = Entrez.read(h); h.close()
         if not recs:
             return None
@@ -351,7 +440,7 @@ def taxonomy_lineage(name):
 def count_hits(query):
     """Number of nucleotide records matching a query (availability signal). 0 on failure."""
     try:
-        h = Entrez.esearch(db="nucleotide", term=query, retmax=0)
+        h = _net(Entrez.esearch, db="nucleotide", term=query, retmax=0)
         r = Entrez.read(h); h.close()
         return int(r.get("Count", 0))
     except Exception:
@@ -373,12 +462,12 @@ def search_genomes(query, retmax=40):
     ]
     ids = []
     for term in tiers:
-        h = Entrez.esearch(db="nucleotide", term=term, retmax=int(retmax)); ids = Entrez.read(h)["IdList"]; h.close()
+        h = _net(Entrez.esearch, db="nucleotide", term=term, retmax=int(retmax)); ids = Entrez.read(h)["IdList"]; h.close()
         if ids:
             break
     if not ids:
         return []
-    h = Entrez.esummary(db="nucleotide", id=",".join(ids)); recs = Entrez.read(h); h.close()
+    h = _net(Entrez.esummary, db="nucleotide", id=",".join(ids)); recs = Entrez.read(h); h.close()
     out = []
     for d in recs:
         out.append(dict(acc=str(d.get("AccessionVersion") or d.get("Caption") or ""),
@@ -391,11 +480,7 @@ def fetch_one(acc):
     """Fetch a single accession as (title, sequence). Streamed for one record; a leading NCBI
     notice/comment is stripped. Used by isolate validation, which scans one genome then frees it
     (peak memory = one record, so a 40-isolate panel never holds 40 genomes at once)."""
-    h = Entrez.efetch(db="nucleotide", id=str(acc).strip(), rettype="fasta", retmode="text")
-    try:
-        raw = h.read()
-    finally:
-        h.close()
+    raw = _efetch_text(db="nucleotide", id=str(acc).strip(), rettype="fasta", retmode="text")
     cut = raw.find(">")
     recs = list(SeqIO.parse(StringIO(raw[cut:] if cut >= 0 else ""), "fasta"))
     if not recs:

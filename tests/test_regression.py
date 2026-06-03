@@ -145,5 +145,44 @@ _mxs=MX.check([{"name":"A","sybr":True,"amplicon_tm":78.0,"oligos":[{"name":"F",
                {"name":"B","sybr":True,"amplicon_tm":84.0,"oligos":[{"name":"F","seq":"GGGGCCCCAAAATTTT"}]}])
 check("multiplex passes well-separated SYBR amplicons", len(_mxs.get("melt_overlaps",[]))==0, _mxs.get("melt_overlaps"))
 
+
+# --- v1.16/v1.17: anneal-temp thermo, logistic LOD, raw Cq, melt peaks, ensemble structure ---
+import math as _mm
+_seq_sd = "GGGGCCCCAAAATTTTGGGGCCCC"
+_sdf = _TH.self_dimer_full(_seq_sd)
+check("self_dimer_full dG@37 == legacy self_dimer", abs(_sdf[0] - _TH.self_dimer(_seq_sd)) < 1e-9, _sdf)
+check("self_dimer_full anneal dG less negative than 37C", _sdf[1] > _sdf[0], _sdf)
+_hpf = _TH.hairpin_full("TCATTTCTCTCTGTCCAGCCTGATAGCTTCTCT")
+check("hairpin_full dG@37 == legacy hairpin", abs(_hpf[0] - _TH.hairpin("TCATTTCTCTCTGTCCAGCCTGATAGCTTCTCT")[0]) < 1e-9, _hpf)
+check("end_stability returns float", isinstance(_TH.end_stability("AGTCATTCTGATGTCGCTGATG", "ACCTGTCAGTGTTTTCAAGCA"), float))
+
+from oligoforge import quant as _Q
+_ptsT = []
+for _q, _nd in [(1e5, 5), (1e4, 5), (1e3, 5), (1e2, 4), (1e1, 1), (1, 0)]:
+    for _i in range(5):
+        _ptsT.append((_q, (40 - 3.32 * _mm.log10(_q)) if _i < _nd else None))
+check("lod95 finite on a detection transition", _Q.standard_curve(_ptsT)["lod95"] is not None)
+check("lod95 None when every level fully detected",
+      _Q.standard_curve([(q, 40 - 3.32 * _mm.log10(q)) for q in [1e5, 1e4, 1e3, 1e2, 1e1] for _ in range(3)])["lod95"] is None)
+
+from oligoforge import cq as _CQ
+_cq = _CQ.analyze([50 + 1000 / (1 + _mm.exp(-0.6 * (i - 25))) for i in range(1, 46)], threshold=100.0)
+check("cq.analyze finite Cq + amplified on a sigmoid", _cq["cq_threshold"] is not None and _cq["amplified"] is True, _cq)
+
+from oligoforge import melt as _ML
+_mt = [65 + 0.5 * i for i in range(62)]
+_mr = _ML.analyze([1000 / (1 + _mm.exp(0.8 * (t - 85))) for t in _mt], _mt)
+check("melt.analyze single peak near 85C", _mr["n_peaks"] == 1 and abs(_mr["dominant_tm"] - 85) <= 1.0, _mr)
+
+from oligoforge import structure as _STR
+if _STR.available():
+    _amp_s = "GAGCTATACCCCGACCTCTGCTTTGAGATTGTGGCCATGTCAACAACTGGGGACAAGATCTTGGATACAGCGCTTTCCAAGATTGG"
+    _fe = _STR.fold_ensemble(_amp_s, anneal_c=60.0); _f0 = _STR.fold(_amp_s)
+    check("fold_ensemble MFE paired identical to fold()", _fe["paired"] == _f0["paired"])
+    check("fold_ensemble anneal mfe >= 37C mfe", _fe["mfe_anneal"] >= _fe["mfe"], (_fe["mfe"], _fe["mfe_anneal"]))
+    check("fold_ensemble paired_prob length matches amplicon", len(_fe["paired_prob"]) == len(_amp_s))
+else:
+    check("structure ensemble (ViennaRNA absent -- skipped)", True)
+
 if fails: print("REGRESSION FAILURES:", fails); sys.exit(1)
 print("ALL REGRESSION ASSERTS PASS")

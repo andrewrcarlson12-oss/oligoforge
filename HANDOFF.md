@@ -41,7 +41,7 @@ across isoforms, reference-gene stability, multiplex compatibility, standard cur
 HTML+CSV report. Built on real NCBI data. Differentiator vs Primer-BLAST / QuantPrime / Beacon Designer:
 the assembled offline pipeline for non-model organisms + parasite discrimination + no data hand-off.
 
-**Current version: v1.12.2.** Five places hold the version and MUST stay in sync on every bump:
+**Current version: v1.13.0.** Five places hold the version and MUST stay in sync on every bump:
 footer in `static/index.html`, `TOOL_VERSION` in `oligoforge/report.py`, `APP_VERSION` in `launcher.py`,
 `__version__` in `oligoforge/__init__.py`, and `version=` in `app.py` (`FastAPI(...)`).
 
@@ -105,13 +105,16 @@ seroprevalence 75-83% (threshold-dependent). Plasmodium W primer Tm 56.4-57.5 C 
   GitHub Desktop: edit -> Commit -> Push.
 - **Hosted URL (the "any computer, always latest" path): NOT yet deployed** (needs my Render account/click).
   `Dockerfile` (python:3.12-slim, `uvicorn app:app --host 0.0.0.0 --port ${PORT:-8111}`) + `render.yaml`
-  (Render web/docker/free, autoDeploy:true, healthCheckPath:/, OLIGOFORGE_EMAIL=arcarl27@colby.edu,
+  (Render web/docker/free, autoDeploy:true, healthCheckPath:`/healthz`, OLIGOFORGE_EMAIL=arcarl27@colby.edu,
   OLIGOFORGE_NCBI_KEY as a `sync: false` dashboard secret). Deploy path: render.com -> New+ -> Blueprint ->
   pick the repo -> Apply -> get URL; every push auto-redeploys. Free tier sleeps ~15 min idle (cold start
   ~30-60 s). Server-side projects are ephemeral on free tier; the browser Workbench (localStorage) persists
   per-user. To persist server-side panels/projects across restarts, set `OLIGOFORGE_DATA_PATH` to a mounted
   persistent disk (Render Disk / Docker `-v host:/data`) — `DATA_DIR` then points there instead of the
-  ephemeral app dir. Dockerfile/render.yaml are standard config, NOT build-tested in the sandbox.
+  ephemeral app dir. As of v1.13.0 the config is de-risked: `render.yaml` parses + has the required keys, a
+  `.dockerignore` keeps node_modules/__pycache__/tests/panels/projects out of the image, and the EXACT
+  Dockerfile start command was booted in-sandbox (GET / -> 200, GET /healthz -> 200, routes 46). A real
+  `docker build` + the Render click remain mine (no docker daemon in-sandbox).
 - **Installers: NOT yet built on CI.** `.github/workflows/build.yml` builds Windows / macOS-arm64 /
   macOS-Intel / Linux on a tag push (py3.12), runs ci_smoke.py, uploads uniquely-named assets to a Release.
   Trigger by creating + pushing a tag (e.g. v1.1.2). The Windows .exe has been built locally already.
@@ -133,6 +136,8 @@ HTML+CSV report + multiplex checker; NCBI api_key support (env + masked UI field
 **v1.2.0 (this revision — UI/UX redesign, engine still untouched):** full cosmetic reskin to a "precision lab-instrument" look — one cohesive stylesheet replacing the three stacked `<style>` blocks, IBM Plex Sans/Mono web fonts (with offline fallbacks), deeper slate palette, real depth/shadows, refined cards/tables/inputs/buttons. Navigation regrouped + reordered into Create / Check / Quantify / Finish with group labels, led by the create-from-target flow (the `auto` tab is now TABS[0] and the default `on` section; `#qc` no longer carries `class="on"`). The `auto` tab gained a guided hero (title + plain-language description + 4 step chips). New `toast()` + `flash()` helpers: most informational `alert()`s are now toasts (a `<div id="toast" class="toast-wrap">` lives just before `</body>`); destructive `confirm()` gates are unchanged. `fld()` now flashes every field it autofills, so Pair/in-silico-PCR/Intron prefills visibly highlight. Slow remote ops (doAuto, doEpcr, doPairSpec) show an animated `.ofbar` progress bar. gBlock made one-click: the Design result has copy + "→ Order as standard" buttons (`gblockToOrder()`), `designAdd`/`autoAdd` now carry `gblock` onto the assay, and the Workbench Order button prefills the assay's gBlock standard when present. TABS entries are now `[id,label,group]`; the nav-build inserts a `.navgroup` span per group and tags the first tab `lead`. All harness contracts preserved (one `<script>`, one `</head>`, every parsed function/id intact, top-level localStorage still try/caught).
 
 **v1.2.1 (this revision):** raised the global NCBI socket timeout from 45 s to 120 s and made it env-configurable via `OLIGOFORGE_NCBI_TIMEOUT` (`oligoforge/ncbi.py`) — the 45 s cap was too aggressive for a real efetch of several/large records. The **Workbench is now the hub**: each assay can run **QC primers** (Tm / gap / dimers via /api/pair, `wbPair`), **Specificity (in-silico PCR)** (existing `checkAssay`), and **Intron / junction** (/api/intron, `wbIntron`) in place, and each result is SAVED onto that specific assay (`a.results.pair`, `a.checks.specificity`, `a.results.intron`) so it persists in localStorage and renders in a per-assay results block (`assayResultsHtml`); each result links back to its full tab (`toPair`/`toEpcr`/`toIntron` are unchanged and still harness-tested). Every assay shows a suggested cycling protocol (`suggestProtocol`) — TaqMan two-step 95/60 for probe assays, SYBR three-step with Ta ≈ lowest primer Tm − 4 °C + melt for no-probe — which closes the one MIQE-2.0 design gap (annealing-temperature guidance). New CSS `.acard-res/.resrow/.reslab/.resval`. Engine untouched apart from the `ncbi.py` timeout constant; all harness contracts still hold.
+
+**v1.13.0 (reliability + production hardening + RDML export):** an eight-item batch hitting science-correctness, production reliability, the UI test layer, and a real interchange feature. **(1) Locked-panel integrity gate** — `tests/test_locked_panel.py` is now the single authority for the ordered FSJ sequences: it parses `seedFSJ` out of `static/index.html` and asserts the 15-oligo multiset matches a canonical panel byte-for-byte (catches any add/drop/edit), cross-checks the regression's panel-named keys (IFNG_F … = 8 host primers) against the same canonical, and pins Tm (±0.2 °C) + GC (±0.1 %) for all 15 oligos plus the Plasmodium degenerate range [56.4,57.5]. Before this, `seedFSJ` and the regression's LOCKED dict were two independent copies with nothing enforcing agreement, and the UI harnesses only checked assay NAMES rendered — so a one-base edit to an ordered sequence could ship a wrong IDT order with the gate still green. **(2) Discrimination-engine golden gate** — `tests/test_autodesign_golden.py` freezes the *decisions* of `design_from_sequences` (the multi-candidate ranking / 3'-block discrimination / IUPAC degeneracy brain, revised across v1.11.11→v1.11.20 and previously only live-tested) against saved cytb fixtures (`tests/fixtures/plasmodium_cytb.json` = 11 seqs, `haemoproteus_cytb.json` = 12 seqs; fetched once, offline + deterministic thereafter). Pins the discrimination winner (F TTTCCATTTATAGCCTTATGTATTG / R TTTTAAAGCTGTATCATACCCT / P ACATTTACAAGGTAGCACAAATCCTTT, amp 96, F_deg/P_deg, n_deg 3), the top-3 ranking, and the forward-3'-block call on Haemoproteus; plus the genus (no-off) winner + degenerate forms. **(3) Tm calibration harness** — `tests/test_tm_calibration.py` compares OligoForge Tm to IDT OligoAnalyzer for the panel oligos and reports MAE/worst vs a 2 °C bound; it SKIPS (passes) until I paste real OligoAnalyzer numbers into its table (the drift half is already covered by item 1's exact Tm pins). **(4) NCBI cache + retry** (`oligoforge/ncbi.py`) — every network-opening Entrez call is wrapped in `_net()` retry-with-backoff (retries transient socket/URL/HTTP 429·5xx with 0.5/1.5/4.5 s backoff; a 4xx like 404 fails fast), and FASTA efetch (immutable per accession) is cached on disk via `_efetch_text`, so a transient blip no longer fails a whole design and identical re-runs are instant. Env knobs: OLIGOFORGE_NCBI_CACHE (1/0), OLIGOFORGE_NCBI_CACHE_TTL (default 7 d), OLIGOFORGE_NCBI_RETRIES (default 3). `tests/test_ncbi_cache.py` proves cache-hit/miss/off + retry/no-retry behavior (offline, monkeypatched). **(5) Logging + readiness probe** (`app.py`) — stdlib logging (level via OLIGOFORGE_LOG_LEVEL) + an HTTP middleware logging method/path/status/ms (and any unhandled error), and a new `GET /healthz` returning version, primer3-ok, ncbi email/key/cache state, data-dir writability, and route count. **(6) Deploy de-risk** — added `.dockerignore`, switched `render.yaml` healthCheckPath `/`→`/healthz`, validated the blueprint parses + has required keys, and booted the EXACT Dockerfile start command in-sandbox (GET / and /healthz both 200). **(7) jsdom integration harness** — `tests/ui_integration.js` loads the REAL index.html in a real DOM (jsdom; `npm i` to enable, added as a dev-dependency in a new `package.json`), confirms the page initialises with no script error, AUDITS that every inline on* handler (78) resolves to a real function (the v1.1.3 savePanel/saveOligoPanel-collision class the stub harnesses can't catch), checks seedFSJ mutates the real #wk_out, and fires a real click that drives a real fetch('/api/rdml'). **(8) RDML 1.2 export** — new `oligoforge/rdml.py` + `POST /api/rdml` + an "Export RDML" button (next to the MIQE report; new `genRdml()` + `downloadB64()` helpers). Emits an assay-definition RDML (one <target>/assay with forward/reverse/probe sequences, detection dye, amplificationEfficiency from validation, ref-vs-toi typing via a reference-gene heuristic — RPL13/YWHAZ→ref), well-formed and packaged as a base64 `.rdml` zip; `tests/test_rdml.py` asserts well-formedness, element model, efficiency conversion (99.2 %→E 1.992), and zip round-trip. HONEST scope: well-formed + structurally checked, NOT full XSD-validated in-sandbox (confirm on first import). Routes 44 → 46 (/healthz + /api/rdml). Full gate green: all 13 Python tests (rc=0) + all 7 JS harnesses + clean boot (footer v1.13.0, /healthz routes 46). IL4/IFNG byte-identical, HMBS regression pinned, single <script>/<style> preserved. Five version sync points → v1.13.0.
 
 **v1.12.2 (factory reset):** added a 'Reset to factory settings' action at the bottom of the Help tab that returns OligoForge to a clean install. It clears the browser's six stored keys -- the Workbench (of_panel / of_current), the last tab (of_tab), saved reaction conditions (of_cond), and the remembered NCBI email + API key (ncbi_email / of_ncbi_key) -- plus the intro-splash session flag (of_seen_intro), then deletes every saved panel and project on the server via a new POST /api/factory_reset (which touches only *.json inside the two managed dirs -- names come from os.listdir, so no path traversal -- and is idempotent), then reloads to a fresh boot. A confirmation dialog enumerates exactly what is deleted and warns it cannot be undone, so the user is told to export anything they want to keep first. Routes 43 -> 44. New gate coverage: tests/test_reset.py (server: deletes all saved panels/projects, leaves a non-json file untouched, idempotent) and tests/ui_reset.js (client: clears exactly the known keys + session flag, calls the endpoint, reloads, and a cancelled confirm is a no-op). IL4/IFNG byte-identical, single <script>/<style>.
 
@@ -242,7 +247,8 @@ _Scope, honestly:_ I built the feature asked for plus did not bulk-add speculati
 - Bench gates before the IDT order (listed in section 6).
 
 ## 10. HARD RULES / GOTCHAS (do not break these)
-- Keep TOOL_VERSION (report.py) + APP_VERSION (launcher.py) + footer (static/index.html) IN SYNC every bump.
+- Keep ALL 5 version sync points IN SYNC every bump: footer (static/index.html), TOOL_VERSION (oligoforge/report.py),
+  APP_VERSION (launcher.py), __version__ (oligoforge/__init__.py), version= in FastAPI() (app.py).
 - Preserve every class/id name the JS depends on when restyling — the harnesses parse them.
 - NEVER use a truncate-before-read one-liner like `open(p,'w').write(open(p).read()...)`; it empties the file
   (this emptied report.py once — regression caught it). Read into a variable first, then write.
@@ -259,3 +265,132 @@ _Scope, honestly:_ I built the feature asked for plus did not bulk-add speculati
 - `node tests/ui_handlers.js` (32 tab-handler renders), `node tests/ui_workbench.js` (12, card flow),
   `node tests/ui_conditions.js` (5, conditions + FSJ seed), `node tests/ui_projects.js` (4, projects).
   They read static/index.html relative to CWD, so run from the repo root.
+
+---
+
+## 12. LATEST CHANGES
+
+### v1.14.0 — Instrument visual refit (2026-06-03)
+Global aesthetic pass on `static/index.html`. **Pure reskin + additive UI; zero structural/logic change.**
+- **Tokens** (`:root`): repainted to a dark engineered substrate. Same variable NAMES as before (so every existing
+  `var(--x)` reference reskins) with new values; ADDED `--display` (Archivo), `--sig`, and a dye-channel data palette
+  `--fam/--vic/--rox/--cy5` (+ `*-glow`). Dyes encode DATA only; UI accent is signal-cyan `--acc:#4fd2ff`.
+- **Override layer**: appended an "INSTRUMENT REFIT" block before `</style>` — finer engineered grid + deeper vignette,
+  glassmorphism on `.card`/`.acard`/`.navpanel`/`header` (translucent + backdrop-filter so the grid reads through),
+  micro-thin table hairlines, sharp Archivo display type on headers/nav/labels/KPI, dye-channel `.chip.fam/.vic/.rox/.cy5`
+  + `.dye-dot`, refined buttons/inputs/toast/scrollbar.
+- **Sensor grain**: one `<svg class="grain">` (feTurbulence) after `<body>`, low-opacity fixed overlay. Stacking added
+  (`nav/main/footer` z-index) so UI sits above grain.
+- **Command palette (Ctrl/Cmd-K)**: additive `#cmdk` overlay + IIFE appended inside the single `<script>`. MIRRORS the
+  live nav by reading `nav a, .navpanel a.navitem` and calling `.click()` (no hardcoded tab ids — self-maintaining),
+  plus safe global actions (seedFSJ / genReport / genRdml) when present. DEFENSIVE: bails to a no-op if the env lacks
+  `addEventListener` (so the 6 stub-DOM JS harnesses don't throw at script load).
+- **Splash**: REskinned (Archivo title, mono tags) — logic NOT rebuilt.
+- **NOT done here (separate feature):** the redesign demo's amp/melt/ΔG-heatmap/dial plots were NOT grafted into the
+  live app — those need real wiring to the engine/standard-curve/matrix endpoints. The global reskin styles the app's
+  existing displays instead.
+- **Invariants held:** ONE `<script>` + ONE `<style>`; all preserved class/id + JS-toggled state classes intact; the
+  locked FSJ panel sequences are BYTE-IDENTICAL (test_locked_panel green); routes still 46.
+- **Gate:** 13/13 Python pass (incl. locked_panel + regression), 7/7 JS harnesses pass (ui_integration runs for real
+  with node_modules; stub harnesses no-op the palette), clean-unzip boot under the exact Render Docker CMD → /healthz
+  200 reporting version 1.14.0, footer v1.14.0.
+
+### v1.15.0 - Scientific audit fixes (2026-06-03)
+An external audit of the engine was verified against the code. Three SAFE, additive/correctness
+fixes were applied; consequential ones were deliberately deferred (they change validated/locked or
+ordered outputs and need calibration + golden re-validation, not a unilateral flip).
+
+APPLIED:
+- **standard_curve CI (quant.py)**: added `slope_se`, `slope_ci95`, `efficiency_ci_pct` (t-based, n-2
+  df, no SciPy dep via `_T975` table). Purely additive - existing slope/efficiency/R2 unchanged.
+- **amplicon_tm Mg2+ (thermo.py)**: monovalent now routed through the von Ahsen equivalent
+  [Na+]eq = [Na+] + 120*sqrt([Mg2+]-[dNTP]) before the log term, so Mg2+ is no longer dropped from the
+  SYBR product-Tm estimate. Verified NOT in any autodesign sort key -> golden ranking unchanged. Still
+  an empirical estimate (labeled).
+- **salt-model configurability (thermo.py)**: `TM_METHOD`/`SALT_METHOD` module constants + uncached
+  `_calc_tm(seq, salt_method)` helper; `tm()` default = SALT_METHOD = "owczarzy" (UNCHANGED -> tm() is
+  byte-identical, locked panel GOLDEN holds). `test_tm_calibration.py` upgraded to score BOTH "owczarzy"
+  and "santalucia" against IDT and report which MAE is lower (still SKIPs with no data). This makes the
+  Koukos/von Ahsen "santalucia is better at PCR Mg2+" question a one-line, evidence-backed switch.
+
+DEFERRED (valid but consequential - do with Andrew's sign-off + golden re-validation):
+- dimer/hairpin ΔG evaluated at primer3 default 37 C, not the ~60 C anneal. 37 C is the IDT-comparable
+  convention; changing the gate temp changes candidate selection (autodesign golden) and the locked
+  panel's reported metrics. Safe additive path available: expose dimer melting Tm / a second anneal-temp
+  ΔG without moving the gate.
+- multiplex.check ranks heterodimers on global ΔG only, ignoring 3'-end engagement (extension risk).
+- structure.fold uses 37 C + MFE only (no partition-function bp-probabilities); soft ranking term in
+  autodesign, not a gate.
+- design._ok_primer 3'-end check is a GC count (last5_gc), not calc_end_stability ΔG.
+- No raw-fluorescence -> Cq module (scope-debatable for a design tool; the math now exists standalone in
+  /home/claude/oligoforge_core: cq_threshold + cq_second_derivative).
+
+Gate after changes: 13/13 Python (locked panel GOLDEN unchanged; test_intron is live-NCBI, transient),
+7/7 JS, clean-unzip boot under the Render Docker CMD -> /healthz 200 v1.15.0.
+
+### v1.16.0 - Annealing-temperature thermodynamics + 3'-end engagement (2026-06-03)
+Implements the audit's central scientific point (structures judged at 37 C, not the ~60 C anneal)
+ADDITIVELY in the QC/report layer. The design gate (_ok_primer/find_probe/pair_primers) STILL uses
+the 37 C functions, so test_autodesign_golden rankings and the locked-panel golden Tms are unchanged.
+
+thermo.py: added ANNEAL_C=60.0 (separate from COND -- COND is splatted into primer3 Tm calls that
+reject temp_c). New cached fns hairpin_full/self_dimer_full/hetero_dimer_full -> (dG@37, dG@anneal,
+melting Tm); dG@37 is byte-identical to the legacy fns. New end_stability(a,b) via primer3
+calc_end_stability for 3'-anchored-dimer detection. set_conditions gained anneal_c (30-85 C validated)
+and clears the new caches; returns dict(COND, anneal_c=ANNEAL_C) (regression #14 ignores the return).
+API verified present: calc_hairpin/homodimer/heterodimer all accept temp_c; calc_end_stability exists.
+
+app.py: /api/qc adds anneal_c, hairpin_dg_anneal, self_dimer_dg_anneal, self_dimer_tm (existing
+hairpin_dg/hairpin_tm/self_dimer unchanged). /api/pair adds fxr_anneal, fxr_tm, fxr_end_dg (existing
+fxr unchanged). CondReq + GET/POST /api/conditions gained anneal_c (additive; conditions harness mocks).
+
+static/index.html: QC panel shows a CONDITIONAL anneal block (keyed on hairpin_dg_anneal!=null) -> the
+6 stub-DOM/mock harnesses lack the field so it renders nothing; all 7 JS harnesses stay green. Single
+<script>/<style> preserved.
+
+multiplex.py: each flagged cross-dimer annotated with end_dg + three_prime (3'-engaged at <=-5 kcal/mol).
+Flagging logic/threshold UNCHANGED (n_flagged identical) -> regression #12 + v1.5.4 (count-only) safe.
+
+report.py: methods footer documents the 37 C vs anneal convention (IFNG/99.2%/name,gene substrings intact).
+
+DEFERRED still: salt-default flip (await IDT calibration), structure.py ensemble bpp + anneal-temp fold
+(would touch autodesign ranking), 3'-end ΔG in the design GATE (would change golden), probit LOD,
+raw-fluorescence->Cq module (math in /home/claude/oligoforge_core).
+
+Gate: 13/13 Python (locked panel + autodesign golden + regression PASS; stage2 transient-NCBI on retry),
+7/7 JS, clean-unzip boot under Render Docker CMD -> /healthz 200 v1.16.0; /api/qc, /api/pair, /api/multiplex
+live-smoked for the new fields.
+
+### v1.17.0 - Logistic LOD + Cq-from-fluorescence module + structure ensemble (2026-06-03)
+Three additive features (the design gate, locked panel, and autodesign golden rankings are all
+unchanged and re-verified):
+
+1. quant.py logistic LOD95: _lod95_logistic fits detect/non-detect vs log10(quantity) by pure-Python
+   Newton-Raphson and solves the 95%-detection concentration. standard_curve now returns lod95 (null
+   when there is no detect/non-detect transition, <4 points, non-convergence, or >1 log extrapolation).
+   Verified: a real transition -> ~274 copies; all-detect / too-few -> None.
+
+2. oligoforge/cq.py (NEW) + /api/cq: pure-Python port of the validated oligoforge_core Cq math --
+   threshold crossing with log-linear interpolation AND the threshold-free second-derivative maximum
+   (SDM). analyze() returns both Cq methods, threshold used, baseline, amplified flag. CqReq model +
+   /api/cq endpoint. tests/test_cq.py (NEW, 13 asserts, property-based: later inflection -> larger Cq
+   for both methods; methods agree within ~1 cycle; noise-robust; flat trace not amplified). Frontend:
+   a "Cq from raw fluorescence" card in the Quant/std section + doCq() handler.
+
+3. structure.py fold_ensemble + site_paired_prob: adds partition-function ensemble base-pairing
+   probability (fc.pf/bpp) and the MFE structure at the annealing temperature (RNA.cvar.temperature set
+   inside _LOCK, restored in finally). fold() unchanged (the design hot path). autodesign _annotate now
+   folds via fold_ensemble and ADDS f/r/p_paired_prob (ensemble) + f/r/p_paired_anneal + mfe_anneal to
+   c["structure"]; existing f/r/p_paired (MFE) are byte-identical, so golden ranking holds (verified
+   MFE paired set identical to fold()).
+
+Frontend also surfaces lod95 + efficiency_ci_pct + slope_ci95 in the standard-curve output (conditional).
+
+DEFERRED still (would hurt or change validated outputs without more input): salt-default flip (needs
+Andrew's IDT OligoAnalyzer values; flipping would move the locked/ordered golden Tms on a guess --
+harness already measures both methods), and 3'-end ΔG in the design GATE (would change which primers
+pass -> change recommendations + break golden; the 3'-end thermodynamic signal is already provided for
+pairs via /api/pair fxr_end_dg and for multiplex via the three_prime annotation).
+
+Gate: 14/14 Python (test_cq added; locked panel + autodesign golden + regression PASS), 7/7 JS,
+clean-unzip boot under Render Docker CMD -> /healthz 200 v1.17.0; /api/cq + /api/standard_curve live-smoked.

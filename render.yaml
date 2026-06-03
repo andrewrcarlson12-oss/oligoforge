@@ -6,7 +6,7 @@ services:
     runtime: docker
     plan: free            # free tier sleeps when idle; upgrade for always-on
     autoDeploy: true
-    healthCheckPath: /
+    healthCheckPath: /healthz   # readiness probe added in v1.13.0
     envVars:
       - key: OLIGOFORGE_EMAIL
         value: arcarl27@colby.edu

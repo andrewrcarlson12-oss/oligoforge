@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO
 
-app = FastAPI(title="OligoForge", version="1.12.2")
+app = FastAPI(title="OligoForge", version="1.18.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -35,6 +35,26 @@ def _set_email(email=None, key=None):
 
 
 _set_email(None)
+
+
+# ---------- logging (visibility on a hosted instance; level via OLIGOFORGE_LOG_LEVEL) ----------
+import logging, time as _time
+logging.basicConfig(level=os.environ.get("OLIGOFORGE_LOG_LEVEL", "INFO").upper(),
+                    format="%(asctime)s %(levelname)s oligoforge %(message)s")
+log = logging.getLogger("oligoforge")
+
+
+@app.middleware("http")
+async def _log_requests(request, call_next):
+    t0 = _time.perf_counter()
+    try:
+        resp = await call_next(request)
+    except Exception:
+        log.exception("unhandled error %s %s", request.method, request.url.path)
+        raise
+    log.info("%s %s -> %s %.0fms", request.method, request.url.path,
+             resp.status_code, (_time.perf_counter() - t0) * 1000.0)
+    return resp
 
 
 # ---------- request models ----------
@@ -73,6 +93,23 @@ class BlastReq(BaseModel):
 def index():
     return FileResponse(os.path.join(RES_DIR, "static", "index.html"))
 
+@app.get("/healthz")
+def healthz():
+    """Cheap readiness probe (for Render/uptime checks): version, engine, NCBI auth/cache, data dir."""
+    try:
+        primer3_ok = isinstance(T.tm("ACGTACGTACGTACGTACGT"), float)
+    except Exception:
+        primer3_ok = False
+    data_ok = os.path.isdir(DATA_DIR) and os.access(DATA_DIR, os.W_OK)
+    email = str(getattr(ncbi.Entrez, "email", "") or "")
+    return dict(ok=bool(primer3_ok and data_ok), version=app.version, primer3=primer3_ok,
+                ncbi_email_set=bool(email and "example" not in email),
+                ncbi_api_key=bool(getattr(ncbi.Entrez, "api_key", None)),
+                ncbi_cache=getattr(ncbi, "_CACHE_ON", None),
+                ncbi_cache_ttl_s=getattr(ncbi, "_CACHE_TTL", None),
+                data_dir_writable=data_ok,
+                routes=len([r for r in app.routes if getattr(r, "methods", None)]))
+
 @app.get("/api/profiles")
 def profiles():
     return {k: {"name": v["name"], "no_probe": v.get("no_probe", False),
@@ -83,11 +120,14 @@ def qc(r: OligoReq):
     s, notes, err = T.clean_seq(r.seq)
     if err:
         return JSONResponse({"error": err}, status_code=200)
-    hdg, htm = T.hairpin(s)
+    hdg37, hdg_an, htm = T.hairpin_full(s)
+    sd37, sd_an, sdtm = T.self_dimer_full(s)
     out = dict(seq=s, length=len(s), gc=round(T.gc_percent(s), 1), tm=round(T.tm(s), 1),
-               hairpin_dg=round(hdg, 2), hairpin_tm=round(htm, 0),
-               self_dimer=round(T.self_dimer(s), 2), max_run=T.max_run(s),
-               last5_gc=T.last5_gc(s), revcomp=T.revcomp(s))
+               hairpin_dg=round(hdg37, 2), hairpin_tm=round(htm, 0),
+               self_dimer=round(sd37, 2), max_run=T.max_run(s),
+               last5_gc=T.last5_gc(s), revcomp=T.revcomp(s),
+               anneal_c=T.ANNEAL_C, hairpin_dg_anneal=round(hdg_an, 2),
+               self_dimer_dg_anneal=round(sd_an, 2), self_dimer_tm=round(sdtm, 0))
     if T.has_degenerate(s):
         _tr = T.tm_range(s)
         if _tr["degenerate"] and not _tr["capped"] and _tr["min"] != _tr["max"]:
@@ -113,10 +153,13 @@ def pair(r: PairReq):
         return JSONResponse({"error": "forward primer: " + ef}, status_code=200)
     if er:
         return JSONResponse({"error": "reverse primer: " + er}, status_code=200)
+    hx37, hx_an, hxtm = T.hetero_dimer_full(f, rev)
     out = dict(f_tm=round(T.tm(f), 1), r_tm=round(T.tm(rev), 1),
                pair_gap=round(abs(T.tm(f) - T.tm(rev)), 1),
-               fxr=round(T.hetero_dimer(f, rev), 2),
-               f_self=round(T.self_dimer(f), 2), r_self=round(T.self_dimer(rev), 2))
+               fxr=round(hx37, 2),
+               f_self=round(T.self_dimer(f), 2), r_self=round(T.self_dimer(rev), 2),
+               anneal_c=T.ANNEAL_C, fxr_anneal=round(hx_an, 2), fxr_tm=round(hxtm, 0),
+               fxr_end_dg=round(min(T.end_stability(f, rev), T.end_stability(rev, f)), 2))
     for _seq, _k in ((f, "f"), (rev, "r")):
         _tr = T.tm_range(_seq)
         if _tr["degenerate"] and not _tr["capped"] and _tr["min"] != _tr["max"]:
@@ -133,14 +176,15 @@ class CondReq(BaseModel):
     dv_conc: Optional[float] = None
     dntp_conc: Optional[float] = None
     dna_conc: Optional[float] = None
+    anneal_c: Optional[float] = None
 
 @app.get("/api/conditions")
 def get_conditions():
-    return dict(T.COND)
+    return dict(T.COND, anneal_c=T.ANNEAL_C)
 
 @app.post("/api/conditions")
 def post_conditions(r: CondReq):
-    return T.set_conditions(mv_conc=r.mv_conc, dv_conc=r.dv_conc, dntp_conc=r.dntp_conc, dna_conc=r.dna_conc)
+    return T.set_conditions(mv_conc=r.mv_conc, dv_conc=r.dv_conc, dntp_conc=r.dntp_conc, dna_conc=r.dna_conc, anneal_c=r.anneal_c)
 
 @app.post("/api/matrix")
 def matrix(r: MatrixReq):
@@ -477,6 +521,17 @@ def api_report(r: ReportReq):
     except Exception as e:
         return JSONResponse({"error": "report failed: %s" % e}, status_code=200)
 
+from oligoforge import rdml as RDML
+class RdmlReq(BaseModel):
+    panel: List[dict]; meta: Optional[dict] = None
+@app.post("/api/rdml")
+def api_rdml(r: RdmlReq):
+    """Export the panel as RDML 1.2 (machine-readable assay definitions for qPCR software)."""
+    try:
+        return RDML.build(r.panel, r.meta)
+    except Exception as e:
+        return JSONResponse({"error": "RDML export failed: %s" % e}, status_code=200)
+
 class MultiplexReq(BaseModel):
     assays: List[dict]; dimer_threshold: float = -6.0
 class MarkerReq(BaseModel):
@@ -551,6 +606,30 @@ class StdCurveReq(BaseModel):
 @app.post("/api/standard_curve")
 def api_standard_curve(r: StdCurveReq):
     return QT.standard_curve([(p.quantity, p.cq) for p in r.points])
+
+from oligoforge import cq as CQ
+class CqReq(BaseModel):
+    fluor: List[float]
+    cycles: Optional[List[float]] = None
+    threshold: Optional[float] = None
+    sd_mult: float = 10.0
+    baseline_start: int = 3
+    baseline_end: int = 15
+@app.post("/api/cq")
+def api_cq(r: CqReq):
+    return CQ.analyze(r.fluor, cycles=r.cycles, threshold=r.threshold,
+                      sd_mult=r.sd_mult, baseline=(r.baseline_start, r.baseline_end))
+
+from oligoforge import melt as MELT
+class MeltReq(BaseModel):
+    fluor: List[float]
+    temps: List[float]
+    min_prominence_frac: float = 0.10
+    predicted_tm: Optional[float] = None
+@app.post("/api/melt")
+def api_melt(r: MeltReq):
+    return MELT.analyze(r.fluor, r.temps, min_prominence_frac=r.min_prominence_frac,
+                        predicted_tm=r.predicted_tm)
 
 from oligoforge import autodesign as AD
 class AutoDesignReq(BaseModel):
