@@ -68,6 +68,9 @@ def _sites(oligo, seq, clamp, seed_len=13, max_mm=5, clamp_n=2):
         else:
             q3 = _matches(oligo[:clamp_n], win[:clamp_n]) == clamp_n
         out.append(dict(start=start, mm=mm, ident=round(100.0 * mat / L, 1), q3=q3))
+        if len(out) >= 4000:                       # pathological low-complexity template: cap collection
+            break
+    out.sort(key=lambda s: (s["mm"], s["start"]))  # best-by-mismatch first, so a downstream cap keeps the best
     return out
 
 
@@ -95,14 +98,18 @@ def amplify(forward, reverse, probe="", seq="", max_mm=5, clamp_n=2,
             min_product=40, max_product=3000, min_probe_ident=85.0, require_3prime=True):
     """In-silico PCR of one (F, R, probe) against one template. Returns a result dict."""
     seq = re.sub(r"[^ACGTN]", "N", (seq or "").upper().replace("U", "T"))
-    F = (forward or "").upper().strip()
-    R = (reverse or "").upper().strip()
+    _ok = r"[^ACGTRYSWKMBDHVN]"                    # restrict primers/probe to the IUPAC alphabet so a stray
+    F = re.sub(_ok, "N", (forward or "").upper().replace("U", "T").strip())   # regex metachar (| . ( etc.)
+    R = re.sub(_ok, "N", (reverse or "").upper().replace("U", "T").strip())   # can't corrupt the seed pattern
+    probe = re.sub(_ok, "N", (probe or "").upper().replace("U", "T").strip())
     if not F or not R or not seq:
         return dict(amplifies=False, product=None, f_ident=0.0, r_ident=0.0,
                     f_mm=None, r_mm=None, probe_ident=None, probe_binds=False, n_products=0)
     rcR = _rc_iupac(R)
-    fs = _sites(F, seq, "right", max_mm=max_mm, clamp_n=clamp_n)
-    rs = _sites(rcR, seq, "left", max_mm=max_mm, clamp_n=clamp_n)
+    # cap sites per primer so a low-complexity / degenerate primer with thousands of hits cannot make the
+    # F x R product search blow up; _sites returns best-by-mismatch first, so the cap keeps the best matches
+    fs = _sites(F, seq, "right", max_mm=max_mm, clamp_n=clamp_n)[:600]
+    rs = _sites(rcR, seq, "left", max_mm=max_mm, clamp_n=clamp_n)[:600]
     best = None
     n_products = 0
     for f in fs:

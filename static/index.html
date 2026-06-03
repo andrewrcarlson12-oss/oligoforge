@@ -63,6 +63,71 @@ nav a:hover{color:var(--ink);background:rgba(92,200,255,.07)}
 nav a.on{color:var(--ink);background:linear-gradient(180deg,rgba(92,200,255,.16),rgba(92,200,255,.03));border-color:rgba(92,200,255,.32);box-shadow:inset 0 0 0 1px rgba(92,200,255,.06),0 6px 14px -10px rgba(92,200,255,.5)}
 nav a.lead{color:var(--ink2);font-weight:600}
 nav a.lead.on{background:linear-gradient(180deg,rgba(110,231,168,.16),rgba(92,200,255,.05));border-color:rgba(110,231,168,.32)}
+.navmenu{position:relative;display:inline-flex}
+.navhead{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;color:var(--dim);cursor:pointer;border-radius:8px;font-size:12.5px;font-weight:500;border:1px solid transparent;background:transparent;font-family:inherit;transition:color .14s,background .14s,border-color .14s}
+.navhead:hover{color:var(--ink);background:rgba(92,200,255,.07)}
+.navmenu.open .navhead{color:var(--ink);background:rgba(92,200,255,.08);border-color:var(--line)}
+.navmenu.active .navhead{color:var(--ink)}
+.navmenu.active .navhead::after{content:"";width:5px;height:5px;border-radius:50%;background:var(--acc);margin-left:1px;box-shadow:0 0 6px var(--acc)}
+.navcar{opacity:.55;font-size:9px;transition:transform .14s}
+.navmenu.open .navcar{transform:rotate(180deg)}
+.navpanel{position:absolute;top:calc(100% + 7px);left:0;z-index:60;display:none;flex-direction:column;min-width:182px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:6px;box-shadow:var(--sh)}
+.navmenu.open .navpanel{display:flex}
+.navpanel a.navitem{display:block;width:100%;padding:7px 10px;border-radius:7px;border:1px solid transparent;font-size:12.5px}
+.navpanel a.navitem:hover{background:rgba(92,200,255,.08);color:var(--ink)}
+nav a.prim{font-weight:600}
+nav a.prim-auto{background:rgba(92,200,255,.10);border-color:rgba(92,200,255,.26);color:#bfe6ff}
+nav a.prim-auto:hover{background:rgba(92,200,255,.16);color:#eaf6ff}
+nav a.prim-auto.on{background:linear-gradient(180deg,rgba(92,200,255,.24),rgba(92,200,255,.06));border-color:rgba(92,200,255,.5);color:#eaf6ff;box-shadow:0 6px 14px -10px rgba(92,200,255,.6)}
+nav a.prim-work{background:rgba(167,139,250,.13);border-color:rgba(167,139,250,.3);color:#d6ccff}
+nav a.prim-work:hover{background:rgba(167,139,250,.2);color:#efeaff}
+nav a.prim-work.on{background:linear-gradient(180deg,rgba(167,139,250,.26),rgba(167,139,250,.07));border-color:rgba(167,139,250,.54);color:#efeaff;box-shadow:0 6px 14px -10px rgba(167,139,250,.6)}
+.vw-picker{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px;margin:8px 0;max-height:184px;overflow:auto;font-size:12.5px}
+.vw-picker .vw-rec{display:block;padding:6px 8px;border-radius:7px;cursor:pointer;border:1px solid transparent;color:var(--dim)}
+.vw-picker .vw-rec:hover{background:rgba(92,200,255,.08);border-color:var(--line);color:var(--ink)}
+.vw-paste{margin:8px 0}
+.vw-paste summary{cursor:pointer;color:var(--dim);font-size:12.5px}
+.vw-rules{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0;background:linear-gradient(180deg,rgba(255,255,255,.015),transparent)}
+.vw-rules-h{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:8px}
+.vw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px 14px}
+.vw-grid label{font-size:10.5px;color:var(--dim)}
+.vw-grid input[type=number]{width:100%}
+.vw-dash{color:var(--dim);padding:0 2px;align-self:center}
+.vw-chk{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink);cursor:pointer}
+.vw-viewhead{display:flex;align-items:center;justify-content:space-between;margin:12px 0 4px;gap:10px;flex-wrap:wrap}
+.vw-legend{display:inline-flex;gap:8px;font-size:10.5px}
+.vw-legend .lg{padding:1px 7px;border-radius:6px;border:1px solid var(--line);color:var(--dim)}
+.lg-f{background:rgba(92,160,255,.22);color:#cfe0ff}
+.lg-r{background:rgba(94,210,140,.22);color:#cdf3da}
+.lg-p{background:rgba(231,173,62,.26);color:#f6e2b3}
+.lg-amp{box-shadow:inset 0 -2px 0 rgba(150,170,200,.55)}
+.vw-seqview{font-family:var(--mono);font-size:13px;line-height:1.9;border:1px solid var(--line);background:#070b11;border-radius:10px;padding:10px 12px;max-height:360px;overflow:auto}
+.vw-row{display:flex;gap:12px;white-space:pre}
+.vw-num{color:var(--dim);min-width:54px;text-align:right;user-select:none;font-size:11.5px;flex:none}
+.vw-gap{display:inline-block;width:6px}
+.vb{color:#9fb0c4}
+.vb.hl-amp{box-shadow:inset 0 -2px 0 rgba(150,170,200,.6);color:#c6d4e6}
+.vb.hl-f{background:rgba(92,160,255,.32);color:#eaf2ff;border-radius:2px}
+.vb.hl-r{background:rgba(94,210,140,.32);color:#ecfff3;border-radius:2px}
+.vb.hl-p{background:rgba(231,173,62,.36);color:#fff3d6;border-radius:2px;font-weight:600}
+.vb.hu-f{box-shadow:inset 0 0 0 1.5px rgba(92,160,255,.95)}
+.vb.hu-r{box-shadow:inset 0 0 0 1.5px rgba(94,210,140,.95)}
+.vb.hu-p{box-shadow:inset 0 0 0 1.5px rgba(231,173,62,1)}
+.vw-cand{border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin:6px 0;cursor:pointer;transition:border-color .14s,background .14s}
+.vw-cand:hover{border-color:rgba(92,200,255,.4)}
+.vw-cand.sel{border-color:var(--acc);background:rgba(92,200,255,.06)}
+.vw-oligo{font-family:var(--mono);font-size:12px;color:var(--ink);word-break:break-all;margin-top:2px}
+.vw-fld{border-top:1px solid var(--line);padding:7px 0;margin-top:2px}
+.vw-flag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:5px}
+.vw-flag.ok{background:rgba(76,203,99,.18);color:#bff0c8}
+.vw-flag.no{background:rgba(251,109,99,.18);color:#ffc9c4}
+.vw-seqview{user-select:none;-webkit-user-select:none}
+.vw-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 0;flex-wrap:wrap}
+.vw-tools-r{display:inline-flex;gap:10px;align-items:center}
+#vw_erasebtn.on{background:rgba(251,109,99,.18);border-color:rgba(251,109,99,.5);color:#ffc9c4}
+.vw-seqview.erasing{cursor:crosshair}
+.vb-sel{outline:2px solid var(--acc);outline-offset:-1px;background:rgba(92,200,255,.18);border-radius:2px}
+.vw-sel{border:1px solid rgba(92,200,255,.5);background:rgba(92,200,255,.05);border-radius:9px;padding:8px 10px;margin:8px 0}
 /* main + sections */
 main{padding:24px 22px 40px;max-width:1120px;margin:0 auto}
 section{display:none}
@@ -378,6 +443,49 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
 
 
   <!-- NCBI -->
+  <section id="viewer"><div class="card">
+    <h2>Manual design &amp; sequence viewer</h2>
+    <p class="hint">Load a sequence, pick the exact record, set strict rules, and design — the candidate primers and probe are drawn on the actual bases. Every Tm / GC / structure value is real engine output at your reaction salt; nothing is estimated.</p>
+    <div class="row" style="gap:18px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:2;min-width:260px"><label>gene + organism</label>
+        <div class="row"><input id="vw_gene" placeholder="gene, e.g. RPL13" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();vwFetch('gene');}"><input id="vw_org" placeholder="organism, e.g. Aphelocoma coerulescens" style="flex:2" onkeydown="if(event.key==='Enter'){event.preventDefault();vwFetch('gene');}"><button class="ghost" onclick="vwFetch('gene')">search</button></div></div>
+      <div style="flex:1;min-width:200px"><label>or accession(s)</label>
+        <div class="row"><input id="vw_acc" placeholder="e.g. XM_069027304.1" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();vwFetch('acc');}"><button class="ghost" onclick="vwFetch('acc')">fetch</button></div></div>
+    </div>
+    <div id="vw_picker" class="vw-picker" style="display:none"></div>
+    <details class="vw-paste"><summary>or paste a sequence directly</summary>
+      <textarea id="vw_paste" rows="3" placeholder="paste 5'→3' DNA (A/C/G/T) — anything non-ACGT is stripped"></textarea>
+      <div class="row" style="margin-top:6px"><button class="ghost" onclick="vwPaste()">load pasted sequence</button></div></details>
+    <div class="vw-rules">
+      <div class="vw-rules-h">strict rules <span class="hint">— tighten the Tm window for multiplex; every assay has to anneal together</span></div>
+      <div class="vw-grid">
+        <div><label>Tm window °C</label><div class="row"><input id="vw_tmlo" type="number" step="0.5" value="59"><span class="vw-dash">–</span><input id="vw_tmhi" type="number" step="0.5" value="64.5"></div></div>
+        <div><label>GC %</label><div class="row"><input id="vw_gclo" type="number" value="35"><span class="vw-dash">–</span><input id="vw_gchi" type="number" value="65"></div></div>
+        <div><label>amplicon bp</label><div class="row"><input id="vw_amlo" type="number" value="70"><span class="vw-dash">–</span><input id="vw_amhi" type="number" value="150"></div></div>
+        <div><label>primer length</label><div class="row"><input id="vw_lnlo" type="number" value="18"><span class="vw-dash">–</span><input id="vw_lnhi" type="number" value="24"></div></div>
+        <div><label>probe</label><div class="row" style="height:30px"><label class="vw-chk"><input id="vw_probe" type="checkbox" checked onchange="vwProbeToggle()"> design probe</label></div></div>
+        <div id="vw_pobox"><label>probe Tm offset °C</label><div class="row"><input id="vw_polo" type="number" step="0.5" value="5"><span class="vw-dash">–</span><input id="vw_pohi" type="number" step="0.5" value="10.5"></div></div>
+        <div><label>candidates</label><input id="vw_n" type="number" value="5" min="1" max="8"></div>
+      </div>
+      <div class="row" style="margin-top:10px"><button onclick="vwDesign()">Design on this sequence</button><span id="vw_dstat" class="hint"></span></div>
+    </div>
+    <div class="vw-viewhead">
+      <span id="vw_srctag" class="hint">no sequence loaded</span>
+      <span class="vw-legend"><span class="lg lg-f">forward</span><span class="lg lg-r">reverse</span><span class="lg lg-p">probe</span><span class="lg lg-amp">amplicon</span></span>
+    </div>
+    <div class="vw-tools">
+      <span class="hint">drag across the bases to select a region, then tag it. machine picks are filled; your picks are outlined.</span>
+      <span class="vw-tools-r"><button id="vw_erasebtn" class="ghost" onclick="vwToggleErase()">erase</button><a class="ghost" style="cursor:pointer" onclick="vwClearMine()">clear mine</a><a class="ghost" style="cursor:pointer" onclick="vwClearMachine()">clear machine</a></span>
+    </div>
+    <div id="vw_seqview" class="vw-seqview" onmousedown="vwDown(event)" onmousemove="vwMove(event)" onmouseup="vwUp()" onmouseleave="vwLeave()"><div class="hint">load a sequence above to see its bases.</div></div>
+    <div id="vw_sel" class="vw-sel" style="display:none"></div>
+  </div>
+  <div class="card">
+    <h2>Candidates</h2>
+    <div id="vw_cands"><div class="ph">Design on a loaded sequence to see candidate primer/probe sets, drawn on the bases above.</div></div>
+    <div id="vw_data"></div>
+    <div id="vw_manual"></div>
+  </div></section>
   <section id="ncbi"><div class="card">
     <h2>NCBI fetch</h2><p class="hint">By accession, or gene + organism. Tick isoform-common to get the block shared by all transcripts.</p>
     <div class="row">
@@ -476,14 +584,16 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px">
       <div>
         <h3 style="margin:0 0 6px;font-size:13px;color:var(--ink)">Target isolates <span class="hint">should amplify</span></h3>
-        <div class="row"><input id="iso_tq" placeholder="species / genus, e.g. Salmonella enterica" style="flex:1"><button class="ghost" onclick="isoFind('t')">search NCBI</button></div>
+        <div class="row"><input id="iso_tq" placeholder="species / genus, e.g. Salmonella enterica" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();isoFind('t');}"><button class="ghost" onclick="isoFind('t')">&#43; add</button><a class="ghost" style="cursor:pointer" onclick="isoClear('t')">clear</a></div>
+        <div class="hint" style="margin:2px 0 4px">search a species and <b>&#43; add</b> &mdash; repeat for as many target species as you need; results accumulate below.</div>
         <div id="iso_tlist" style="max-height:168px;overflow:auto;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px;margin:6px 0;font-size:12px"></div>
         <label class="hint">&hellip;or paste accessions (one per line)</label>
         <textarea id="iso_tacc" rows="2" placeholder="CP172503.1&#10;NZ_CP..." style="width:100%;font-family:var(--mono);font-size:12px"></textarea>
       </div>
       <div>
         <h3 style="margin:0 0 6px;font-size:13px;color:var(--ink)">Near-neighbours <span class="hint">should NOT amplify</span></h3>
-        <div class="row"><input id="iso_nq" placeholder="species / genus, e.g. Citrobacter freundii" style="flex:1"><button class="ghost" onclick="isoFind('n')">search NCBI</button></div>
+        <div class="row"><input id="iso_nq" placeholder="species / genus, e.g. Citrobacter freundii" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();isoFind('n');}"><button class="ghost" onclick="isoFind('n')">&#43; add</button><a class="ghost" style="cursor:pointer" onclick="isoClear('n')">clear</a></div>
+        <div class="hint" style="margin:2px 0 4px">add as many neighbour species as you need &mdash; each <b>&#43; add</b> appends to the list below.</div>
         <div id="iso_nlist" style="max-height:168px;overflow:auto;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px;margin:6px 0;font-size:12px"></div>
         <label class="hint">&hellip;or paste accessions (one per line)</label>
         <textarea id="iso_nacc" rows="2" placeholder="NC_000913.3&#10;..." style="width:100%;font-family:var(--mono);font-size:12px"></textarea>
@@ -637,22 +747,42 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
   </div></section>
 </main>
-<footer>OligoForge v1.11.24</footer>
+<footer>OligoForge v1.12.1</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
- ["auto","Target → assay","Create"],["work","Workbench","Create"],["design","Design","Create"],["ncbi","NCBI fetch","Create"],
+ ["auto","Target → assay","Create"],["work","Workbench","Create"],["design","Design","Create"],["viewer","Manual design","Create"],["ncbi","NCBI fetch","Create"],
  ["qc","QC","Check"],["pair","Pair","Check"],["matrix","Panel matrix","Check"],["cons","Conservation","Check"],["epcr","in-silico PCR","Check"],["iso","Isolate panel","Check"],["intron","Intron check","Check"],["blast","BLAST","Check"],
  ["quant","Quant","Quantify"],["std","Std curve","Quantify"],["refgenes","Ref genes","Quantify"],
  ["order","Order","Finish"],["help","Help","Finish"]];
-const nav=document.getElementById("nav");let _grp=null;
-TABS.forEach(([id,label,group],i)=>{
- if(group!==_grp){const g=document.createElement("span");g.className="navgroup"+(_grp===null?" first":"");g.textContent=group;nav.appendChild(g);_grp=group;}
- const a=document.createElement("a");a.textContent=label;a.className=(i===0?"on lead":"");a.onclick=()=>{
-  document.querySelectorAll("nav a").forEach(x=>x.classList.remove("on"));a.classList.add("on");
-  document.querySelectorAll("section").forEach(s=>s.classList.remove("on"));document.getElementById(id).classList.add("on");try{localStorage.setItem("of_tab",id);}catch(e){}};
- nav.appendChild(a);});
-try{const _lt=localStorage.getItem("of_tab");if(_lt){const _i=TABS.findIndex(t=>t[0]===_lt);if(_i>=0)document.querySelectorAll("nav a")[_i].click();}}catch(e){}
+(function buildNav(){
+ const nav=document.getElementById("nav"); if(!nav)return;
+ const PRIMARY={auto:"prim-auto",work:"prim-work"};
+ function goTab(id){
+  document.querySelectorAll("nav a").forEach(x=>{if(x.classList)x.classList.remove("on");});
+  const tgt=nav.querySelector('a.navitem[data-id="'+id+'"]'); if(tgt&&tgt.classList)tgt.classList.add("on");
+  document.querySelectorAll("nav .navmenu").forEach(m=>{if(!m.classList)return;const has=m.querySelector&&m.querySelector('a.navitem[data-id="'+id+'"].on');m.classList.toggle("active",!!has);m.classList.remove("open");});
+  document.querySelectorAll("section").forEach(s=>{if(s.classList)s.classList.remove("on");});
+  const sec=document.getElementById(id); if(sec&&sec.classList)sec.classList.add("on");
+  try{localStorage.setItem("of_tab",id);}catch(e){}
+ }
+ window.goTab=goTab;
+ function mkItem(id,label,extra){const a=document.createElement("a");a.className="navitem"+(extra?(" "+extra):"");a.textContent=label;if(a.setAttribute)a.setAttribute("data-id",id);a.onclick=()=>goTab(id);return a;}
+ TABS.filter(t=>PRIMARY[t[0]]).forEach(t=>nav.appendChild(mkItem(t[0],t[1],"prim "+PRIMARY[t[0]])));
+ const order=[],groups={};
+ TABS.forEach(([id,label,group])=>{if(PRIMARY[id])return;if(!groups[group]){groups[group]=[];order.push(group);}groups[group].push([id,label]);});
+ order.forEach(group=>{
+  const menu=document.createElement("div");menu.className="navmenu";
+  const head=document.createElement("button");head.className="navhead";head.type="button";head.innerHTML=group+' <span class="navcar">\u25be</span>';
+  head.onclick=(e)=>{if(e&&e.stopPropagation)e.stopPropagation();const open=menu.classList&&menu.classList.contains("open");document.querySelectorAll("nav .navmenu").forEach(m=>{if(m.classList)m.classList.remove("open");});if(!open&&menu.classList)menu.classList.add("open");};
+  const panel=document.createElement("div");panel.className="navpanel";
+  groups[group].forEach(([id,label])=>panel.appendChild(mkItem(id,label)));
+  menu.appendChild(head);menu.appendChild(panel);nav.appendChild(menu);
+ });
+ if(document.addEventListener){document.addEventListener("click",function(ev){if(!ev||!ev.target||!ev.target.closest||!ev.target.closest(".navmenu")){document.querySelectorAll("nav .navmenu").forEach(m=>{if(m.classList)m.classList.remove("open");});}},true);}
+ let start="auto";try{const lt=localStorage.getItem("of_tab");if(lt&&TABS.some(t=>t[0]===lt))start=lt;}catch(e){}
+ goTab(start);
+})();
 
 const email=document.getElementById("email");
 const cond_dv=document.getElementById("cond_dv"),cond_mv=document.getElementById("cond_mv"),cond_dntp=document.getElementById("cond_dntp"),cond_dna=document.getElementById("cond_dna");
@@ -719,7 +849,7 @@ async function doMatrix(){const rows=[...document.querySelectorAll("#seqrows .se
  d.names.forEach(a=>{h+=`<tr><th>${a}</th>`+d.names.map(b=>{const v=g[a+"|"+b];const c=dgClass(v);return `<td class="cell b-${c}" title="${a} × ${b}">${v}</td>`;}).join("")+`</tr>`;});
  o.innerHTML=h+`</table>`;}
 
-function _rc(s){const m={A:"T",T:"A",G:"C",C:"G",N:"N",U:"A"};return (s||"").toUpperCase().split("").reverse().map(c=>m[c]||"N").join("");}
+function _rc(s){const m={A:"T",T:"A",G:"C",C:"G",N:"N",U:"A",R:"Y",Y:"R",S:"S",W:"W",K:"M",M:"K",B:"V",V:"B",D:"H",H:"D"};return (s||"").toUpperCase().split("").reverse().map(c=>m[c]||"N").join("");}
 function _gc(s){s=(s||"").toUpperCase().replace(/[^ACGT]/g,"");if(!s.length)return null;let n=0;for(const c of s)if(c==="G"||c==="C")n++;return Math.round(1000*n/s.length)/10;}
 function ampliconMap(d){
  if(!d||!d.f_xy||!d.r_xy)return"";
@@ -1032,7 +1162,7 @@ let PANEL=[];try{PANEL=JSON.parse(localStorage.getItem("of_panel")||"[]")||[];}c
 let CURRENT_ID=null;try{CURRENT_ID=localStorage.getItem("of_current")||null;}catch(e){}
 function savePanel(){try{localStorage.setItem("of_panel",JSON.stringify(PANEL));localStorage.setItem("of_current",CURRENT_ID||"");}catch(e){}}
 function curAssay(){return PANEL.find(a=>a.id===CURRENT_ID)||null;}
-function gotab(id){const i=TABS.findIndex(t=>t[0]===id);const a=document.querySelectorAll("nav a")[i];if(a)a.click();}
+function gotab(id){if(window.goTab){window.goTab(id);return;}const i=TABS.findIndex(t=>t[0]===id);const a=document.querySelectorAll("nav a")[i];if(a)a.click();}
 function fld(id,v){const e=document.getElementById(id);if(e){e.value=(v==null?"":v);flash(e);}}
 function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
 function editAssay(id,f,v){const a=PANEL.find(x=>x.id===id);if(a){a[f]=v;savePanel();}}
@@ -1289,26 +1419,39 @@ renderPanel();
 }catch(e){}})();
 /* ---- Isolate panel: inclusivity / exclusivity in-silico PCR ---- */
 let ISO_RES=[];
+let ISO_GEN={t:[],n:[]};
 function isoPull(){
  if(!(typeof PANEL!=="undefined"&&PANEL&&PANEL.length)){toast("No assays in the Workbench yet — add one first.","warn");return;}
  const cur=(typeof CURRENT_ID!=="undefined"&&CURRENT_ID)?PANEL.find(x=>x.id===CURRENT_ID):null;const x=cur||PANEL[0];
  const sf=document.getElementById("iso_f"),sr=document.getElementById("iso_r"),sp=document.getElementById("iso_p");
  if(sf)sf.value=x.forward||"";if(sr)sr.value=x.reverse||"";if(sp)sp.value=x.probe||"";
  toast("Pulled "+(x.name||x.gene||"assay")+" from the Workbench.","ok");}
+function isoSync(which){const box=document.getElementById(which==="t"?"iso_tlist":"iso_nlist");if(!box||!box.querySelectorAll)return;[...box.querySelectorAll(".isochk_"+which)].forEach(c=>{const it=ISO_GEN[which].find(x=>x.acc===c.value);if(it)it.checked=c.checked;});}
+function isoRenderList(which){const box=document.getElementById(which==="t"?"iso_tlist":"iso_nlist");if(!box)return;const arr=ISO_GEN[which];
+ if(!arr.length){box.innerHTML='<div class="hint">no isolates yet — search a species above, or paste accessions below.</div>';return;}
+ const n=arr.filter(x=>x.checked).length;
+ box.innerHTML='<div class="row" style="gap:10px;margin-bottom:4px"><a class="ghost" style="cursor:pointer" onclick="isoAll(\''+which+'\',1)">select all</a><a class="ghost" style="cursor:pointer" onclick="isoAll(\''+which+'\',0)">none</a><span class="hint">'+n+' of '+arr.length+' selected</span></div>'+
+  arr.map(x=>'<label style="display:block;cursor:pointer;padding:1px 0"><input type="checkbox" class="isochk_'+which+'" value="'+esc(x.acc)+'"'+(x.checked?' checked':'')+' onchange="isoSync(\''+which+'\')"> <b>'+esc(x.acc)+'</b> · '+esc(x.title)+'</label>').join("");}
 async function isoFind(which){
- const q=(document.getElementById(which==="t"?"iso_tq":"iso_nq").value||"").trim();
- const box=document.getElementById(which==="t"?"iso_tlist":"iso_nlist");if(!box)return;
- if(!q){toast("Enter a species or genus to search.","warn");return;}
- box.innerHTML='<div class="hint">searching NCBI…</div>';
+ const inp=document.getElementById(which==="t"?"iso_tq":"iso_nq");const q=((inp||{}).value||"").trim();
+ if(!q){toast("Type a species or genus, then + add.","warn");return;}
+ const box=document.getElementById(which==="t"?"iso_tlist":"iso_nlist");
+ isoSync(which);
+ if(box&&!ISO_GEN[which].length)box.innerHTML='<div class="hint">searching NCBI…</div>';
  const d=await api("/api/isolate_genomes",{query:q,retmax:40});
- if(d.error){box.innerHTML='<div class="hint">'+esc(d.error)+'</div>';return;}
+ if(d.error){toast(d.error,"warn");isoRenderList(which);return;}
  const g=d.genomes||[];
- if(!g.length){box.innerHTML='<div class="hint">no complete genomes found for “'+esc(q)+'” — try a broader name or paste accessions below.</div>';return;}
- box.innerHTML='<div class="row" style="gap:10px;margin-bottom:4px"><a class="ghost" style="cursor:pointer" onclick="isoAll(\''+which+'\',1)">select all</a><a class="ghost" style="cursor:pointer" onclick="isoAll(\''+which+'\',0)">none</a><span class="hint">'+g.length+' genomes</span></div>'+
-  g.map(x=>'<label style="display:block;cursor:pointer;padding:1px 0"><input type="checkbox" class="isochk_'+which+'" value="'+esc(x.acc)+'" checked> <b>'+esc(x.acc)+'</b> · '+esc(x.title)+'</label>').join("");}
-function isoAll(which,on){document.querySelectorAll(".isochk_"+which).forEach(c=>{c.checked=!!on;});}
+ if(!g.length){toast('No complete genomes for "'+q+'" — try a broader name or paste accessions.',"warn");isoRenderList(which);return;}
+ const have=new Set(ISO_GEN[which].map(x=>x.acc));let added=0;
+ g.forEach(x=>{if(!have.has(x.acc)){ISO_GEN[which].push({acc:x.acc,title:x.title,checked:true});have.add(x.acc);added++;}});
+ if(inp)inp.value="";
+ isoRenderList(which);
+ toast("Added "+added+" genome"+(added===1?"":"s")+(added<g.length?" ("+(g.length-added)+" already listed)":"")+" — "+ISO_GEN[which].length+" total.","ok");}
+function isoAll(which,on){isoSync(which);ISO_GEN[which].forEach(x=>x.checked=!!on);isoRenderList(which);}
+function isoClear(which){ISO_GEN[which]=[];isoRenderList(which);}
 function isoGather(which){
- const checks=[...document.querySelectorAll(".isochk_"+which+":checked")].map(c=>c.value);
+ isoSync(which);
+ const checks=ISO_GEN[which].filter(x=>x.checked).map(x=>x.acc);
  const pasted=((document.getElementById(which==="t"?"iso_tacc":"iso_nacc")||{}).value||"").split(/[\s,]+/).map(s=>s.trim()).filter(Boolean);
  return [...new Set([...checks,...pasted])];}
 async function isoRun(){
@@ -1356,5 +1499,148 @@ function isoExport(){
  const lines=ISO_RES.map(x=>[x.acc,'"'+(x.title||"").replace(/"/g,'""')+'"',x.role,x.amplifies,x.product||"",x.f_ident==null?"":x.f_ident,x.r_ident==null?"":x.r_ident,x.probe_ident==null?"":x.probe_ident,x.probe_binds,'"'+(x.error||"").replace(/"/g,'""')+'"'].join(","));
  const blob=new Blob([head+"\n"+lines.join("\n")],{type:"text/csv"});const u=URL.createObjectURL(blob);
  const a=document.createElement("a");a.href=u;a.download="isolate_validation.csv";a.click();URL.revokeObjectURL(u);}
+/* ---- Manual design + base-level sequence viewer ---- */
+let VW={seq:"",src:"",gene:"",org:"",recs:[],cands:[],sel:-1,spans:[],win:null,manual:[],erase:false,dragging:false,anchor:-1,selRange:null,_selPainted:null};
+const VW_CAP=20000;
+function vwClean(s){return (s||"").replace(/^[>;].*$/gm,"").toUpperCase().replace(/U/g,"T").replace(/[^ACGTRYSWKMBDHVN]/g,"");}
+async function vwFetch(mode){
+ const pick=document.getElementById("vw_picker"); let body;
+ if(mode==="gene"){const g=(document.getElementById("vw_gene").value||"").trim(),o=(document.getElementById("vw_org").value||"").trim();
+  if(!g||!o){toast("Enter a gene and an organism.","warn");return;} body={gene:g,organism:o}; VW.gene=g; VW.org=o;}
+ else{const a=(document.getElementById("vw_acc").value||"").trim(); if(!a){toast("Enter an accession.","warn");return;} body={accession:a}; VW.gene=""; VW.org="";}
+ if(pick){pick.style.display="block";pick.innerHTML='<div class="hint">searching NCBI…</div>';}
+ const d=await api("/api/fetch",body);
+ if(d.error){if(pick)pick.innerHTML=err(d.error);return;}
+ VW.recs=d.records||[];
+ if(!VW.recs.length){if(pick)pick.innerHTML='<div class="hint">no records found — check the gene/organism spelling or accession.</div>';return;}
+ vwRenderPicker();
+}
+function vwRenderPicker(){const pick=document.getElementById("vw_picker"); if(!pick)return; pick.style.display="block";
+ pick.innerHTML='<div class="hint" style="margin-bottom:4px">pick the exact record to load ('+VW.recs.length+' found) — choose the isoform you mean, do not guess:</div>'+
+  VW.recs.map((r,i)=>'<a class="vw-rec" onclick="vwPick('+i+')"><b>'+esc(r.id)+'</b> · '+esc((r.desc||"").slice(0,100))+' <span class="hint">('+r.length+' nt)</span></a>').join("");}
+function vwResetForNewSeq(){VW.cands=[];VW.sel=-1;VW.win=null;
+ const cb=document.getElementById("vw_cands"); if(cb)cb.innerHTML='<div class="ph">Design on the loaded sequence to see candidate primer/probe sets, drawn on the bases above.</div>';
+ const db=document.getElementById("vw_data"); if(db)db.innerHTML="";}
+function vwPick(i){const r=VW.recs[i]; if(!r)return; VW.seq=vwClean(r.seq); VW.src=r.id+" · "+(r.desc||""); vwResetForNewSeq(); vwRenderSeq(); toast("Loaded "+r.id+" ("+VW.seq.length+" nt).","ok");}
+function vwPaste(){const s=vwClean((document.getElementById("vw_paste")||{}).value); if(s.length<20){toast("Paste at least 20 nt of DNA.","warn");return;}
+ VW.seq=s; VW.src="pasted sequence"; VW.gene=""; VW.org=""; vwResetForNewSeq(); vwRenderSeq(); toast("Loaded pasted sequence ("+s.length+" nt).","ok");}
+function vwRenderSeq(){
+ const box=document.getElementById("vw_seqview"),tag=document.getElementById("vw_srctag"); if(!box)return;
+ const n=VW.seq.length, shown=Math.min(n,VW_CAP), seq=VW.seq.slice(0,shown);
+ if(tag)tag.textContent=(VW.src||"sequence")+" — "+n+" nt"+(shown<n?" (showing first "+shown+"; load a subregion for the rest)":"");
+ if(!n){box.innerHTML='<div class="hint">load a sequence above to see its bases.</div>';VW.spans=[];return;}
+ const per=60,block=10; let html="";
+ for(let i=0;i<shown;i+=per){let bases="";const end=Math.min(i+per,shown);
+  for(let j=i;j<end;j++){if(j>i&&(j-i)%block===0)bases+='<span class="vw-gap"> </span>'; bases+='<span class="vb" data-i="'+j+'">'+seq[j]+'</span>';}
+  html+='<div class="vw-row"><span class="vw-num">'+(i+1)+'</span><span class="vw-bases">'+bases+'</span></div>';}
+ box.innerHTML=html; VW.spans=[...box.querySelectorAll(".vb")]; vwApplyHighlights();}
+function vwRanges(c){const out=[]; if(!c)return out;
+ if(c.amplicon_xy)out.push([c.amplicon_xy[0],c.amplicon_xy[1],"hl-amp"]);
+ if(c.f_xy)out.push([c.f_xy[0],c.f_xy[1],"hl-f"]);
+ if(c.r_xy)out.push([c.r_xy[0],c.r_xy[1],"hl-r"]);
+ if(c.probe_xy)out.push([c.probe_xy[0],c.probe_xy[1],"hl-p"]);
+ return out;}
+function vwPaintRange(from,to,cls){for(let i=from;i<to;i++){const s=VW.spans[i]; if(s&&s.classList)s.classList.add(cls);}}
+function vwRepaintLayers(){if(!VW.spans)return;
+ VW.spans.forEach(s=>{if(s.classList)s.classList.remove("hl-f","hl-r","hl-p","hl-amp","hu-f","hu-r","hu-p");});
+ if(VW.sel>=0&&VW.cands[VW.sel])vwRanges(VW.cands[VW.sel]).forEach(g=>vwPaintRange(g[0],g[1],g[2]));
+ (VW.manual||[]).forEach(m=>vwPaintRange(m.from,m.to,"hu-"+m.role));}
+function vwApplyHighlights(){vwRepaintLayers();}
+async function vwDesign(){
+ if(!VW.seq){toast("Load a sequence first.","warn");return;}
+ const stat=document.getElementById("vw_dstat"); if(stat)stat.textContent="designing…";
+ const gv=id=>document.getElementById(id);
+ const body={sequence:VW.seq.slice(0,VW_CAP),
+  tm_min:+gv("vw_tmlo").value||59, tm_max:+gv("vw_tmhi").value||64.5,
+  gc_min:+gv("vw_gclo").value||35, gc_max:+gv("vw_gchi").value||65,
+  amp_min:+gv("vw_amlo").value||70, amp_max:+gv("vw_amhi").value||150,
+  len_min:+gv("vw_lnlo").value||18, len_max:+gv("vw_lnhi").value||24,
+  probe:!!(gv("vw_probe")||{}).checked,
+  probe_offset_min:+gv("vw_polo").value||5, probe_offset_max:+gv("vw_pohi").value||10.5,
+  n:+gv("vw_n").value||5};
+ const d=await api("/api/viewer_design",body); if(stat)stat.textContent="";
+ if(d.error){toast(d.error,"warn");gv("vw_cands").innerHTML=err(d.error);return;}
+ VW.cands=d.candidates||[]; VW.sel=-1; VW.win=d.tm_window||null;
+ if(!VW.cands.length){gv("vw_cands").innerHTML='<div class="hint">no clean assay found under these rules — widen the Tm window, GC, or amplicon range.</div>';vwApplyHighlights();return;}
+ vwRenderCands(); vwSelect(0); toast(VW.cands.length+" candidate"+(VW.cands.length===1?"":"s")+" found.","ok");}
+function vwRenderCands(){const box=document.getElementById("vw_cands"); if(!box)return;
+ box.innerHTML=VW.cands.map((c,k)=>{
+  const f='<span class="vw-flag '+(c.f_in?'ok':'no')+'">F '+c.f_tm+'°</span>';
+  const r='<span class="vw-flag '+(c.r_in?'ok':'no')+'">R '+c.r_tm+'°</span>';
+  const p=c.probe?(' · probe '+c.probe_tm+'°'):' · no probe';
+  return '<div class="vw-cand'+(k===VW.sel?' sel':'')+'" onclick="vwSelect('+k+')"><div class="row" style="justify-content:space-between"><b>candidate '+(k+1)+'</b><span>'+f+' '+r+'</span></div><div class="hint">amplicon '+c.amplicon+' bp · pair ΔTm '+c.pair_tm_gap+'°C'+p+'</div></div>';
+ }).join("");}
+function vwSelect(k){VW.sel=k;
+ document.querySelectorAll("#vw_cands .vw-cand").forEach((e,i)=>{if(e.classList)e.classList.toggle("sel",i===k);});
+ vwApplyHighlights(); vwRenderData(k);}
+function vwField(label,seq,tm,gc,extra){if(!seq)return"";
+ return '<div class="vw-fld"><div class="row" style="justify-content:space-between"><span><b>'+label+'</b> <span class="hint">'+seq.length+' nt · Tm '+tm+'°C · GC '+gc+'%</span></span><a class="ghost" style="cursor:pointer" onclick="vwCopy(\''+seq+'\')">copy</a></div><div class="vw-oligo">'+seq+'</div>'+(extra||"")+'</div>';}
+function vwRenderData(k){const c=VW.cands[k],box=document.getElementById("vw_data"); if(!box||!c)return;
+ const win=VW.win?(' · window '+VW.win[0]+'–'+VW.win[1]+'°C'):'';
+ let h='<div class="vw-rules-h" style="margin-top:10px">candidate '+(k+1)+win+'</div>';
+ h+=vwField("Forward (5'→3')",c.forward,c.f_tm,c.f_gc,c.f_in?'':'<div class="vw-flag no" style="margin-top:3px">outside Tm window</div>');
+ h+=vwField("Reverse (5'→3')",c.reverse,c.r_tm,c.r_gc,c.r_in?'':'<div class="vw-flag no" style="margin-top:3px">outside Tm window</div>');
+ if(c.probe)h+=vwField("Probe (5'→3')",c.probe,c.probe_tm,c.probe_gc,'<div class="hint">offset +'+c.probe_offset+'°C over the hotter primer · '+(c.probe_strand==="-"?"antisense":"sense")+' strand</div>');
+ h+='<div class="hint" style="margin-top:6px">amplicon '+c.amplicon+' bp'+(c.amplicon_tm?(' · Tm '+c.amplicon_tm+'°C'):'')+' · positions F '+(c.f_xy[0]+1)+'–'+c.f_xy[1]+', R '+(c.r_xy[0]+1)+'–'+c.r_xy[1]+(c.probe_xy?(', probe '+(c.probe_xy[0]+1)+'–'+c.probe_xy[1]):'')+'</div>';
+ h+='<div class="row" style="margin-top:8px"><button class="ghost" onclick="vwToWorkbench('+k+')">add candidate '+(k+1)+' to Workbench</button></div>';
+ box.innerHTML=h;}
+function vwCopy(s){try{navigator.clipboard.writeText(s);toast("Copied.","ok");}catch(e){toast("Copy failed — select and copy manually.","warn");}}
+function vwProbeToggle(){const on=!!(document.getElementById("vw_probe")||{}).checked;const b=document.getElementById("vw_pobox");if(b&&b.style)b.style.opacity=on?"1":".4";}
+function vwIdx(e){const t=e&&e.target;if(!t||!t.getAttribute||!(t.classList&&t.classList.contains("vb")))return -1;const v=t.getAttribute("data-i");return v==null?-1:+v;}
+function vwSetSelection(a,b){const p=VW._selPainted;
+ if(p)for(let i=p[0];i<p[1];i++){const s=VW.spans[i];if(s&&s.classList)s.classList.remove("vb-sel");}
+ VW.selRange=[a,b];VW._selPainted=[a,b];
+ for(let i=a;i<b;i++){const s=VW.spans[i];if(s&&s.classList)s.classList.add("vb-sel");}}
+function vwClearSel(){const p=VW._selPainted;
+ if(p)for(let i=p[0];i<p[1];i++){const s=VW.spans[i];if(s&&s.classList)s.classList.remove("vb-sel");}
+ VW._selPainted=null;VW.selRange=null;const b=document.getElementById("vw_sel");if(b&&b.style)b.style.display="none";}
+function vwDown(e){const i=vwIdx(e);if(i<0)return;if(e.preventDefault)e.preventDefault();
+ if(VW.erase){vwEraseAt(i);return;}VW.anchor=i;VW.dragging=true;vwSetSelection(i,i+1);}
+function vwMove(e){if(!VW.dragging)return;const i=vwIdx(e);if(i<0)return;vwSetSelection(Math.min(VW.anchor,i),Math.max(VW.anchor,i)+1);}
+function vwUp(){if(!VW.dragging)return;VW.dragging=false;vwShowSel();}
+function vwLeave(){if(VW.dragging){VW.dragging=false;vwShowSel();}}
+function vwShowSel(){const b=document.getElementById("vw_sel");if(!b)return;if(!VW.selRange){b.style.display="none";return;}
+ const a=VW.selRange[0],e=VW.selRange[1],seq=VW.seq.slice(a,e);
+ b.style.display="block";
+ b.innerHTML='<div class="row" style="justify-content:space-between;align-items:center"><span class="hint">selection — '+seq.length+' nt · positions '+(a+1)+'–'+e+'</span><a class="ghost" style="cursor:pointer" onclick="vwClearSel()">clear</a></div>'+
+  '<div class="vw-oligo">'+seq+'</div>'+
+  '<div class="row" style="margin-top:6px;gap:8px"><button class="ghost" onclick="vwTag(\'f\')">tag as forward</button><button class="ghost" onclick="vwTag(\'r\')">tag as reverse</button><button class="ghost" onclick="vwTag(\'p\')">tag as probe</button></div>'+
+  '<div class="hint" style="margin-top:3px">reverse is read as the reverse-complement; all numbers are real engine QC.</div>';}
+async function vwTag(role){if(!VW.selRange){toast("Drag across the bases to select a region first.","warn");return;}
+ const a=VW.selRange[0],b=VW.selRange[1],seq=VW.seq.slice(a,b);
+ if(b-a<6){toast("Selection is too short for a useful oligo.","warn");return;}
+ const disp=role==="r"?_rc(seq):seq, qcRole=role==="p"?"probe":"primer";
+ const d=await api("/api/qc",{seq:disp,role:qcRole});
+ if(d.error){toast(d.error,"warn");return;}
+ VW.manual.push({id:uid(),role:role,from:a,to:b,seq:seq,disp:disp,len:disp.length,
+  tm:d.tm,gc:d.gc,hairpin_dg:d.hairpin_dg,self_dimer:d.self_dimer,last5_gc:d.last5_gc,max_run:d.max_run});
+ vwClearSel();vwRepaintLayers();vwRenderManual();
+ toast("Tagged "+disp.length+" nt as "+({f:"forward",r:"reverse",p:"probe"}[role])+".","ok");}
+function vwEraseAt(i){const hits=(VW.manual||[]).filter(x=>x.from<=i&&i<x.to);if(!hits.length)return;
+ const last=hits[hits.length-1];VW.manual=VW.manual.filter(x=>x!==last);vwRepaintLayers();vwRenderManual();toast("Removed a "+vwRoleName(last.role).toLowerCase()+" region.","ok");}
+function vwToggleErase(){VW.erase=!VW.erase;if(VW.erase)vwClearSel();
+ const btn=document.getElementById("vw_erasebtn");if(btn&&btn.classList)btn.classList.toggle("on",VW.erase);
+ const sv=document.getElementById("vw_seqview");if(sv&&sv.classList)sv.classList.toggle("erasing",VW.erase);
+ toast(VW.erase?"Erase mode on — click a highlighted region to remove it.":"Erase mode off.","ok");}
+function vwClearMine(){VW.manual=[];vwClearSel();vwRepaintLayers();vwRenderManual();toast("Cleared your highlights.","ok");}
+function vwClearMachine(){VW.sel=-1;vwRepaintLayers();if(typeof vwRenderCands==="function")vwRenderCands();toast("Cleared the machine highlights.","ok");}
+function vwRoleName(r){return {f:"Forward",r:"Reverse",p:"Probe"}[r]||r;}
+function vwRenderManual(){const box=document.getElementById("vw_manual");if(!box)return;
+ if(!VW.manual.length){box.innerHTML='<div class="vw-rules-h" style="margin-top:8px">your regions</div><div class="hint">drag across the bases above to select a region, then tag it as forward, reverse, or probe.</div>';return;}
+ const hasF=VW.manual.some(m=>m.role==="f"),hasR=VW.manual.some(m=>m.role==="r");
+ let h='<div class="vw-rules-h" style="margin-top:8px">your regions</div>';
+ h+=VW.manual.map(m=>'<div class="vw-fld"><div class="row" style="justify-content:space-between"><span><b>'+vwRoleName(m.role)+'</b> <span class="hint">pos '+(m.from+1)+'–'+m.to+' · '+m.len+' nt · Tm '+m.tm+'°C · GC '+m.gc+'%</span></span><span><a class="ghost" style="cursor:pointer" onclick="vwCopy(\''+m.disp+'\')">copy</a> · <a class="ghost" style="cursor:pointer" onclick="vwRemoveManual(\''+m.id+'\')">remove</a></span></div><div class="vw-oligo">'+m.disp+'</div><div class="hint">hairpin '+m.hairpin_dg+' · self-dimer '+m.self_dimer+" · 3' GC "+m.last5_gc+' · longest run '+m.max_run+'</div></div>').join("");
+ if(hasF&&hasR)h+='<div class="row" style="margin-top:8px"><button class="ghost" onclick="vwManualToWorkbench()">add this set to Workbench</button></div>';
+ box.innerHTML=h;}
+function vwRemoveManual(id){VW.manual=(VW.manual||[]).filter(m=>m.id!==id);vwRepaintLayers();vwRenderManual();}
+function vwSrcName(){const s=(VW.gene||VW.src||"manual").split("·")[0].trim();return (s||"manual").slice(0,24);}
+function vwToWorkbench(k){const c=VW.cands[k];if(!c){toast("No candidate selected.","warn");return;}
+ addAssay({name:vwSrcName()+" (viewer)",gene:VW.gene||"",organism:VW.org||"",forward:c.forward,reverse:c.reverse,probe:c.probe||null,
+  amplicon:c.amplicon,amplicon_tm:c.amplicon_tm,f_tm:c.f_tm,r_tm:c.r_tm,probe_tm:c.probe_tm||null,chemistry:"viewer (strict rules)",gblock:c.gblock||null});}
+function vwManualToWorkbench(){const f=[...VW.manual].reverse().find(m=>m.role==="f"),r=[...VW.manual].reverse().find(m=>m.role==="r"),p=[...VW.manual].reverse().find(m=>m.role==="p");
+ if(!f||!r){toast("Tag at least a forward and a reverse region first.","warn");return;}
+ if(r.to<=f.from){toast("The reverse region should sit downstream (3') of the forward region.","warn");return;}
+ addAssay({name:vwSrcName()+" (manual)",gene:VW.gene||"",organism:VW.org||"",forward:f.disp,reverse:r.disp,probe:p?p.disp:null,
+  amplicon:Math.max(0,r.to-f.from),amplicon_tm:null,f_tm:f.tm,r_tm:r.tm,probe_tm:p?p.tm:null,chemistry:"viewer (manual pick)",gblock:null});}
 </script>
 </body></html>

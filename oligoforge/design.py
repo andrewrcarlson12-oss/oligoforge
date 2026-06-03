@@ -211,3 +211,60 @@ def build_offtarget_gblock(amplicon, off_seqs, flank=50, min_len=125):
         need = min_len - len(block)
         block += (_GBLOCK_FILLER * (need // len(_GBLOCK_FILLER) + 1))[:need]
     return dict(seq=block, off_index=oi, amplicon_identity=round(ident, 1), span=(a, e))
+
+
+def probe_span(template, assay):
+    """Exact base coordinates of the probe within the template -- the literal location the probe
+    was taken from in design_assay (find_probe scans template[fend:rstart] on both strands).
+    Returns [start, end] (so template[start:end] == probe for a +-strand probe, or == revcomp(probe)
+    for a --strand probe), or None. No estimation: it is a substring search for the real oligo."""
+    pi = assay.get("probe_info"); probe = assay.get("probe")
+    if not pi or not probe:
+        return None
+    template = template.upper()
+    needle = probe if pi.get("strand", "+") == "+" else T.revcomp(probe)
+    fx, rx = assay["f_xy"][1], assay["r_xy"][0]
+    i = template[fx:rx].find(needle)
+    if i >= 0:
+        return [fx + i, fx + i + len(needle)]
+    j = template.find(needle)
+    return [j, j + len(needle)] if j >= 0 else None
+
+
+def design_candidates(template, c, n=5, window=400, step=120, budget=9.0):
+    """Up to n distinct assays across the template, each with base coordinates mapped to the FULL
+    template: f_xy, r_xy, probe_xy, amplicon_xy. Slides a design window (so a transcript with a bad
+    5' end still yields interior candidates) and de-dups by forward primer. Window count is capped so
+    even a multi-kb sequence runs a bounded number of design passes. Coordinate invariants hold:
+    template[f_xy[0]:f_xy[1]] == forward, template[r_xy[0]:r_xy[1]] == revcomp(reverse)."""
+    import time
+    template = template.upper()
+    L = len(template)
+    window = max(window, min(int(c.get("amp_max", 150)) + 120, 2200))   # honor a larger amp_max, still bounded
+    if L <= window:
+        starts = [0]
+    else:
+        step_eff = max(step, (L - window) // 29 + 1)   # <= ~30 design windows on a long sequence
+        starts = list(range(0, L - window + 1, step_eff))
+    out, seen = [], set()
+    t0 = time.time()
+    for s in starts:
+        if time.time() - t0 > budget:                  # hard wall: a pathological template can't stall a worker
+            break
+        sub = template[s:s + window]
+        try:
+            a = design_assay(sub, c)
+        except Exception:
+            a = None
+        if not a or a["forward"] in seen:
+            continue
+        seen.add(a["forward"])
+        pxy = probe_span(sub, a)                        # window-relative; remap below
+        a["f_xy"] = [a["f_xy"][0] + s, a["f_xy"][1] + s]
+        a["r_xy"] = [a["r_xy"][0] + s, a["r_xy"][1] + s]
+        a["probe_xy"] = [pxy[0] + s, pxy[1] + s] if pxy else None
+        a["amplicon_xy"] = [a["f_xy"][0], a["r_xy"][1]]
+        out.append(a)
+        if len(out) >= n:
+            break
+    return out

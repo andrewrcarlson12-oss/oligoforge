@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO
 
-app = FastAPI(title="OligoForge", version="1.11.24")
+app = FastAPI(title="OligoForge", version="1.12.1")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -577,6 +577,9 @@ def api_isolate_check(r: IsolateCheckReq):
     The frontend chunks the panel into small batches so no single request fetches many genomes."""
     _set_email(r.email, r.ncbi_key)
     accs = [a.strip() for a in (r.accessions or []) if a.strip()][:6]    # hard cap; frontend paginates
+    maxp = max(int(r.min_product), min(int(r.max_product), 50000))       # qPCR amplicons are small; bound the
+    mm = max(0, min(int(r.max_mm), 10))                                  # probe scan and primer search so a
+    pid = max(0.0, min(float(r.min_probe_ident), 100.0))                 # pathological request cannot stall a worker
     out = []
     for acc in accs:
         try:
@@ -585,11 +588,80 @@ def api_isolate_check(r: IsolateCheckReq):
                 out.append(dict(acc=acc, title=title, slen=0, role=r.role, amplifies=None,
                                 error="no sequence (accession may be an assembly master / empty record)"))
                 continue
-            res = ISO.amplify(r.forward, r.reverse, r.probe, seq, max_mm=r.max_mm,
-                              min_product=r.min_product, max_product=r.max_product,
-                              min_probe_ident=r.min_probe_ident)
+            res = ISO.amplify(r.forward, r.reverse, r.probe, seq, max_mm=mm,
+                              min_product=r.min_product, max_product=maxp,
+                              min_probe_ident=pid)
             res.update(acc=acc, title=title, slen=len(seq), role=r.role, error=None)
             out.append(res)
         except Exception as e:
             out.append(dict(acc=acc, title="", slen=0, role=r.role, amplifies=None, error=str(e)))
     return {"results": out}
+
+
+# ---- SnapGene-style viewer: strict-rules design on a user-picked sequence, with base coordinates ----
+class ViewerDesignReq(BaseModel):
+    sequence: str
+    tm_min: float = 59.0
+    tm_max: float = 64.5
+    gc_min: float = 35.0
+    gc_max: float = 65.0
+    amp_min: int = 70
+    amp_max: int = 150
+    len_min: int = 18
+    len_max: int = 24
+    probe: bool = True
+    probe_offset_min: float = 5.0
+    probe_offset_max: float = 10.5
+    n: int = 5
+
+
+@app.post("/api/viewer_design")
+def viewer_design(r: ViewerDesignReq):
+    seq, notes, err = T.clean_seq(r.sequence)
+    if err:
+        return JSONResponse({"error": "sequence: " + err}, status_code=200)
+    if len(seq) < 50:
+        return JSONResponse({"error": "sequence too short to design on (need at least 50 nt)"}, status_code=200)
+    # strict config from the TaqMan base, with the user's multiplex rules clamped to sane ranges
+    c = dict(P.PROFILES["idt_taqman"])
+    tmlo, tmhi = sorted((float(r.tm_min), float(r.tm_max)))
+    gclo, gchi = sorted((float(r.gc_min), float(r.gc_max)))
+    amlo, amhi = sorted((int(r.amp_min), int(r.amp_max)))
+    lnlo, lnhi = sorted((int(r.len_min), int(r.len_max)))
+    c.update(tm_min=tmlo, tm_max=tmhi, tm_opt=(tmlo + tmhi) / 2.0,
+             gc_min=max(0.0, gclo), gc_max=min(100.0, gchi),
+             amp_min=max(40, amlo), amp_max=min(2000, amhi),
+             len_min=max(12, min(lnlo, 40)), len_max=max(12, min(lnhi, 40)))
+    if r.probe:
+        polo, pohi = sorted((float(r.probe_offset_min), float(r.probe_offset_max)))
+        c.update(no_probe=False, probe_offset_min=polo, probe_offset_max=pohi)
+    else:
+        c["no_probe"] = True
+    n = max(1, min(int(r.n), 8))
+    try:
+        cands = D.design_candidates(seq, c, n=n)
+    except Exception as e:
+        return JSONResponse({"error": f"design failed: {e}"}, status_code=200)
+
+    def _gc(s):
+        return round(T.gc_percent(s), 1) if s else None
+
+    def _inw(tm):
+        return bool(tmlo <= tm <= tmhi)
+
+    out = []
+    for a in cands:
+        pi = a.get("probe_info")
+        out.append(dict(
+            forward=a["forward"], reverse=a["reverse"], probe=a.get("probe"),
+            amplicon=a["amplicon"], amplicon_tm=a.get("amplicon_tm"),
+            f_xy=a["f_xy"], r_xy=a["r_xy"], probe_xy=a.get("probe_xy"), amplicon_xy=a["amplicon_xy"],
+            f_tm=round(a["f_tm"], 1), r_tm=round(a["r_tm"], 1), pair_tm_gap=round(a["pair_tm_gap"], 1),
+            f_gc=_gc(a["forward"]), r_gc=_gc(a["reverse"]), probe_gc=_gc(a.get("probe")),
+            probe_tm=round(pi["tm"], 1) if pi else None,
+            probe_offset=round(pi["offset"], 1) if pi else None,
+            probe_strand=(pi.get("strand") if pi else None),
+            f_in=_inw(a["f_tm"]), r_in=_inw(a["r_tm"]),
+            gblock=a.get("gblock")))
+    return dict(seq_len=len(seq), tm_window=[tmlo, tmhi], gc_window=[gclo, gchi],
+                candidates=out, note=(" · ".join(notes) if notes else None))
