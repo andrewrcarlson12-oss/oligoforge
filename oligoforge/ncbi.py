@@ -356,3 +356,48 @@ def count_hits(query):
         return int(r.get("Count", 0))
     except Exception:
         return None
+
+
+def search_genomes(query, retmax=40):
+    """List isolate-level nucleotide records (complete genomes / chromosomes) for a taxon.
+    Metadata only via esummary -- NO sequence is fetched here, so it stays light even for a
+    broad taxon. Returns [{acc, title, slen}]. The picker shows title (organism+strain) so the
+    user confirms each isolate before it goes into a validation run."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    tiers = [
+        f'({q}[Organism]) AND complete genome[Title] AND 500000:25000000[SLEN] NOT plasmid[Title]',
+        f'({q}[Organism]) AND (chromosome[Title] OR complete sequence[Title]) AND 500000:25000000[SLEN] NOT plasmid[Title]',
+        f'({q}) AND 100000:25000000[SLEN] NOT plasmid[Title]',
+    ]
+    ids = []
+    for term in tiers:
+        h = Entrez.esearch(db="nucleotide", term=term, retmax=int(retmax)); ids = Entrez.read(h)["IdList"]; h.close()
+        if ids:
+            break
+    if not ids:
+        return []
+    h = Entrez.esummary(db="nucleotide", id=",".join(ids)); recs = Entrez.read(h); h.close()
+    out = []
+    for d in recs:
+        out.append(dict(acc=str(d.get("AccessionVersion") or d.get("Caption") or ""),
+                        title=str(d.get("Title") or ""), slen=int(d.get("Slen") or 0)))
+    out.sort(key=lambda x: x["title"])
+    return out
+
+
+def fetch_one(acc):
+    """Fetch a single accession as (title, sequence). Streamed for one record; a leading NCBI
+    notice/comment is stripped. Used by isolate validation, which scans one genome then frees it
+    (peak memory = one record, so a 40-isolate panel never holds 40 genomes at once)."""
+    h = Entrez.efetch(db="nucleotide", id=str(acc).strip(), rettype="fasta", retmode="text")
+    try:
+        raw = h.read()
+    finally:
+        h.close()
+    cut = raw.find(">")
+    recs = list(SeqIO.parse(StringIO(raw[cut:] if cut >= 0 else ""), "fasta"))
+    if not recs:
+        return (str(acc), "")
+    return (recs[0].description, str(recs[0].seq).upper())

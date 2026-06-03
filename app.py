@@ -10,9 +10,9 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP
+from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO
 
-app = FastAPI(title="OligoForge", version="1.11.22")
+app = FastAPI(title="OligoForge", version="1.11.24")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -550,3 +550,46 @@ def api_autodesign(r: AutoDesignReq):
                                     nested=r.nested)
     except Exception as e:
         return JSONResponse({"error": f"autodesign failed: {e}"}, status_code=200)
+
+
+# ============ isolate panel validation (inclusivity / exclusivity in-silico PCR) ============
+class IsolateGenomesReq(BaseModel):
+    query: str; retmax: int = 40
+    email: Optional[str] = None; ncbi_key: Optional[str] = None
+
+@app.post("/api/isolate_genomes")
+def api_isolate_genomes(r: IsolateGenomesReq):
+    _set_email(r.email, r.ncbi_key)
+    try:
+        return {"genomes": ncbi.search_genomes(r.query, r.retmax)}
+    except Exception as e:
+        return JSONResponse({"error": f"genome search failed: {e}"}, status_code=200)
+
+class IsolateCheckReq(BaseModel):
+    forward: str; reverse: str; probe: str = ""
+    accessions: List[str]; role: str = "target"
+    max_mm: int = 5; min_product: int = 40; max_product: int = 3000; min_probe_ident: float = 85.0
+    email: Optional[str] = None; ncbi_key: Optional[str] = None
+
+@app.post("/api/isolate_check")
+def api_isolate_check(r: IsolateCheckReq):
+    """Run in-silico PCR of one assay against each accession (one genome at a time, freed after).
+    The frontend chunks the panel into small batches so no single request fetches many genomes."""
+    _set_email(r.email, r.ncbi_key)
+    accs = [a.strip() for a in (r.accessions or []) if a.strip()][:6]    # hard cap; frontend paginates
+    out = []
+    for acc in accs:
+        try:
+            title, seq = ncbi.fetch_one(acc)
+            if not seq:
+                out.append(dict(acc=acc, title=title, slen=0, role=r.role, amplifies=None,
+                                error="no sequence (accession may be an assembly master / empty record)"))
+                continue
+            res = ISO.amplify(r.forward, r.reverse, r.probe, seq, max_mm=r.max_mm,
+                              min_product=r.min_product, max_product=r.max_product,
+                              min_probe_ident=r.min_probe_ident)
+            res.update(acc=acc, title=title, slen=len(seq), role=r.role, error=None)
+            out.append(res)
+        except Exception as e:
+            out.append(dict(acc=acc, title="", slen=0, role=r.role, amplifies=None, error=str(e)))
+    return {"results": out}
