@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO
 
-app = FastAPI(title="OligoForge", version="1.12.1")
+app = FastAPI(title="OligoForge", version="1.12.2")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -351,6 +351,26 @@ def panel_save(r: PanelSaveReq):
 @app.get("/api/panel/list")
 def panel_list():
     return dict(panels=sorted(f[:-5] for f in os.listdir(PANELS_DIR) if f.endswith(".json")))
+
+
+@app.post("/api/factory_reset")
+def factory_reset():
+    """Delete every saved panel and project on the server -- the server half of a factory reset.
+    Only *.json inside the two managed directories are touched (names come from os.listdir, so no
+    path traversal). The browser clears its own localStorage/session separately."""
+    removed = {"panels": 0, "projects": 0}
+    for key, d in (("panels", PANELS_DIR), ("projects", PROJECTS_DIR)):
+        try:
+            names = os.listdir(d)
+        except OSError:
+            names = []
+        for fn in names:
+            if fn.endswith(".json"):
+                try:
+                    os.remove(os.path.join(d, fn)); removed[key] += 1
+                except OSError:
+                    pass
+    return dict(ok=True, panels=removed["panels"], projects=removed["projects"])
 
 @app.post("/api/panel/load")
 def panel_load(r: PanelLoadReq):

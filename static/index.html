@@ -745,9 +745,13 @@ table tr.gf-row-rec:hover td{background:rgba(110,231,168,.15)!important}
 
    <h3 style="margin:16px 0 6px;font-size:13px;color:var(--ink)">Honest limits</h3>
    <p class="hint">Tm and secondary-structure numbers are real primer3 values computed at your reaction salt, but LNA Tm is reported as a range — confirm it in OligoAnalyzer. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
+
+    <h3 style="margin:20px 0 6px;font-size:13px;color:#ffb4ad">Reset to factory settings</h3>
+    <p class="hint">Returns OligoForge to a clean install. This wipes the current Workbench, every saved panel and project (on the server), your saved reaction conditions, your remembered NCBI email and key, and the intro-screen flag, then reloads. It cannot be undone, so export anything you want to keep first (Export panel on the Workbench, or save a project elsewhere).</p>
+    <div class="row"><button class="ghost" style="border-color:rgba(251,109,99,.5);color:#ffc9c4" onclick="factoryReset()">Reset to factory settings…</button></div>
   </div></section>
 </main>
-<footer>OligoForge v1.12.1</footer>
+<footer>OligoForge v1.12.2</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -1169,6 +1173,16 @@ function editAssay(id,f,v){const a=PANEL.find(x=>x.id===id);if(a){a[f]=v;savePan
 function setCurrent(id){CURRENT_ID=id;savePanel();renderPanel();}
 function removeAssay(id){PANEL=PANEL.filter(a=>a.id!==id);if(CURRENT_ID===id)CURRENT_ID=null;savePanel();renderPanel();}
 function clearPanel(){if(!PANEL.length||confirm("Remove all "+PANEL.length+" assays from the workbench?")){PANEL=[];CURRENT_ID=null;savePanel();renderPanel();}}
+async function factoryReset(){
+ if(!confirm("Reset OligoForge to factory settings?\n\nThis permanently deletes:\n  • the current Workbench\n  • every saved panel and project (on the server)\n  • your saved reaction conditions\n  • your remembered NCBI email and key\n\nThis cannot be undone. Export anything you want to keep first.")) return;
+ let extra="";
+ try{const d=await api("/api/factory_reset",{});if(d&&d.ok)extra="\nRemoved "+d.panels+" saved panel(s) and "+d.projects+" saved project(s) from the server.";}
+ catch(e){extra="\n(Could not reach the server to clear saved panels/projects — your browser data was still cleared.)";}
+ try{["of_panel","of_current","of_tab","of_cond","ncbi_email","of_ncbi_key"].forEach(k=>localStorage.removeItem(k));}catch(e){}
+ try{sessionStorage.removeItem("of_seen_intro");}catch(e){}
+ alert("OligoForge has been reset to factory settings."+extra+"\n\nReloading…");
+ try{location.reload();}catch(e){}
+}
 function exportPanel(){if(!PANEL.length){toast("Nothing to export — the workbench is empty.","warn");return;}download("oligoforge_panel.json",JSON.stringify(PANEL,null,1));}
 function importPanel(inp){const f=inp&&inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{let arr;try{arr=JSON.parse(rd.result);}catch(e){toast("That file isn't valid JSON.","err");inp.value="";return;}if(!Array.isArray(arr)){toast("Expected a panel file — a JSON array of assays (use Export panel to make one).","err");inp.value="";return;}if(PANEL.length&&!confirm("Replace the current workbench with "+arr.length+" imported assay(s)?")){inp.value="";return;}PANEL=arr.map(a=>{a=a||{};if(!a.id)a.id=uid();return a;});CURRENT_ID=PANEL.length?PANEL[0].id:null;savePanel();renderPanel();gotab("work");toast("Imported "+PANEL.length+" assay(s).","ok");inp.value="";};rd.readAsText(f);}
 function uid(){return "a"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
