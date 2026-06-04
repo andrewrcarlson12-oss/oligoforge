@@ -294,6 +294,45 @@ def _disc_candidates(reference, profile, offs, want=6, window=350, screen=300):
     return out
 
 
+def epcr_offline(forward, reverse, sequences, probe=None, min_product=40, max_product=3000, min_ident=0.75):
+    """Deterministic in-silico PCR of a primer pair over caller-supplied sequences -- NO BLAST, no network.
+    Places each primer on each sequence (ungapped, IUPAC- and mismatch-aware via conservation.best_placement),
+    converts the placement to + -strand coordinates, and reuses the shipped epcr() convergence/size logic to
+    predict products. For each product, also reports whether the probe binds inside it (the difference between a
+    harmless mis-priming and a false-positive signal). Returns a list of dict(subject, size, span, probe_binds).
+    The 3'-end of each primer must match its binding window (q3) for the primer to be extension-competent."""
+    hits = []
+    for idx, seq in enumerate(sequences or []):
+        su = (seq or "").upper().replace("U", "T")
+        if not su:
+            continue
+        for primer, nm in ((forward, "F"), (reverse, "R")):
+            if not primer:
+                continue
+            p = C.best_placement(primer, su)
+            if not p or p["ident"] < min_ident:
+                continue
+            L = len(primer); i = p["offset"]; w = p.get("window") or ""
+            q3 = bool(w) and C._match(primer[-1], w[-1])      # extension needs a matched 3' terminal base
+            if p["strand"] == "+":
+                lo, hi, strand = i + 1, i + L, "+"            # 1-based inclusive on the + strand
+            else:                                             # matched on rc(su) -> map back to + coords
+                lo, hi, strand = len(su) - (i + L) + 1, len(su) - i, "-"
+            hits.append(dict(primer=nm, subject=idx, lo=lo, hi=hi, strand=strand, q3=q3,
+                             ident=round(100 * p["ident"], 1)))
+    products = SP.epcr(hits, min_product=min_product, max_product=max_product, require_3prime=True)
+    out = []
+    for pr in products:
+        binds = None
+        if probe:
+            sub = (sequences[pr["subject"]] or "").upper().replace("U", "T")
+            seg = sub[max(0, pr["span"][0] - 1): pr["span"][1]]
+            pp = C.best_placement(probe, seg)
+            binds = bool(pp and pp["ident"] >= 0.80)
+        out.append(dict(subject=pr["subject"], size=pr["size"], span=pr["span"], probe_binds=binds))
+    return out
+
+
 def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidates=5):
     # defensive: de-gap / uppercase / RNA->DNA each sequence and drop anything unusable, so a
     # pasted alignment or RNA sequence is corrected here rather than reaching the Tm engine dirty.

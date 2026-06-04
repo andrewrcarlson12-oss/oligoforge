@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO
 
-app = FastAPI(title="OligoForge", version="1.21.6")
+app = FastAPI(title="OligoForge", version="1.21.8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -91,7 +91,7 @@ class MatrixReq(BaseModel):
     oligos: Dict[str, str]
 
 class DesignReq(BaseModel):
-    template: str; profile: str = "idt_taqman"
+    template: str; profile: str = "idt_taqman"; off_targets: Optional[str] = None
 
 class FetchReq(BaseModel):
     accession: Optional[str] = None; gene: Optional[str] = None
@@ -231,57 +231,165 @@ def matrix(r: MatrixReq):
     return dict(names=names, cells=cells)
 
 from oligoforge import autodesign as _AD_design
+def _parse_fasta_targets(text):
+    """Accept either raw sequence or multi-record FASTA in one box. Returns (cleaned_seqs>60nt, notes).
+    Each record is run through the same clean_seq the engine uses, so a pasted alignment / RNA is corrected."""
+    if not text or not text.strip():
+        return [], []
+    has_header = ">" in text
+    recs = []
+    if has_header:
+        cur = []
+        for line in text.splitlines():
+            if line.startswith(">"):
+                if cur:
+                    recs.append("".join(cur)); cur = []
+            else:
+                cur.append(line.strip())
+        if cur:
+            recs.append("".join(cur))
+    else:
+        recs = [text]
+    out = []
+    for raw in recs:
+        c, _n, err = T.clean_seq(raw)
+        if c and not err and len(c) > 60:
+            out.append(c)
+    notes = []
+    if has_header and len(out) < len(recs):
+        notes.append("%d of %d FASTA record(s) usable (others too short / unreadable)." % (len(out), len(recs)))
+    return out, notes
+
+
 @app.post("/api/design")
 def design(r: DesignReq):
-    tmpl, notes, err = T.clean_seq(r.template)
-    if err:
-        return JSONResponse({"error": "template: " + err}, status_code=200)
-    notes = list(notes or [])
-    gc = 100.0 * sum(c in "GC" for c in tmpl) / max(1, len(tmpl))
+    targets, tnotes = _parse_fasta_targets(r.template)
+    if not targets:
+        return JSONResponse({"error": "no usable template \u2014 paste at least ~60 nt of the transcript / region "
+                                      "(raw sequence or multi-record FASTA)."}, status_code=200)
+    offs, _onotes = _parse_fasta_targets(r.off_targets) if r.off_targets else ([], [])
+    notes = list(tnotes or [])
+    multi = len(targets) >= 2
+    ref = _AD_design._reference(targets)                     # the sequence all spans / highlights map onto
+    gc = 100.0 * sum(c in "GC" for c in ref) / max(1, len(ref))
+    NCAND = 10
+    # Same ranked-candidate engine as Target->assay; here the target set + off-target set are pasted, so multiple
+    # targets unlock conservation + IUPAC-degenerate genus primers and an off-target set unlocks discrimination +
+    # an offline in-silico-PCR verdict. One pasted sequence with no off-targets behaves exactly as before.
     if (r.profile or "").lower() == "auto":
-        order, _gc = _AD_design._auto_order(tmpl)
-        if _gc < 40.0 and "parasite_lna" not in order:      # offer the LNA-core option for AT-rich targets
+        order, _gc = _AD_design._auto_order(ref)
+        if _gc < 40.0 and "parasite_lna" not in order:
             order = order[:1] + ["parasite_lna"] + order[1:]
-        a = None; used = None
+        res = None; used = None
         for pk in order:
             try:
-                a = D.design_assay(tmpl, P.PROFILES[pk])
+                res = _AD_design.design_from_sequences(targets, P.PROFILES[pk], offs=offs or None, n_candidates=NCAND)
             except Exception:
-                a = None
-            if a:
+                res = None
+            if res and res.get("candidates"):
                 used = pk; break
-        if not a:
-            return JSONResponse({"error": "no clean assay found under any Auto chemistry (tried: %s; template GC %.0f%%). "
-                                          "Try a longer/cleaner region." % (", ".join(order), gc)}, status_code=200)
+        if not (res and res.get("candidates")):
+            return JSONResponse({"error": "no clean assay found under any Auto chemistry (tried: %s; reference GC %.0f%%). "
+                                          "Try a longer / cleaner region." % (", ".join(order), gc)}, status_code=200)
         prof = P.PROFILES[used]
-        notes.append("Auto-selected chemistry: %s (template GC %.0f%%)." % (prof["name"], gc))
+        notes.append("Auto-selected chemistry: %s (reference GC %.0f%%)." % (prof["name"], gc))
     else:
-        prof = P.PROFILES.get(r.profile, P.PROFILES["idt_taqman"])
+        pk = r.profile if r.profile in P.PROFILES else "idt_taqman"
+        prof = P.PROFILES[pk]
         try:
-            a = D.design_assay(tmpl, prof)
+            res = _AD_design.design_from_sequences(targets, prof, offs=offs or None, n_candidates=NCAND)
         except Exception as e:
             return JSONResponse({"error": f"design failed: {e}"}, status_code=200)
-        if not a:
+        if not (res and res.get("candidates")):
             if gc < 40:
-                hint = " This template is AT-rich (GC %.0f%%) \u2014 switch to Auto, 'low-Tm TaqMan', or 'AT-rich + LNA probe'." % gc
+                hint = " The reference is AT-rich (GC %.0f%%) \u2014 switch to Auto, 'low-Tm TaqMan', or 'AT-rich + LNA probe'." % gc
             elif gc > 62:
-                hint = " This template is GC-rich (GC %.0f%%) \u2014 switch to Auto or the 'GC-rich' profile." % gc
+                hint = " The reference is GC-rich (GC %.0f%%) \u2014 switch to Auto or the 'GC-rich' profile." % gc
             else:
                 hint = " Try Auto, a longer region, or a different chemistry."
-            return JSONResponse({"error": "no clean assay found in this template under %s.%s" % (prof["name"], hint)},
-                                status_code=200)
-    pi = a.get("probe_info")
-    return dict(forward=a["forward"], reverse=a["reverse"], probe=a["probe"],
-                amplicon=a["amplicon"], amplicon_tm=a.get("amplicon_tm"),
-                pair_tm_gap=round(a["pair_tm_gap"], 1),
-                f_tm=round(a["f_tm"], 1), r_tm=round(a["r_tm"], 1),
-                probe_tm=round(pi["tm"], 1) if pi else None,
-                probe_offset=round(pi["offset"], 1) if pi else None,
-                probe_hairpin=round(pi["hairpin_dg"], 2) if pi else None,
-                probe_dimer_f=round(pi["dimer_f"], 2) if pi else None,
-                probe_dimer_r=round(pi["dimer_r"], 2) if pi else None,
-                gblock=a["gblock"], f_xy=a["f_xy"], r_xy=a["r_xy"], profile=prof["name"],
-                note=(" \u00b7 ".join(notes) if notes else None))
+            return JSONResponse({"error": "no clean assay found under %s.%s" % (prof["name"], hint)}, status_code=200)
+
+    def _loc(sub):                                          # locate an oligo's footprint on the reference
+        i = ref.find((sub or "").upper())
+        return [i, i + len(sub)] if (sub and i >= 0) else None
+
+    off_ctrl = None                                         # worst-case off-target amplicon as a bench negative control
+    if offs:
+        try:
+            a0 = res["candidates"][0]["assay"]
+            f0 = _loc(a0["forward"]); r0 = _loc(T.revcomp(a0["reverse"]))
+            if f0 and r0:
+                g = D.build_offtarget_gblock(ref[f0[0]:r0[1]], offs)   # amplicon SEQUENCE, not its length
+                if g:
+                    off_ctrl = dict(seq=g["seq"], identity=g.get("amplicon_identity"), off_index=g.get("off_index"))
+        except Exception:
+            off_ctrl = None
+
+    cands = []
+    for sc in res["candidates"]:
+        a = sc["assay"]; pi = a.get("probe_info")
+        fspan = _loc(a["forward"])
+        rspan = _loc(T.revcomp(a["reverse"]))               # reverse primer binds the antisense strand
+        probe_rc = False; pspan = None
+        if a.get("probe"):
+            pspan = _loc(a["probe"])
+            if pspan is None:
+                pspan = _loc(T.revcomp(a["probe"])); probe_rc = pspan is not None
+        amp_span = [fspan[0], rspan[1]] if (fspan and rspan) else None
+
+        cons = sc.get("conservation") or {}                 # per-oligo per-position match across targets
+        cons_out = None
+        if multi and cons:
+            def _pp(k):
+                d = cons.get(k)
+                return [pp["pct_match"] for pp in d["per_pos"]] if (d and d.get("per_pos")) else None
+            cons_out = dict(F=_pp("F"), R=_pp("R"), P=(_pp("P") if a.get("probe") else None),
+                            mean=dict(F=(cons.get("F") or {}).get("mean_ident"),
+                                      R=(cons.get("R") or {}).get("mean_ident"),
+                                      P=(cons.get("P") or {}).get("mean_ident")))
+
+        disc = sc.get("discrimination") or None             # per-oligo off-target mismatch (3'-block = good)
+        disc_out = None
+        if disc:
+            def _dd(k):
+                d = disc.get(k)
+                if not d or not d.get("n"):
+                    return None
+                return dict(n=d.get("n"), max_ident=d.get("max_ident"), min_3p_mm=d.get("min_3prime_mismatch"))
+            disc_out = dict(F=_dd("F"), R=_dd("R"), P=(_dd("P") if a.get("probe") else None))
+
+        spec = None                                         # offline in-silico PCR over the pasted off-targets
+        if offs:
+            try:
+                prods = _AD_design.epcr_offline(a["forward"], a["reverse"], offs, probe=a.get("probe"))
+                spec = dict(n_products=len(prods),
+                            products=[dict(off=p["subject"] + 1, size=p["size"], probe_binds=p["probe_binds"])
+                                      for p in prods[:8]])
+            except Exception:
+                spec = None
+
+        deg = None                                          # IUPAC-degenerate genus variants (>=2 targets)
+        if a.get("forward_deg") or a.get("reverse_deg") or a.get("probe_deg"):
+            deg = dict(forward=a.get("forward_deg"), reverse=a.get("reverse_deg"), probe=a.get("probe_deg"),
+                       n=a.get("n_degenerate"), targets=a.get("deg_targets"))
+
+        cands.append(dict(
+            forward=a["forward"], reverse=a["reverse"], probe=a.get("probe"),
+            amplicon=a["amplicon"], amplicon_tm=a.get("amplicon_tm"),
+            pair_tm_gap=round(a["pair_tm_gap"], 1), f_tm=round(a["f_tm"], 1), r_tm=round(a["r_tm"], 1),
+            probe_tm=round(pi["tm"], 1) if pi else None,
+            probe_offset=round(pi["offset"], 1) if pi else None,
+            probe_hairpin=round(pi["hairpin_dg"], 2) if pi else None,
+            probe_dimer_f=round(pi["dimer_f"], 2) if pi else None,
+            probe_dimer_r=round(pi["dimer_r"], 2) if pi else None,
+            gblock=a["gblock"], score=sc.get("score"), quality_flags=a.get("quality_flags") or [],
+            f_span=fspan, r_span=rspan, probe_span=pspan, probe_rc=probe_rc, amp_span=amp_span,
+            score_breakdown=dict(raw=sc.get("score_raw"), quality=sc.get("quality_penalty"),
+                                 amplicon=sc.get("amplicon_penalty")),
+            conservation=cons_out, discrimination=disc_out, specificity=spec, degenerate=deg))
+    return dict(template=ref, profile=prof["name"], n=len(cands), candidates=cands,
+                n_targets=len(targets), n_offs=len(offs), off_control=off_ctrl,
+                note=(" \u00b7 ".join(notes) if notes else None), constraint_note=res.get("constraint_note"))
 
 @app.post("/api/fetch")
 def fetch(r: FetchReq):

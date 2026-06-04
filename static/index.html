@@ -417,6 +417,53 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 .vw-gap{display:inline-block;width:8px}
 @media (max-width:720px){main{padding:0}.shell{padding:14px 12px 32px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+/* manual-design: clickable candidate bubbles + on-template sequence highlighter */
+.cand-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:2px 0 8px}
+.cand-bubbles{display:flex;flex-wrap:wrap;gap:6px}
+.candbubble{position:relative;width:30px;height:30px;border-radius:50%;border:1.5px solid var(--faint);background:var(--panel2);color:var(--ink2);font:600 13px var(--ui);cursor:pointer;transition:background .12s,border-color .12s,color .12s,transform .08s}
+.candbubble:hover{border-color:var(--acc);color:var(--ink)}
+.candbubble:active{transform:scale(.94)}
+.candbubble.active{background:var(--acc);border-color:var(--acc);color:#fff;box-shadow:0 2px 8px var(--acc-soft)}
+.cb-star{position:absolute;top:-7px;right:-5px;font-size:10px;color:var(--acc)}
+.candbubble.active .cb-star{color:#ffd56b}
+.seqbox{margin:10px 0 4px;border:1px solid var(--faint);border-radius:10px;background:var(--panel);padding:10px 12px}
+.seqlegend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--ink2);margin-bottom:8px}
+.seqlegend .lg{display:inline-flex;align-items:center;gap:5px}
+.sw{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle}
+.sw-f{background:rgba(56,132,246,.55)} .sw-r{background:rgba(232,140,58,.6)} .sw-p{background:rgba(150,92,214,.6)} .sw-amp{background:rgba(128,140,160,.35)}
+.seqwrap{position:relative;max-height:260px;overflow:auto}
+.seqrow{display:flex;gap:12px;line-height:1.7}
+.seqpos{flex:none;width:46px;text-align:right;color:var(--dim);font-size:11.5px;user-select:none}
+.seqseq{font-family:var(--mono);font-size:12.5px;letter-spacing:.5px;white-space:pre}
+.hl{border-radius:2px}
+.hl-1{background:rgba(128,140,160,.16)}
+.hl-2{background:rgba(56,132,246,.34)}
+.hl-3{background:rgba(232,140,58,.36)}
+.hl-4{background:rgba(150,92,214,.36)}
+/* v1.21.8 — conservation track, minimap, off-target verdicts, degenerate/spec sub-boxes */
+.cv-1{box-shadow:inset 0 -2px 0 rgba(245,200,60,.95)}
+.cv-2{box-shadow:inset 0 -2px 0 rgba(240,150,40,1)}
+.cv-3{box-shadow:inset 0 -3px 0 rgba(228,70,70,1)}
+.cv-key{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:middle;background:transparent;box-shadow:inset 0 -3px 0 rgba(228,70,70,1)}
+.candbubble.v-ok{border-color:rgba(58,170,140,.9)} .candbubble.v-warn{border-color:rgba(232,162,58,.95)} .candbubble.v-risk{border-color:rgba(228,70,70,.95)}
+.minimap{margin:8px 0 2px}
+.mm-cap{font-size:11px;color:var(--ink2);margin-bottom:4px}
+.mm-track{position:relative;height:16px;border-radius:5px;background:var(--panel2);border:1px solid var(--faint);overflow:hidden}
+.mm-seg{position:absolute;top:2px;height:12px;border-radius:3px;background:var(--acc-soft);border:1px solid var(--acc);cursor:pointer;transition:filter .1s,box-shadow .1s;min-width:3px}
+.mm-seg:hover{filter:brightness(1.12)}
+.mm-seg.sel{box-shadow:0 0 0 2px var(--acc);z-index:2}
+.mm-seg.v-ok{background:rgba(58,170,140,.5);border-color:rgba(58,170,140,.9)}
+.mm-seg.v-warn{background:rgba(232,162,58,.55);border-color:rgba(232,162,58,.95)}
+.mm-seg.v-risk{background:rgba(228,70,70,.55);border-color:rgba(228,70,70,.95)}
+.mm-seg.sel.v-ok{box-shadow:0 0 0 2px rgba(58,170,140,1)} .mm-seg.sel.v-warn{box-shadow:0 0 0 2px rgba(232,162,58,1)} .mm-seg.sel.v-risk{box-shadow:0 0 0 2px rgba(228,70,70,1)}
+.subbox{margin:8px 0 4px;border:1px solid var(--faint);border-radius:9px;background:var(--panel);padding:8px 11px}
+.sub-h{font-size:11px;font-weight:600;color:var(--ink2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.verdict{display:inline-block;font-size:12px;font-weight:600;padding:3px 9px;border-radius:7px}
+.verdict.v-ok{background:rgba(58,170,140,.16);color:#2a8f72}
+.verdict.v-warn{background:rgba(232,162,58,.18);color:#a9701f}
+.verdict.v-risk{background:rgba(228,70,70,.16);color:#c23b3b}
+.spec-list{margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--ink2)}
+.spec-list li{margin:2px 0}
 </style>
 </head>
 <body>
@@ -436,7 +483,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <header class="topbar">
   <div class="brand">
     <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2c0 4 12 4 12 8s-12 4-12 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M16 2c0 4-12 4-12 8s12 4 12 8" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/><path d="M5.6 5h8.8M5 10h10M5.6 15h8.8" stroke="rgba(255,255,255,.5)" stroke-width="1" stroke-linecap="round"/></svg></span>
-    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.21.6</span>
+    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.21.8</span>
   </div>
   <div class="spacer"></div>
   <div class="toolset">
@@ -511,7 +558,8 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   <!-- DESIGN -->
   <section id="design"><div class="card">
     <h2>Design from template</h2><p class="hint">Paste a transcript region (or pull one in the NCBI tab). Enumerate → gate → pair → probe → gBlock.</p>
-    <div class="row"><div style="flex:1"><label>template (5'→3')</label><textarea id="d_tmpl" rows="4" placeholder="paste mRNA / CDS region"></textarea></div></div>
+    <div class="row"><div style="flex:1"><label>template (5'→3') <span class="hint">— one sequence, or paste several FASTA records for cross-target conservation + genus-degenerate primers</span></label><textarea id="d_tmpl" rows="4" placeholder="paste mRNA / CDS region — raw sequence, or &gt;id\nSEQ for multiple targets"></textarea></div></div>
+    <div class="row"><div style="flex:1"><label>off-targets <span class="hint">— optional; sequences the assay must NOT amplify (host, paralogs). Runs an offline in-silico PCR + 3′-discrimination check.</span></label><textarea id="d_off" rows="2" placeholder="optional — raw sequence or FASTA of off-target(s)"></textarea></div></div>
     <div class="row"><div><label>chemistry</label><select id="d_prof" class="profsel"></select></div><button onclick="doDesign()">Design assay</button></div>
     <div id="d_out"><div class="ph">Paste a transcript region and Design to see the assay, its metrics, and a to-scale amplicon map.</div></div>
   </div>
@@ -908,7 +956,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
 </main>
 </div><!--/shell-->
-<footer>OligoForge v1.21.6</footer>
+<footer>OligoForge v1.21.8</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -1061,23 +1109,96 @@ function ampliconMap(d){
   <div class="amp-scale"><span>5&prime; ${fs}</span><span>amplicon ${span} bp</span><span>${re} 3&prime;</span></div></div>`;
 }
 async function doDesign(){const o=document.getElementById("d_out");o.innerHTML='<div class="working">designing\u2026 <span class="hint">a sleeping demo server can take ~30\u201360s to wake on the first call</span></div><div class="ofbar"></div>';
- const d=await api("/api/design",{template:document.getElementById("d_tmpl").value,profile:document.getElementById("d_prof").value});
+ const off=(document.getElementById("d_off")||{}).value||"";
+ const d=await api("/api/design",{template:document.getElementById("d_tmpl").value,profile:document.getElementById("d_prof").value,off_targets:off});
  if(d.error){o.innerHTML=err(d.error);return;}
- LAST_DESIGN=d;
- const probeRow=d.probe?`<tr><td>Probe</td><td class="mono">${d.probe}</td><td>${d.probe_tm}</td><td>offset +${d.probe_offset}, hairpin ${d.probe_hairpin} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText("${d.probe}")'>copy</button></td></tr>`:`<tr><td>Probe</td><td colspan="3" class="note">none — SYBR profile (no probe)</td></tr>`;
- const probeKv=d.probe?`<div><span>P×F ΔG</span><b class="${dgClass(d.probe_dimer_f)}">${d.probe_dimer_f}</b></div><div><span>P×R ΔG</span><b class="${dgClass(d.probe_dimer_r)}">${d.probe_dimer_r}</b></div>`:"";
- o.innerHTML=`<table>
-   <tr><th>oligo</th><th>sequence</th><th>Tm</th><th>note</th></tr>
-   <tr><td>Forward</td><td class="mono">${d.forward}</td><td>${d.f_tm}</td><td>pos ${d.f_xy[0]}-${d.f_xy[1]} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText("${d.forward}")'>copy</button></td></tr>
-   <tr><td>Reverse</td><td class="mono">${d.reverse}</td><td>${d.r_tm}</td><td>pos ${d.r_xy[0]}-${d.r_xy[1]} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText("${d.reverse}")'>copy</button></td></tr>
-   ${probeRow}
-   </table><div class="kv"><div><span>amplicon</span><b>${d.amplicon}</b></div><div><span title="Estimated melt Tm of the product — empirical salt-adjusted formula, not nearest-neighbor. For SYBR, compare it to your melt-curve peak to confirm the right product.">amplicon Tm ≈</span><b>${d.amplicon_tm!=null?d.amplicon_tm+' °C':'—'}</b></div><div><span>pair gap</span><b>${d.pair_tm_gap}</b></div>
-   ${probeKv}</div>
-   ${ampliconMap(d)}
-   <label>gBlock standard</label><pre>${esc(d.gblock)}</pre>
-   <div style="margin:4px 0 2px"><button class="ghost" style="padding:2px 9px;font-size:11px" onclick='copyText(${JSON.stringify(d.gblock)})'>copy gBlock</button> <button class="ghost" style="padding:2px 9px;font-size:11px" onclick='gblockToOrder("assay_gBlock",${JSON.stringify(d.gblock)})'>→ Order as standard</button></div>
-   <small class="note">designed under ${d.profile}</small>
-   <div style="margin-top:8px"><button class="ghost" onclick="doPairSpec('${d.forward}','${d.reverse}')">check specificity (BLAST)</button> <button class="ghost" onclick="designAdd()">★ add to workbench</button></div><div id="ds_out"></div>`;}
+ if(!d.candidates||!d.candidates.length){o.innerHTML=err("no candidate assays were returned for this template.");return;}
+ MD={tmpl:d.template||"",cands:d.candidates,profile:d.profile||"",note:d.note,constraint:d.constraint_note,
+     n_targets:d.n_targets||1,n_offs:d.n_offs||0,off_control:d.off_control||null,sel:0};
+ o.innerHTML=designShell();
+ showCand(0);}
+function candVerdict(c){            // off-target judgement -> ring/segment colour; null when no off-targets given
+ const sp=c&&c.specificity; if(!sp)return null;
+ if(!sp.n_products)return "ok";
+ return sp.products.some(p=>p.probe_binds)?"risk":"warn";}
+function designShell(){const n=MD.cands.length;let bub="";
+ for(let i=0;i<n;i++){const c=MD.cands[i];const v=candVerdict(c);
+  const tip="rank "+(i+1)+" \u00b7 score "+(c.score!=null?c.score:"\u2014")+" \u00b7 amp "+c.amplicon+" bp \u00b7 "+((c.quality_flags&&c.quality_flags.length)?c.quality_flags.join(", "):"clean")+(v?(" \u00b7 off-target: "+(v==="ok"?"clean":v==="warn"?"product, probe clear":"product + probe binds")):"");
+  bub+=`<button class="candbubble${v?(" v-"+v):""}" id="cb_${i}" onclick="showCand(${i})" title="${esc(tip)}" aria-label="${esc(tip)}">${i+1}${i===0?'<span class="cb-star" title="top-ranked">\u2605</span>':''}</button>`;}
+ const ctx=MD.n_targets>1?(MD.n_targets+" targets"):"1 target";
+ const octx=MD.n_offs>0?(" \u00b7 "+MD.n_offs+" off-target"+(MD.n_offs>1?"s":"")):"";
+ return `<div class="cand-head"><div class="cand-bubbles" role="tablist" aria-label="candidate assays">${bub}</div>`+
+  `<span class="hint">${n} candidate${n>1?"s":""}, best first \u2014 click a number to compare. <b>${esc(MD.profile)}</b> \u00b7 ${ctx}${octx}.</span></div>`+
+  (MD.note?`<small class="note">${esc(MD.note)}</small>`:"")+
+  (MD.constraint?`<small class="note">${esc(MD.constraint)}</small>`:"")+
+  `<div id="d_detail"></div>`;}
+function miniMap(sel){
+ if(!MD||!MD.tmpl||!MD.cands.length)return"";
+ const L=MD.tmpl.length||1;let segs="";
+ for(let i=0;i<MD.cands.length;i++){const c=MD.cands[i];if(!c.amp_span)continue;
+  const x=100*c.amp_span[0]/L,w=Math.max(0.8,100*(c.amp_span[1]-c.amp_span[0])/L);const v=candVerdict(c);
+  segs+=`<div class="mm-seg${i===sel?" sel":""}${v?(" v-"+v):""}" style="left:${x.toFixed(2)}%;width:${w.toFixed(2)}%" title="candidate ${i+1} \u00b7 ${c.amplicon} bp \u00b7 pos ${c.amp_span[0]+1}\u2013${c.amp_span[1]}" onclick="showCand(${i})"></div>`;}
+ return `<div class="minimap"><div class="mm-cap">amplicon positions on the ${L} nt reference \u00b7 click to select</div><div class="mm-track">${segs}</div></div>`;}
+function seqView(seq,c){if(!seq)return"";
+ const n=seq.length,cls=new Array(n).fill(0),sev=new Array(n).fill(0);   // cls:0 none,1 amp,2 F,3 R,4 P ; sev:0..3 conservation
+ const mark=(sp,v)=>{if(!sp)return;for(let i=Math.max(0,sp[0]);i<Math.min(n,sp[1]);i++)cls[i]=v;};
+ mark(c.amp_span,1);mark(c.f_span,2);mark(c.r_span,3);mark(c.probe_span,4);
+ if(c.conservation){const sevOf=p=>p>=99?0:p>=90?1:p>=75?2:3;
+  const put=(sp,arr,rev)=>{if(!sp||!arr)return;for(let k=0;k<arr.length;k++){const idx=rev?(sp[1]-1-k):(sp[0]+k);if(idx>=0&&idx<n)sev[idx]=sevOf(arr[k]);}};
+  put(c.f_span,c.conservation.F,false);put(c.r_span,c.conservation.R,true);put(c.probe_span,c.conservation.P,!!c.probe_rc);}
+ const ROW=60;let rows="";
+ for(let r=0;r<n;r+=ROW){const end=Math.min(n,r+ROW);let line="",j=r;
+  while(j<end){const v=cls[j],s=sev[j];let k=j;while(k<end&&cls[k]===v&&sev[k]===s)k++;
+   const frag=esc(seq.slice(j,k));line+=(v||s)?('<span class="hl hl-'+v+(s?' cv-'+s:'')+'">'+frag+'</span>'):frag;j=k;}
+  rows+='<div class="seqrow"><span class="seqpos">'+(r+1)+'</span><span class="seqseq">'+line+'</span></div>';}
+ const pl=c.probe?'<span class="lg"><i class="sw sw-p"></i>probe</span>':'';
+ const cleg=c.conservation?'<span class="lg"><i class="cv-key"></i>varies across targets</span>':'';
+ return '<div class="seqbox"><div class="seqlegend"><span class="lg"><i class="sw sw-f"></i>forward</span>'+
+  '<span class="lg"><i class="sw sw-r"></i>reverse</span>'+pl+'<span class="lg"><i class="sw sw-amp"></i>amplicon</span>'+cleg+
+  '<span class="hint" style="margin-left:auto">click a number above to compare candidates</span></div>'+
+  '<div class="seqwrap">'+rows+'</div></div>';}
+function consPanel(c){let h="";
+ if(c.conservation){const m=c.conservation.mean||{};
+  h+='<div class="hint">conservation across '+MD.n_targets+' targets \u2014 F '+(m.F!=null?m.F+"%":"\u2014")+' \u00b7 R '+(m.R!=null?m.R+"%":"\u2014")+(c.probe?(' \u00b7 P '+(m.P!=null?m.P+"%":"\u2014")):'')+' (underlined bases vary; deeper red = lower match, watch the 3\u2032 end)</div>';}
+ if(c.degenerate){const g=c.degenerate;const row=(lab,sw,s)=>s?`<tr><td><i class="sw ${sw}"></i> ${lab}</td><td class="mono">${esc(s)}</td><td><button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText(${JSON.stringify(s)})'>copy</button></td></tr>`:"";
+  h+='<div class="subbox"><div class="sub-h">genus-degenerate \u00b7 '+g.n+' IUPAC position'+(g.n===1?"":"s")+' \u00b7 covers '+g.targets+' targets</div><table>'+row("F","sw-f",g.forward)+row("R","sw-r",g.reverse)+row("P","sw-p",g.probe)+'</table></div>';}
+ return h;}
+function specPanel(c){if(!c.specificity&&!c.discrimination)return"";
+ let h='<div class="subbox"><div class="sub-h">specificity vs off-targets</div>';const sp=c.specificity;
+ if(sp){if(!sp.n_products){h+='<div class="verdict v-ok">\u2713 no predicted off-target product (offline in-silico PCR over your off-target set)</div>';}
+  else{const risky=sp.products.some(p=>p.probe_binds);
+   h+='<div class="verdict '+(risky?"v-risk":"v-warn")+'">'+(risky?"\u2715 predicted off-target amplification with probe binding \u2014 false-positive risk":"\u25b3 predicted off-target product, but the probe does not bind it")+'</div>';
+   h+='<ul class="spec-list">'+sp.products.map(p=>'<li>off #'+p.off+': ~'+p.size+' bp product'+(p.probe_binds===true?', probe binds':(p.probe_binds===false?', probe does not bind':''))+'</li>').join("")+'</ul>';}}
+ const d=c.discrimination;if(d){const rows=[["F",d.F],["R",d.R],["P",d.P]].filter(x=>x[1]);
+  if(rows.length)h+='<div class="hint" style="margin-top:4px">3\u2032 discrimination (more 3\u2032 mismatches = better block): '+rows.map(x=>x[0]+' max id '+x[1].max_ident+'% \u00b7 3\u2032mm '+x[1].min_3p_mm).join(" \u00b7 ")+'</div>';}
+ h+='</div>';return h;}
+function showCand(i){if(!MD||!MD.cands[i])return;MD.sel=i;
+ for(let k=0;k<MD.cands.length;k++){const b=document.getElementById("cb_"+k);if(b)b.classList.toggle("active",k===i);}
+ const c=MD.cands[i];
+ LAST_DESIGN=Object.assign({profile:MD.profile},c);   // selected candidate feeds designAdd() / doPairSpec()
+ const fpos=c.f_span?("pos "+(c.f_span[0]+1)+"\u2013"+c.f_span[1]):"";
+ const rpos=c.r_span?("pos "+(c.r_span[0]+1)+"\u2013"+c.r_span[1]+" \u00b7 antisense"):"";
+ const ppos=c.probe_span?("pos "+(c.probe_span[0]+1)+"\u2013"+c.probe_span[1]+(c.probe_rc?" \u00b7 antisense":"")):"";
+ const probeRow=c.probe?`<tr><td><i class="sw sw-p"></i> Probe</td><td class="mono">${esc(c.probe)}</td><td>${c.probe_tm}</td><td>${ppos}${c.probe_offset!=null?", offset +"+c.probe_offset:""}${c.probe_hairpin!=null?", hairpin "+c.probe_hairpin:""} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText(${JSON.stringify(c.probe)})'>copy</button></td></tr>`:`<tr><td><i class="sw sw-p"></i> Probe</td><td colspan="3" class="note">none \u2014 SYBR profile (no probe)</td></tr>`;
+ const probeKv=c.probe?`<div><span>P\u00d7F \u0394G</span><b class="${dgClass(c.probe_dimer_f)}">${c.probe_dimer_f}</b></div><div><span>P\u00d7R \u0394G</span><b class="${dgClass(c.probe_dimer_r)}">${c.probe_dimer_r}</b></div>`:"";
+ const flags=(c.quality_flags&&c.quality_flags.length)?`<b class="WARN">${esc(c.quality_flags.join(", "))}</b>`:`<b class="PASS">clean</b>`;
+ const sb=c.score_breakdown||{};
+ const breakdown=(sb.raw!=null)?`<small class="note">score ${c.score} = raw ${sb.raw} \u2212 quality ${sb.quality||0} \u2212 amplicon ${sb.amplicon||0}</small>`:"";
+ const offctrl=MD.off_control?`<label>worst-case off-target control gBlock <span class="hint">(${MD.off_control.identity}% identity to off #${(MD.off_control.off_index!=null?MD.off_control.off_index+1:"?")} \u2014 run beside the standard to prove off-target rejection)</span></label><pre>${esc(MD.off_control.seq)}</pre><div style="margin:4px 0 2px"><button class="ghost" style="padding:2px 9px;font-size:11px" onclick='copyText(${JSON.stringify(MD.off_control.seq)})'>copy control</button> <button class="ghost" style="padding:2px 9px;font-size:11px" onclick='gblockToOrder("offtarget_control",${JSON.stringify(MD.off_control.seq)})'>\u2192 Order as control</button></div>`:"";
+ document.getElementById("d_detail").innerHTML=`${miniMap(i)}${seqView(MD.tmpl,c)}${consPanel(c)}
+  <table><tr><th>oligo</th><th>sequence (5\u2032\u21923\u2032)</th><th>Tm</th><th>note</th></tr>
+  <tr><td><i class="sw sw-f"></i> Forward</td><td class="mono">${esc(c.forward)}</td><td>${c.f_tm}</td><td>${fpos} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText(${JSON.stringify(c.forward)})'>copy</button></td></tr>
+  <tr><td><i class="sw sw-r"></i> Reverse</td><td class="mono">${esc(c.reverse)}</td><td>${c.r_tm}</td><td>${rpos} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText(${JSON.stringify(c.reverse)})'>copy</button></td></tr>
+  ${probeRow}</table>
+  <div class="kv"><div><span>amplicon</span><b>${c.amplicon}</b></div><div><span title="Estimated melt Tm of the product \u2014 empirical salt-adjusted formula, not nearest-neighbor.">amplicon Tm \u2248</span><b>${c.amplicon_tm!=null?c.amplicon_tm+" \u00b0C":"\u2014"}</b></div><div><span>pair gap</span><b>${c.pair_tm_gap}</b></div><div><span title="Overall rank score: conservation, sequence quality, amplicon length and dimers (higher is better).">score</span><b>${c.score!=null?c.score:"\u2014"}</b></div><div><span>quality</span>${flags}</div>${probeKv}</div>
+  ${breakdown}
+  ${specPanel(c)}
+  ${ampliconMap({f_xy:c.f_span,r_xy:c.r_span,probe:c.probe,gblock:c.gblock,forward:c.forward,amplicon:c.amplicon})}
+  <label>gBlock standard</label><pre>${esc(c.gblock)}</pre>
+  <div style="margin:4px 0 2px"><button class="ghost" style="padding:2px 9px;font-size:11px" onclick='copyText(${JSON.stringify(c.gblock)})'>copy gBlock</button> <button class="ghost" style="padding:2px 9px;font-size:11px" onclick='gblockToOrder("assay_gBlock",${JSON.stringify(c.gblock)})'>\u2192 Order as standard</button></div>
+  ${offctrl}
+  <div style="margin-top:8px"><button class="ghost" onclick='doPairSpec(${JSON.stringify(c.forward)},${JSON.stringify(c.reverse)})'>check specificity (BLAST)</button> <button onclick="designAdd()">\u2605 add candidate ${i+1} to workbench</button></div><div id="ds_out"></div>`;
+ try{const wrap=document.querySelector("#d_detail .seqwrap");const hit=wrap&&wrap.querySelector(".hl-2");if(wrap&&hit)wrap.scrollTop=Math.max(0,hit.offsetTop-30);}catch(e){}}
 
 async function doFetch(){const o=document.getElementById("n_out");o.innerHTML="…";
  const d=await api("/api/fetch",{accession:document.getElementById("n_acc").value||null,gene:document.getElementById("n_gene").value||null,
@@ -1410,6 +1531,7 @@ async function doRefGenes(){const o=document.getElementById("rg_out");o.innerHTM
 
 /* ---- workbench: assays carry across tabs + panel + report + multiplex ---- */
 let LAST_DESIGN=null,LAST_STD=null,LAST_AUTO=null,LAST_AUTO_FULL=null;
+let MD=null;   // manual-design ranked-candidate state: {tmpl,cands,profile,note,constraint,sel}
 let PANEL=[];try{PANEL=JSON.parse(localStorage.getItem("of_panel")||"[]")||[];}catch(e){PANEL=[];}
 let CURRENT_ID=null;try{CURRENT_ID=localStorage.getItem("of_current")||null;}catch(e){}
 function savePanel(){try{localStorage.setItem("of_panel",JSON.stringify(PANEL));localStorage.setItem("of_current",CURRENT_ID||"");}catch(e){}}
