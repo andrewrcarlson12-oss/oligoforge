@@ -395,6 +395,270 @@ pairs via /api/pair fxr_end_dg and for multiplex via the three_prime annotation)
 Gate: 14/14 Python (test_cq added; locked panel + autodesign golden + regression PASS), 7/7 JS,
 clean-unzip boot under Render Docker CMD -> /healthz 200 v1.17.0; /api/cq + /api/standard_curve live-smoked.
 
+## v1.26.0 — MIQE validation consolidation: predicted (engine) + observed (bench) + provenance in one record (pillar 2 start)
+First rung of pillar 2 (the empirical validation loop). New `oligoforge/miqe.py` + `/api/validate` +
+workbench UI. It is the JOIN between the physical-chemistry engine (pillar 1) and the empirical analyses
+the app already produces — it re-derives nothing, it calls the validated primitives, applies MIQE
+acceptance criteria (Bustin et al. 2009), and stamps a reproducible provenance block so a record can be
+cited in a methods section. Minor bump (1.25.0 → 1.26.0).
+**Module (`oligoforge/miqe.py`):** `validate_assay(assay, cond=None, anneal_c=None, observed_amplicon_tm
+=None, observed_peaks=None)` → one consolidated record: `assay` (identity + amplicon_bp), `provenance`
+(oligoforge_version, UTC, conditions, SHA-256 oligo checksums via `_csum` → "sha256:"+12 hex),
+`predicted` (per-oligo Tm/ΔG°37/fraction-bound from the engine via `_predict` — `nn.params_lna` if the
+oligo carries '+', else `nn.params`; basis string "McTigue LNA" / "SantaLucia NN"; plus amplicon_tm),
+`empirical` (efficiency_pct/r2/slope/lod pulled from the assay's attached `validation`, plus observed
+amplicon Tm / peaks), `checks` (list of {id,label,status,detail}), `n_missing`, `miqe_status`. Carries a
+self-contained Markdown rendering under `record["markdown"]` (`to_markdown(rec)`). Helpers `_csum`,
+`_predict`, `_chk`. Imports thermo as T, nn as NN, `__version__`.
+**The nine MIQE checks** (each pass / fail / warn / na): efficiency 90-110 %, linearity R² ≥ 0.98,
+calibration slope −3.58..−3.10, LOD reported, single product (melt peaks == 1), **amplicon Tm
+predicted-vs-observed within ±3 °C** (closes the Tm-engine loop), **probe predicted bound at anneal
+≥ 50 %** (engine fraction-bound — flags a probe that won't bind; uses the McTigue LNA Tm for an LNA
+probe), primers predicted bound ≥ 50 %, provenance complete. `miqe_status` = fail if any fail / review if
+any warn / pass otherwise; `n_missing` counts the na checks (i.e. empirical data not yet attached).
+**Builds on mature primitives, not new math:** `quant.standard_curve` was already MIQE-aligned
+(efficiency/r2/slope/CIs/lod95/efficiency_ok/r2_ok/slope_ok), `melt.analyze` already accepts a
+`predicted_tm`. v1.26 just wires the engine's predictions in and consolidates.
+**Endpoint:** `POST /api/validate` (ValidateReq: assay dict + optional observed_amplicon_tm + observed_
+peaks). Uses the live reaction conditions (T.COND). Returns the record (error-trapped → status 200).
+**UI:** workbench gained a **"Validate current assay (MIQE)"** button (`miqeValidate()`) → renders a
+subbox card: predicted-thermodynamics table (F/R/probe NN Tm, ΔG°37, % bound @anneal, basis) + the
+9-item MIQE checklist (colour-coded PASS/FAIL/REVIEW/n-a) + **Download MIQE report (Markdown)**
+(`downloadMiqe()`, `LAST_MIQE` global). New output div `#wk_miqe`. To close the loop from the bench
+side, the melt tool (`doMelt`) gained an **"attach observed Tm to current assay"** button
+(`attachMeltToCurrent(tm,peaks)` → sets `assay.validation.observed_amplicon_tm` / `observed_peaks`, marks
+the assay validated), so a real melt run feeds the predicted-vs-observed check. Mirrors the existing
+`attachStdToCurrent()` for standard-curve efficiency.
+**Demonstrated:** IFNG host assay with no empirical data → overall pass, 5 checks n/a (predicted probe
+100 % bound); the **genus LNA probe** `/56-FAM/CTTA+CA+A+GATAT+CC+ACCACA/...` → probe scored via McTigue
+at 66.9 °C / 98 % bound (basis "McTigue LNA"), probe_binding PASS; IFNG with a full standard curve
+(98.5 %, R² 0.997, slope −3.36, LOD 10) + observed melt Tm 81.5 °C / 1 peak → all 9 checks pass, including
+amplicon Tm predicted-vs-observed (81.5 vs 82.0). A low-efficiency / poor-R² / far-off-Tm assay correctly
+fails those three.
+**Validation (`tests/test_miqe.py`, NEW — suite now 13):** no-empirical (empirical checks na, overall not
+fail, predicted thermo present), full-empirical (all pass incl. predicted-vs-observed), out-of-spec
+(efficiency/linearity/amplicon-Tm fail → overall fail), LNA probe scored via McTigue (basis + lna_n 5,
+bound), checksum determinism + format, version/UTC stamped, Markdown sections present. **Gate:** py + JS
+parse OK (single `<script>`), Python **13/13**, JS **8/8**, healthz v1.26.0, `/api/validate` smoke
+(status pass, n_missing 0, 9 checks). Five sync points bumped.
+**Where the ladder stands:** pillar 1 complete and validated end to end; pillar 2 now has its consolidation
+spine (engine + empirical + MIQE checklist + citable provenance, with Markdown export). Open next for
+pillar 2: MalAvi haemosporidian lineage typing (serves the thesis's genus-probe coverage question
+directly), geNorm / NormFinder reference-gene stability for the RPL13 / YWHAZ normalisers, and a multiplex
+DESIGNER (the checker exists). Pillar 3 still open: pytest + CI migration, PyPI lib + CLI extraction,
+DB-backed versioned projects, genome-scale search, Render spin-down.
+
+## v1.25.0 — degenerate- & LNA-aware mismatch scoring: the genus cytb probe gets per-lineage ΔTm (pillar 1 capstone)
+Closes the gap rung 3 left open: the mismatch engine now scores **degenerate AND LNA** oligos, so the
+Plasmodium cytb genus probe — degenerate and LNA by design — finally gets a predicted Tm / ΔTm /
+fraction-bound per haemosporidian lineage in the isolate validator. This completes the physical-chemistry
+pillar (rungs 1-5: NN engine → LNA → mismatch → degenerate/LNA-aware). Minor bump (1.24.0 → 1.25.0).
+**Engine (`oligoforge/nn.py`):** `mismatch_params` rewritten to route any oligo through a resolve-then-
+score path. New helpers: `_IUPAC` (code→ACGT set), `_parse_oligo_sets` (parses '+' LNA, '/.../' blocks,
+'*', IUPAC degeneracy → per-position ACGT option tuples + LNA flags), `_variant_dh_ds` (a concrete
+variant's mismatch-aware ΔH/ΔS with McTigue LNA increments added ONLY on fully Watson-Crick steps), and
+`_best_variant` (resolves the oligo to the synthesised variant that best matches the target: covered
+positions take the target base — the matching variant in the mix is what anneals — and uncovered
+degenerate positions are enumerated, bounded at 4096 combos, to maximise stability). New return fields:
+`n_var` (total synthesised variants), `degenerate`, `lna_mismatch`, `note`. **The pure-ACGT path is
+byte-identical to rung 3** — re-validated against Biopython over 320 random duplexes at max 0.06 °C, so
+no previously-validated number moved. LNA increments are applied only on matched steps (within McTigue's
+matched-context parameterization); an LNA sitting on a mismatch is flagged (`lna_mismatch`), not scored
+with mismatched-LNA parameters (that's a separate published set — future).
+**Isolate integration (`isolates.py`):** `amplify` now passes the ORIGINAL oligos (with '+' / IUPAC
+preserved) to scoring instead of the sanitized, LNA-stripped copies — captured `_probe0` before the
+sanitise step, and removed `_therm`'s raw-length pre-check since `mismatch_params` parses and
+length-checks the base count against the window itself. Net effect: `f_therm` / `r_therm` / `p_therm` now
+populate for LNA and degenerate oligos, not just plain DNA.
+**Demonstrated end-to-end through `amplify`:** the genus probe `/56-FAM/CTTA+CA+A+GAYATCC+ACCACA/...`
+(4 LNAs + a Y) — on a covered lineage (Y site = C): 100 % identity → **Tm 67.4 °C, ΔTm 0, 99 % bound**;
+on a lineage with uncovered variation (that site = A): 95 % identity → **Tm 60.7 °C, ΔTm −6.7, one real
+mismatch, 60 % bound**. That is the haemosporidian lineage-coverage question answered quantitatively:
+the designed degeneracy covers some lineages (full binding) and not others (binding drops). The real
+5-LNA cytb probe scores 66.9 °C / 98 % bound on a perfect lineage and stays 93 % bound through a single
+internal mismatch (the LNAs buffer it).
+**UI:** the isolate binding badge's tooltip now appends the degenerate/LNA-mismatch note, so an
+approximate value explains itself ("…resolved to its best-matching variant (mix of N)").
+**Model honesty:** the best-matching-variant model is the right one for *detection* (the matching variant
+in the synthesised mix is what binds the lineage); it is an optimistic bound on bulk duplex yield. LNA
+increments only on matched steps; uncovered-degenerate enumeration capped at 4096 (falls back to first
+option beyond that, rare).
+**Validation (`tests/test_nn.py`, expanded again):** covered degenerate lineage → ΔTm 0 / n_mm 0 /
+degenerate flagged / n_var 2; uncovered variation → real mismatch, lower Tm and binding; LNA increments
+raise the degenerate probe's Tm >5 °C over its DNA backbone; LNA probe stays >80 % bound through one
+mismatch; pure-ACGT result still n_var 1 / degenerate False. **Gate:** py + JS parse OK (single
+`<script>`), Python **12/12**, JS **8/8** (incl. ui_isolate), healthz v1.25.0. Five sync points bumped.
+**Where the ladder stands:** physical-chemistry pillar complete and validated against literature /
+reference implementations end to end (`nn.duplex_nn`, `nn.params`, `nn.params_lna`, `nn.mismatch_params`
+— the last now handling DNA, LNA, degeneracy, and mismatches together). Open next: **pillar 2** — the
+empirical validation loop (upload a melt curve / standard curve, plot predicted-vs-observed against these
+engines, MIQE-pinned records), and the **pytest + CI** migration for the 2.0 platform goal.
+
+## v1.24.0 — mismatch-aware isolate scoring: predicted ΔTm / fraction-bound per isolate (v2.0 ladder, rung 3)
+The transformative rung. The isolate validator stops reporting "N mismatches / X % identity" as the
+binding verdict and starts reporting a **predicted oligo:template duplex Tm, ΔTm vs the perfect match,
+and the fraction of oligo bound at the annealing temperature** — the physically meaningful quantity for
+whether an off-by-N isolate is actually detected. Minor bump (1.23.0 → 1.24.0); additive.
+**Model:** Allawi & SantaLucia (1997, 1998) + Peyret et al. (1999) nearest-neighbor parameters for
+internal and terminal single mismatches in DNA. Sourced from Biopython's `DNA_IMM1` (87 internal) and
+`DNA_TMM1` (48 terminal) tables — the same Allawi/SantaLucia/Peyret provenance as our Watson-Crick set,
+so nothing is transcribed by hand. New in `oligoforge/nn.py`: `_duplex_general(seq, c_seq)` (a
+mismatch-capable NN walk that **replicates Biopython Tm_NN's exact term logic** — terminal-mismatch
+consumption, init, then mismatch-table-first zipping) and `mismatch_params(oligo, target, cond, anneal)`
+→ dict(tm, tm_perfect, dtm, frac_bound, frac_bound_perfect, n_mm, mm_pos, mm_from_3p, dh, ds, dg37,
+anneal_c). `target` is the genomic region the oligo anneals to in the oligo's own 5'→3' frame (== oligo
+for a perfect match); the oligo pairs with complement(target). `mm_from_3p` is the nearest mismatch's
+distance from the 3' end (1 = terminal) — the number that decides whether a primer can extend.
+**Validation (against Biopython, exhaustive):** over 481 random matched/mismatched duplexes (0-4
+mismatches), `mismatch_params` Tm matches Biopython `Tm_NN(c_seq, saltcorr=7, Mg, dNTPs)` to **max 0.06
+°C**. The ~120 cases where the engine returns None are unparameterized adjacent-mismatch steps that
+Biopython also cannot score — returning None there is correct, not a gap. Computing the walk ourselves
+(rather than just calling Biopython) is what gives us ΔH for the fraction-bound calculation, coherent
+with the Tm.
+**Isolate integration (`isolates.amplify`):** each result now carries `f_therm` / `r_therm` / `p_therm`
+(a `mismatch_params` dict or None) for the forward primer, reverse primer, and probe vs that isolate,
+computed from the binding windows that were already in the oligo's frame (`_fwin`/`_rwin`/`p_win`). Added
+to both the amplifies=True and the no-product return paths. `nn` imported into isolates.py (no cycle:
+isolates → nn → thermo). Degenerate / modified oligos and ambiguous (N) windows → None gracefully, so
+the host ACGT TaqMan assays get predictions and the degenerate genus cytb probe simply shows the
+identity metric as before (see limits).
+**UI:** the isolate results table now shows a **binding badge** next to each F% / R% / probe% identity —
+the predicted % bound, colour-coded (green ≥50 %, amber ≥15 %, red <15 %), with the full Tm / ΔTm /
+mismatch-count / 3'-distance on hover, and a "3′!" flag when a primer has a mismatch ≤4 nt from its 3'
+end (extension-blocking regardless of Tm). The whole point is visible at a glance: identity and binding
+can diverge. CSV export (`isoExport`) gains `probe_tm, probe_dtm, probe_pct_bound, f_pct_bound,
+r_pct_bound`. `_thermBadge` is the only new JS; it no-ops on rows without `*_therm` (so the existing
+`ui_isolate.js` mock rows still pass), and no columns/IDs/handlers/sort-keys changed.
+**Demonstrated:** a probe-binding region carrying 2 internal mismatches reads 90.9 % identity (old
+verdict: "weak, 90.9 %") but the engine reports **Tm 48.3 °C (ΔTm −11.5), 0 % bound at 60 °C** — i.e.
+this isolate escapes detection, which the identity number alone would not have told you. A perfect
+isolate reports ΔTm 0 and matching fraction bound.
+**Honesty about limits:** ACGT oligos only — degenerate oligos (the genus cytb probe is degenerate *and*
+LNA by design) and ambiguous windows return None and fall back to the identity metric; adjacent
+mismatches are unparameterized (None). Future extension: expand a degenerate oligo to its best-matching
+concrete variant vs each target so the genus probe gets per-lineage ΔTm too (this is the natural next
+step for the haemosporidian lineage-coverage question), and fold LNA increments into the mismatched
+duplex.
+**Validation (`tests/test_nn.py`, expanded — now covers WC, LNA, and mismatch layers):** mismatch Tm vs
+Biopython within 0.3 °C over 400 random duplexes; perfect match → ΔTm 0 / n_mm 0; mismatches lower Tm and
+fraction bound; 3'-terminal mismatch flagged at distance 1; length-mismatch / degenerate → None.
+**Gate:** py + JS parse OK (single `<script>`), Python **12/12**, JS **8/8** (incl. ui_isolate), healthz
+v1.24.0. Five sync points bumped.
+**Where this leaves the ladder:** the physical-chemistry pillar's core is now in (rung 1 NN engine →
+rung 2 LNA → rung 3 mismatch). Natural next moves: pillar 2 (empirical validation loop — upload a melt
+or standard curve, plot predicted-vs-observed against these engines), degenerate/genus-probe thermo, and
+the pytest + CI migration. Hooks: `nn.duplex_nn`, `nn.params`, `nn.params_lna`, `nn.mismatch_params`.
+
+## v1.23.0 — LNA layer: computed LNA probe Tm via McTigue 2004 increments (v2.0 ladder, rung 2)
+Layers locked-nucleic-acid thermodynamics onto the NN engine so an LNA probe's Tm is **computed, not
+estimated** — replacing the old "+2-8 °C, check IDT" caveat with a real number plus an honest
+applicability flag. Minor bump (1.22.0 → 1.23.0). All additive; nothing in the DNA path changes.
+**Model:** McTigue, Peterson & Kahn (2004) Biochemistry 43:5388-5405. Per-substitution nearest-neighbor
+INCREMENTS (ΔΔH cal/mol, ΔΔS cal/mol·K) for all 32 LNA nearest-neighbors, added on top of the SantaLucia
+DNA sum: ΔH = ΔH_DNA + ΣΔΔH_LNA, ΔS likewise (the additive model; IDT patent US2012/0029891 confirms the
+formula). Implemented in `oligoforge/nn.py`: `_LNA_INC` (the 32 increments), `parse_lna` (IDT '+X'
+notation + '/.../' mod-block and '*' stripping → bases + LNA flags), `_duplex_nn_lna` (DNA core +
+increments + applicability warnings), `params_lna(seq, cond, anneal_c)` → same dict shape as `params`
+plus `lna_n`, `beyond_param`, `note`. Uses the engine's existing salt/concentration convention, so the
+LNA Tm is directly comparable to the DNA-backbone NN Tm at the user's reaction conditions.
+**Where the parameters came from (NOT memory):** pulled the actual McTigue file as distributed with EBI
+MELTING (`hrbrmstr/melting5jars`, `inst/extdata/Data/McTigue2004lockedmn.xml`) and transcribed all 32
+values verbatim. Key convention: `XLY/..` = LNA on the 5' base of the step, `XYL/..` = LNA on the 3'
+base; bottom strand is the base-complement. A single internal LNA contributes two increments (its 5'-side
+and 3'-side steps).
+**Validation (rigorous — ran the reference implementation):** Java/MELTING was available, so I (a)
+confirmed this engine's DNA ΔH/ΔS are **byte-identical to MELTING's** (e.g. GGTGCCAA −56,700 cal /
+−152.9 cal·K in both — MELTING's "Allawi-SantaLucia 1997" set equals our SantaLucia 1998 unified for WC
+pairs), and (b) validated against the **100 experimental duplex Tm's McTigue published** (shipped in
+MELTING's `examples/test/lockedAcidNucleicSequences.txt`, 5 µM oligo / 1 M Na+): `params_lna` reproduces
+them at **RMSE 1.68 °C, mean +0.66**, which is the McTigue model's own stated accuracy → the increments
+and model are implemented correctly. NOTE on convention: McTigue/MELTING read the stated oligo conc as
+total strand C_T and use C_T/4; our engine uses the Biopython per-strand convention (= `tm_acc`). The two
+differ by ~1 °C of fixed offset (a deliberate consistency choice — the LNA *boost*, ΔTm, is
+convention-independent). To reproduce the validation through the engine, set dna_conc=2500 nM so dnac/2 =
+McTigue's 1.25 µM.
+**Honesty about limits:** McTigue parameterized SINGLE INTERNAL substitutions. `params_lna` sets
+`beyond_param` and a note when the oligo has adjacent LNAs, a terminal LNA, or high LNA density (it still
+returns a best-effort number by summing both increments on a shared step, but flags it). Degenerate /
+non-ACGT bases → None (not modelled). 
+**Exposed in QC:** when '+' is present, a new line shows the computed LNA Tm, the boost vs the DNA
+backbone, and % bound at the annealing temperature; the adjacent/terminal/density caveat or a
+"confirm in IDT OligoAnalyzer" pointer is shown. Backend: `out["nn_lna"]=NN.params_lna(raw)` in qc()
+(raw, since the mod-stripped `s` has no '+'); frontend: one `${d.nn_lna?…}` branch replacing the old
+generic lna_note. No IDs/handlers touched.
+**The headline result:** the validated cytb probe `/56-FAM/CTTA+CA+A+GATAT+CC+ACCACA/3IABkFQ/` (5 LNAs)
+at 50 mM Na / 3 mM Mg / 0.8 mM dNTP / 60 °C anneal: DNA backbone Tm 56.0 °C and only **6 % bound**, but
+with the LNAs **Tm 66.9 °C (+10.9 °C) and 98 % bound** — the first-principles quantitative proof that the
+locked bases are what make the probe function at the annealing temperature. (Flagged beyond_param: the
++A+G at positions 7-8 are adjacent.)
+**Validation (`tests/test_nn.py`, now 18 asserts):** all 32 increments present; `params_lna` reproduces
+an embedded subset of McTigue's experimental Tm's at RMSE < 2.5 °C; LNA raises Tm and rescues binding
+(bare <20 % → LNA >80 % bound at 60 °C); adjacent-LNA flagged; no-LNA / degenerate → None. **Gate:** py +
+JS parse OK (single `<script>`), Python **12/12**, JS **8/8**, healthz v1.23.0. Five sync points bumped.
+**Next rungs:** (1.24) Allawi/SantaLucia internal-mismatch NN → the isolate validator reports a predicted
+ΔTm / efficiency per isolate instead of a mismatch count (the transformative 2.0 move); the mismatch
+parameter files are in the same MELTING data dir (`AllawiSantalucia*mm.xml`) and validate the same way.
+Plus pytest+CI migration. Hooks: `nn.duplex_nn`, `nn.gibbs`, `nn.params_lna`.
+
+## v1.22.0 — physical-chemistry core: a unified nearest-neighbor thermodynamics engine (v2.0 ladder, rung 1)
+First step of the 2.0 plan ("from heuristic helper to validated thermodynamic instrument"). New module
+`oligoforge/nn.py` — a transparent, citable, condition-aware NN engine that returns the quantities a
+bare Tm hides and that the upcoming mismatch / LNA work needs: duplex **ΔH°, ΔS°, ΔG°37**, a
+salt-corrected **Tm at the reaction conditions**, and the **fraction of oligo hybridised at the
+annealing temperature**. Minor-version bump (1.21.15 → 1.22.0) to mark the start of the ladder.
+**Parameters:** SantaLucia (1998) unified NN set (ΔH kcal/mol, ΔS cal/mol·K, 1 M Na+), hardcoded as the
+documented source of truth in `nn.NN` and **asserted byte-identical to Biopython's DNA_NN3** in tests, so
+`nn.tm` and the display Tm (`thermo.tm_acc`, which already uses Biopython) can never silently diverge.
+Terminal-initiation + self-complementary symmetry handled per SantaLucia; the oligo-concentration term
+follows the SantaLucia/Biopython convention (dnac for self-comp, dnac/2 for two complementary strands —
+a bug where I first used dnac/4 was caught by the Biopython cross-check: pure-GC/pure-AT matched but mixed
+sequences sat ~1 °C low, the signature of the self-comp-only concentration path being right while the
+bimolecular path was wrong; fixed, now <0.05 °C across the test panel). **Salt:** monovalent via Owczarzy
+2004; magnesium via Owczarzy 2008 with the R = √[Mg]/[Mon] regime selection, and crucially **free Mg²⁺ =
+[Mg]_total − [dNTP]_total** (von Ahsen 2001 — dNTPs chelate Mg ~1:1), which is the quantity that actually
+sets duplex stability in a master mix and which most tools get wrong. Reads the existing reaction-condition
+state (`thermo.COND` + `ANNEAL_C`), so the settings popover drives it. **Fraction bound:** primer-excess
+two-state anchored at Tm, θ(T)=1/(1+exp[(ΔH/R)(1/T−1/Tm)]) — 0.5 at Tm, monotonic in T (asserted).
+**Additive and non-breaking:** does NOT touch the selection Tm (`thermo.tm`, primer3) or the display Tm
+(`thermo.tm_acc`), so every locked-panel / golden / regression number is unchanged (12/12 Python still
+green). **Exposed in QC** only for now: a new block shows ΔG°37, NN Tm, ΔH/ΔS, and "% bound @anneal°C",
+with the free-Mg value spelled out. (Frontend already rendered nothing here; added a `${d.nn?…}` block to
+the QC template — no IDs/handlers touched.) **Validation (`tests/test_nn.py`, 10 asserts):** table ==
+Biopython; `nn.tm` matches Biopython `Tm_NN(saltcorr=7, Mg, dNTPs)` within 0.3 °C over 8 seqs (primers,
+the cytb probe, homopolymers); ΔG°37 internally consistent and favorable; fraction-bound 0.5 at Tm and
+monotonic; more dNTP (less free Mg) lowers Tm; more monovalent raises Tm; degenerate/short → None.
+**Worth seeing:** the bare cytb probe `CTTACAAGATATCCACCACA` reports NN Tm 56 °C, ΔG°37 −22.0, and only
+~6 % bound at 60 °C — the quantitative reason it must carry LNAs to function at the annealing temperature.
+**Gate:** py + JS parse OK (single `<script>`), Python **12/12** (added test_nn), JS **8/8**, healthz
+v1.22.0. Version bumped at all five sync points.
+**Next rungs (unchanged plan):** (1.23) McTigue 2004 LNA-DNA NN increments layered onto this engine so the
+LNA probe Tm is computed, not estimated; (1.24) Allawi/SantaLucia internal-mismatch NN → the isolate
+validator reports a predicted ΔTm / efficiency instead of a mismatch count (the transformative 2.0 move);
+plus pytest+CI migration in parallel. `nn.duplex_nn`/`nn.gibbs`/`nn.params` are the hooks those build on.
+
+## v1.21.15 — isolate validator: iterate-on-design loop + sortable/filterable table + amplicon-Tm spread; and QC accepts IDT order strings (out of tab)
+Four upgrades — three on the isolate panel, one outside it.
+**(1) Iterate-on-design loop.** `fetch_one` already disk-caches FASTA by accession (7-day TTL), so re-scoring never re-hits NCBI — the loop is purely a frontend affordance now. `isoRun(rescore)` snapshots the prior coverage (detected/tgN, clean/neN) into `ISO_PREV` before each run; a "Re-score (cached)" button re-runs against the same isolates with the current primers/probe (progress + done text say "reuses cached sequences — no new NCBI fetch"); each suggested degenerate in the coverage recommender now has an **"apply & re-score ↻"** button (`isoApplyDeg(seq,which)` → drops the IUPAC oligo into iso_f/iso_r/iso_p and re-runs). The inclusivity verdict shows a **before/after delta** ("+8 vs last run") when the target count is unchanged. Closes the design→validate→improve loop: run → see missed lineages + suggested degeneracy → apply → watch coverage recover, all without re-fetching.
+**(2) Sortable / filterable results table.** `ISO_VIEW={filter,sort,dir}` + pure `isoSortFilter(rows,view)`. Filter chips (all / targets / neighbours / **missed targets** / **cross-reacts**, each with a live count) and click-to-sort headers (role, amp bp, amp Tm, F%, R%, probe%; nulls sort last; toggling a header flips direction). Lets a 120-row panel collapse to "show me the 6 isolates I'm missing" instantly. `isoSetFilter`/`isoSortBy` re-render.
+**(3) Amplicon Tm per isolate + SYBR melt-spread.** `isolates.amplify()` now returns `amp_tm` + `amp_gc` for the product (computed on the true amplicon `seq[lo:hi]` via `thermo.amplicon_tm`/`gc_percent`; skipped if the amplicon spans an N run or >20 kb; verified it matches `amplicon_tm` of the amplicon and is None on no-product). New "amp Tm" column; the inclusivity block shows the **amplicon-Tm spread** across amplifying targets ("88.9–90.2 °C, median 89.7, across N targets" + a ">2 °C spread; a SYBR melt may resolve into multiple peaks" note) — directly useful for SYBR genus assays where variant amplicons melt apart.
+**(4) Out of tab — QC accepts a pasted IDT order string / LNA oligo.** `/api/qc` previously errored on `+` / `/…/` via `clean_seq`. It now runs `T.strip_mods` first (recovering the bare bases), notes what was stripped ("modification notation stripped to score the DNA backbone (LNA (+) bases, …); Tm/ΔG shown are for the unmodified sequence"), and adds an LNA caveat whenever `+` is present ("each locked base raises Tm ~2-8 °C, so the actual probe Tm is HIGHER than shown"). DNA-backbone metrics are honest and the user is told they're DNA-backbone — so pasting `/56-FAM/CTTA+CA+A+GATAT+CC+ACCACA/3IABkFQ/` now works (→ bare CTTACAAGATATCCACCACA, Tm 56 °C, both notes). Plain oligos are unaffected (no note, no caveat). Frontend already renders `d.note`/`d.lna_note`, so no UI change needed. (Considered but skipped as already-present: amplicon Tm on design candidates — `autodesign` already emits `amplicon_tm`; whole-panel IDT ordering — `loadWorkbenchToOrder`+`orders.oligo_csv` already do it; zero-candidate guidance — `design_from_sequences` already returns a helpful error/`constraint_note`.)
+**Verified.** Backend offline checks (amp_tm matches amplicon_tm + None on no-product; QC order-string → bare seq + notes via TestClient). `tests/test_regression.py` +5 asserts (QC parses order string, recovers the 20-mer, warns LNA-Tm, plain oligo unaffected). `tests/ui_isolate.js` now **17 asserts** (added isoSortFilter filters + sort-nulls-last). Gate: py + JS parse OK (single `<script>`), Python **11/11**, JS **8/8**, healthz v1.21.15. No element IDs/handlers removed; no new load-time IIFE. Engine design primitives untouched (only the isolate scorer gained amp_tm + the QC input boundary gained strip_mods). Version bumped at all five sync points. Remaining backlog: per-isolate 3'-mismatch map; MalAvi lineage typing; real McTigue LNA NN Tm; melt-curve (Poland/uMELT); pair-spec could also accept order-string notation now that `strip_mods` is wired.
+
+## v1.21.14 — fix: what "amplifies" vs "NO PRODUCT" actually means (3'-extension gate + self-explaining no-product)
+Prompted by "what qualifies as no product / amplifies?". Diagnosed the old rule and found it both biologically wrong and uninterpretable. **Old behaviour** (probed with controlled single-mismatch templates): `isolates._sites` seeded each primer on its **3'-terminal 13 nt matched EXACTLY**, then allowed ≤max_mm over the rest. Consequences: (a) a mismatch anywhere in the last 13 nt → site not found → `NO PRODUCT`, even though a mismatch 8–12 nt from the 3' end primes fine on a real polymerase (false negatives that make a genus assay look like it misses lineages it actually catches); (b) far worse for reading the panel — a primer whose region is present but has one mismatch in that 13-nt window reported `f_ident = 0`, **identical to a primer whose region is genuinely absent**, conflating "region absent / partial GenBank record", "region present but 3' won't prime", and "primers bind but wrong size/orientation" into one indistinguishable `0 / NO PRODUCT`. **Fix (isolates.py):** `_sites` now models the real extension gate — the **3'-terminal `ext=6` nt match exactly** (the extension-critical zone) **AND** ≤max_mm total over the full oligo (a coarse annealing budget); mismatches further 5' are tolerated. (`ext` is the extension gate, not a homology seed; verified the amplifies cliff moved from "mismatch ≥13 nt from 3'" to "≥6 nt from 3'", matching polymerase behaviour.) New `_best_hit(oligo, seq, clamp, ext=6)` does a permissive best-placement (anchors on three spread 10-mers — 5'/middle/3' — so one or two mismatches can't hide a homologous site; bounded, never full-scans a genome) and returns real best identity, the nt distance of the closest mismatch to the 3' end, a 3'-clean flag, and the aligned window. `amplify()`'s no-product branch now calls it for F and R, reports the **real** best homology (never a misleading 0 for a present-but-3'-mismatched primer), and adds a `reason` field classifying the failure: *"forward region absent (best X%)"* (no homology / partial record), *"forward 3′ mismatch N nt from end (best X%)"* (present, won't prime), or *"primers bind but no convergent product in the size window"*. No-product targets with a 3'-mismatch now also carry the permissive window, so the v1.21.13 coverage→degeneracy recommender learns from the very isolates that were missed. **"amplifies" itself is unchanged in spirit (still gated on a clean 3' end + bounded mismatches + convergent size) — it's just sized to biology now, so it stays exclusivity-safe while no longer under-calling inclusivity.** **Frontend:** `isoReasonCat`/`isoReasonTag` categorise the reason; the inclusivity breakdown now splits no-product into "region absent/partial vs 3′ mismatch vs other" with a note that "region absent" is usually a partial record (not a real coverage gap); the per-isolate table shows the reason inline on each no-product row; missed-list entries are tagged by cause. **Verified:** controlled mismatch-distance sweep (cliff at 6; 3'-mismatch → no product but f_ident=95% + reason; absent → 0% + "region absent"; oversize → "size window"); perf unchanged (homopolymer/repeat 0.09–0.10 s, well under the 2 s cap); `test_isolates.py` extended with extension-gate + reason assertions; `tests/ui_isolate.js` extended with reason-categoriser + summary-split tests. Gate: py + JS parse OK (single `<script>`; note: an object key `3prime` had to be quoted — numeric-leading keys are invalid unquoted), Python **11/11**, JS **8/8**, healthz v1.21.14. Engine design primitives untouched; only the isolate in-silico-PCR scorer + isolate-panel rendering changed. Version bumped to 1.21.14 at all five sync points. Open backlog unchanged (iterate-on-design re-score without re-fetch; per-isolate 3'-mismatch map; amplicon-Tm-per-isolate spread; sortable results table).
+
+## v1.21.13 — isolate validator: workbench launch button + coverage breakdown, per-lineage detection, and a coverage-driven degeneracy recommender
+Builds on the v1.21.12 LNA fix. Five additions, all on the isolate inclusivity/exclusivity panel.
+**(1) Workbench → isolate checker.** Each workbench assay card gained a `Validate vs isolates ↗` action (`toIsolateAssay(id)`: `setCurrent(id)` + fills iso_f/iso_r/iso_p from the assay + `gotab('iso')` + toast) — one click from a designed assay to a real-isolate screen, no copy-paste. (The pre-existing `isoPull()` "pull current assay" button stays.)
+**(2) `amplify()` now returns per-oligo binding windows.** `isolates._probe_scan` extended to a 3-tuple `(ident, binds, best_win)` (best_win expressed in the probe's 5'→3' frame: `region[i:i+L]` if the plus-strand orientation won, else `_rc_iupac(...)`). `isolates.amplify()` returns `f_win` (`seq[fstart:fstart+len(F)]`), `r_win` (`_rc_iupac` of the plus-strand region rc(R) annealed to, i.e. in R's own 5'→3' frame), and `p_win`, in ALL three return paths (empty-input → None; no-product → best `fs[0]`/`rs[0]` windows so a rejected/missed isolate still shows where the primer sat; product → the chosen sites + probe-scan window). Only `amplify` calls `_probe_scan` (grep-confirmed). `/api/isolate_check` passes them through unchanged (it returns the whole `amplify` dict via `res.update`). Verified offline: with distinct random oligos and a mismatch at F pos 3 (5' of the 13-nt seed so the site is still found), `f_win` equals the target's F-site exactly and the mismatch is pinpointed at position 3; `r_win`/`p_win` clean; no-product path still returns the best windows. [An earlier ACGT-repeat fixture made `amplify` legitimately pick a cleaner F-site elsewhere — bad fixture, not a bug; redone with random distinct oligos.]
+**(3) Coverage breakdown.** `isoSummaryHtml(tg,ne)` replaces the old one-line counts with a MIQE-style roll-up: inclusivity = % detected (amplify + probe binds) with a detected / amplify-but-probe-weak / no-product split and the **list of missed accessions** (with why — probe % or no product); exclusivity = % rejected with a rejected / probe-no-bind / cross-react split and the **list of cross-reacting accessions**. Colour-coded ok/warn/risk chips (reuses `.subbox/.sub-h/.verdict.v-ok/.v-warn/.v-risk`).
+**(4) Per-lineage detection.** `isoLineage(title)` parses NCBI titles → `{species, lineage}` (`Genus species` → "G. species"; "Plasmodium sp." → genus + the haplotype/isolate/strain/clone/voucher token, e.g. MALCIN01, pGRW04, TX21010_r1). `isoLineageHtml(tg)` groups targets by species and shows a detected/total table per taxon — which haemosporidian lineages the genus assay actually covers (shows only when ≥2 species present).
+**(5) Coverage-driven degeneracy recommender.** `isoCoverageHtml(tg)` reads the bare oligos via a JS `stripMods` mirror (strips `/.../`, `+`, `*`, whitespace; upper; U→T) and runs `isoOligoCoverage(rows, oligoSeq, winKey)` for forward/reverse/probe: aggregates the target binding windows per position → mean identity across N targets, the variant positions (% match + the alternate bases with counts), and a **suggested IUPAC-degenerate oligo** that widens only the bases where a minority allele appears in **≥2 target isolates** that the current oligo misses (`iuCode`/`iuMatch` IUPAC helpers; copy button per suggestion). This closes the design loop: run the panel → see which lineages you miss and exactly which primer/probe base loses them → get a concrete degenerate oligo to recover them (confirm in OligoAnalyzer before ordering). Conserved oligos show "✓ fully conserved"; a singleton allele flags the position but does NOT trigger a suggestion (avoids chasing sequencing noise). CSV export retained.
+**Verification.** New `tests/ui_isolate.js` (8th JS harness, jsdom-style boot) — 13 asserts: lineage parsing (named species / 'sp.'+token / haplotype / other genus), IUPAC helpers, stripMods order-string→bare, coverage recommender (≥2-allele → suggest IUPAC; singleton → no suggestion; fully conserved → no change; <2 windows → null), summary breakdown (counts + missed/cross-react lists + empty-safe), lineage table (groups species, needs ≥2), coverage html (forward recommender from iso_f). Added LNA/window pins already in `tests/test_isolates.py`. Gate: py + JS parse OK (single `<script>`), Python **11/11**, JS **8/8**, healthz v1.21.13. No element IDs/handlers removed; no new load-time IIFE. Version bumped to 1.21.13 at all five sync points. Backlog still open: iterate-on-design loop (re-score with the suggested degenerate without re-fetching — cache fetched sequences client-side); per-isolate 3'-mismatch map; amplicon-Tm-per-isolate spread; sortable/filterable results table.
+
+## v1.21.12 — fix: isolate panel mis-scored LNA / IDT-modified probes (spurious uniform "probe weak ~72%")
+Bug fix (not a feature). Reported symptom: running the Plasmodium cytb genus assay through the isolate inclusivity/exclusivity panel returned `product · probe weak` with probe identity ~72% on essentially every cytb isolate (relictum, vaughani, circumflexum, …) while F and R sat at 100/100 — a uniform deflation that can't be real sequence variation. **Root cause:** `isolates.amplify()` sanitized oligos with `re.sub(r"[^ACGTRYSWKMBDHVN]", "N", ...)`, so each `+` in an IDT Affinity Plus (LNA) probe like `CTTA+CA+A+GATAT+CC+ACCACA` became an **N** instead of being removed. `+A` (one LNA nucleotide) thus turned into two characters (`N`+`A`), inflating the 20-mer probe to 25 chars and frame-shifting `_probe_scan`'s ungapped alignment against the true motif → best attainable identity ~72–80%, never binding. Primers (plain DNA, no `+`) were unaffected, hence 100/100. The app stores the canonical cytb probe **bare** (`CTTACAAGATATCCACCACA`, seedFSJ) — the `+`/`/56-FAM//3IABkFQ/` notation only exists in the order string — so nothing else was wrong; the panel just wasn't normalizing a *pasted* modified oligo. **Fix:** new `thermo.strip_mods(seq)` recovers the bare nucleotide sequence from modification/LNA notation — removes `/.../` IDT modification blocks (FAM, ZEN, IABkFQ, internal mods), the LNA `+` prefix, the phosphorothioate `*` marker, and whitespace; IUPAC letters and case preserved; a bare sequence passes through unchanged (`/56-FAM/CTTA+CA+A+GATAT+CC+ACCACA/3IABkFQ/` → `CTTACAAGATATCCACCACA`). `isolates.amplify()` now runs `T.strip_mods` on forward/reverse/probe BEFORE the IUPAC sanitize (`from . import thermo as T` added; `import re` added to thermo.py for the module regex). So the isolate panel accepts the bare probe, the `+`-LNA form, or the full IDT order string and scores them identically. **Verified:** reproduced the artifact (`+`→N gives a 25-char frame-shifted probe scoring ~80% on a synthetic target, matching the user's ~72% on real data); after the fix `amplify()` returns probe_ident 100.0 / binds for bare, `+`-LNA, and full-order-string probe on a constructed F…probe…rc(R) amplicon, with primers still 100/100 and the product unchanged; a genuinely mismatched probe still reports <100% and weak (the fix doesn't blanket-pass). `NO PRODUCT` rows (a primer at 0%, e.g. the SGS1 genome-assembly chromosomes where mitochondrial cytb is absent) are unaffected — those are real. Added LNA/strip_mods assertions to `tests/test_isolates.py` (strip_mods unit + bare/`+`/order-string parity + real-mismatch-stays-weak). Gate: py + JS parse OK (single `<script>`), Python **11/11 PASS** (added test_isolates LNA block to the existing suite: locked_panel / autodesign_golden / regression / specificity / viewer / reset / rdml / epcr_offline / accessibility / junction / isolates), healthz v1.21.12. No frontend logic change — the panel just needs a reload/redeploy; the same probe (bare or order-string) now scores correctly. `strip_mods` is available for reuse if other pasted-oligo paths (QC, pair-spec) should also accept order-string notation later. Version bumped to 1.21.12 at all five sync points.
+
 ## v1.21.11 — exon-junction / gDNA-exclusion design: mark exon boundaries with '|' to rank candidates that genomic DNA can't amplify
 Next roadmap pillar on top of v1.21.10. Host cytokine assays (IFNG/IL4/RPL13/YWHAZ) run on RNA, and gDNA carryover is a real qPCR confound; a junction-spanning oligo (or a junction inside the amplicon) lets you exclude gDNA. Manual Design now accepts a single transcript with exon boundaries marked by `|`. Backward-compatible: no `|` → unchanged. **Backend:** new `_parse_junction_template(text)` splits the template on `|`, runs each segment through `clean_seq` (which is character-wise — `|` is otherwise an invalid char — so piecewise cleaning concatenates to the same string and the boundary positions line up with the oligo spans) and returns `(cleaned_seq, [junction_positions], notes)` with leading/trailing/`||` seam markers dropped. The `/api/design` route branches to junction mode when `|` is present (single target = the marked transcript; `multi` forced off); per candidate it classifies the junction relationship from the spans it already computes — `strong` when the probe OR a primer strictly crosses a junction (gDNA can't bind that oligo contiguously), `size` when a junction lies inside the amplicon but no single oligo crosses it (gDNA gives a larger product, or none if the intron is long), `none` when everything sits within one exon — and attaches `junction={level, probe, forward, reverse, amplicon, junctions[], n_junctions}`. When junctions exist the candidate list is **re-sorted so gDNA-excluding candidates rank first** (strong → size → none, engine score breaks ties; the ★/#1 follows), and the route returns `junctions[]` + `n_junctions`. This is an additive post-pass — `design_from_sequences`/`design_assay` and the NCBI-accession-based `_annotate` junction path are untouched. **Frontend:** `MD` stores `junctions`/`n_junctions`; `seqView` draws a pink boundary marker (`.jmark`) between bases at each junction (group-splitting at boundaries) with a legend swatch; new `junctionPanel(c)` renders the gDNA verdict (✓ probe/primer crosses a junction — gDNA excluded / △ amplicon spans a junction, intron-length-dependent / ✕ within one exon — not gDNA-discriminating), inserted in `showCand` after `consPanel`; shell context shows "N exon junctions — gDNA-aware"; the template hint documents `...exon1|exon2...`. Junction status is deliberately NOT folded into the bubble/minimap colour (which stays off-target + panel); the re-ranking + panel convey it. **Verified:** TestClient — `_parse_junction_template` unit checks (marker stripped, single/two boundaries, whitespace-tolerant alignment, leading/trailing markers ignored); inserting `|` inside the probe → `strong` + that candidate ranked #1; in an inter-oligo gap → `size` (amplicon true, oligos false); outside the amplicon → `none`; no marker → `junction` None, `n_junctions` 0; ~135 ms. New `tests/test_junction.py` (12 asserts) PASSES. Frontend `junctionPanel` (empty/strong-probe/strong-primers/size/none) and `seqView` markers (count matches, legend present, none when empty) unit-tested offline. Gate: JS PARSE OK (single `<script>`, 12 Design functions incl. `junctionPanel`), **7/7 JS**, Python **all 10 PASS** (locked_panel / autodesign_golden / regression / specificity / viewer / reset / rdml / epcr_offline / accessibility / junction), healthz v1.21.11. Remaining Tier 3 roadmap (NOT built): one-click IDT order export per candidate + MIQE prefill (`orders.oligo_csv` + `gblock_fasta`, `report.py`), constraint-relaxation diagnostics on zero candidates. Version bumped to 1.21.11 at all five sync points.
 

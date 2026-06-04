@@ -13,7 +13,7 @@ import time
 import webbrowser
 
 HOST = "127.0.0.1"
-APP_VERSION = "v1.21.11"                         # bumped on each change; matches the release tag
+APP_VERSION = "v1.26.0"                         # bumped on each change; matches the release tag
 GITHUB_REPO = "andrewrcarlson12-oss/oligoforge"  # <- set to your repo for update checks
 
 

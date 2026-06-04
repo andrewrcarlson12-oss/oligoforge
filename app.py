@@ -10,9 +10,9 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR
+from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR, nn as NN
 
-app = FastAPI(title="OligoForge", version="1.21.11")
+app = FastAPI(title="OligoForge", version="1.26.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -146,9 +146,17 @@ def profiles():
 
 @app.post("/api/qc")
 def qc(r: OligoReq):
-    s, notes, err = T.clean_seq(r.seq)
+    raw = r.seq or ""
+    mod_bits = []
+    if "/" in raw: mod_bits.append("5'/3' or internal modification codes")
+    if "+" in raw: mod_bits.append("LNA (+) bases")
+    if "*" in raw: mod_bits.append("phosphorothioate (*) linkages")
+    s, notes, err = T.clean_seq(T.strip_mods(raw))   # accept a pasted IDT order string / LNA oligo
     if err:
         return JSONResponse({"error": err}, status_code=200)
+    if mod_bits:
+        notes.append("modification notation stripped to score the DNA backbone ("
+                     + ", ".join(mod_bits) + "); Tm / \u0394G shown are for the unmodified sequence")
     hdg37, hdg_an, htm = T.hairpin_full(s)
     sd37, sd_an, sdtm = T.self_dimer_full(s)
     out = dict(seq=s, length=len(s), gc=round(T.gc_percent(s), 1), tm=round(T.tm_acc(s), 1),
@@ -170,6 +178,15 @@ def qc(r: OligoReq):
         if r.profile in ("idt_affinity", "parasite_mtdna") and r.role == "probe":
             out["lna_note"] = ("LNA probe: the Tm above is the DNA-backbone value. Each LNA base adds "
                                "~2-8 C; set LNA positions and confirm in IDT OligoAnalyzer.")
+    if "+" in raw:
+        out["lna_note"] = ("LNA (+) bases detected: each locked base raises Tm ~2-8 \u00b0C, so the actual "
+                           "probe Tm is HIGHER than shown here. Confirm in IDT OligoAnalyzer.")
+        _nnl = NN.params_lna(raw)   # computed LNA Tm via McTigue 2004 increments
+        if _nnl:
+            out["nn_lna"] = _nnl
+    _nn = NN.params(s)   # transparent NN thermodynamics at the reaction conditions (None if degenerate)
+    if _nn:
+        out["nn"] = _nn
     if notes:
         out["note"] = " · ".join(notes)
     return out
@@ -986,6 +1003,19 @@ class MeltReq(BaseModel):
 def api_melt(r: MeltReq):
     return MELT.analyze(r.fluor, r.temps, min_prominence_frac=r.min_prominence_frac,
                         predicted_tm=r.predicted_tm)
+
+from oligoforge import miqe as MIQE
+class ValidateReq(BaseModel):
+    assay: dict
+    observed_amplicon_tm: Optional[float] = None
+    observed_peaks: Optional[int] = None
+@app.post("/api/validate")
+def api_validate(r: ValidateReq):
+    try:
+        return MIQE.validate_assay(r.assay, observed_amplicon_tm=r.observed_amplicon_tm,
+                                   observed_peaks=r.observed_peaks)
+    except Exception as e:
+        return JSONResponse({"error": "validation failed: %s" % e}, status_code=200)
 
 from oligoforge import autodesign as AD
 class AutoDesignReq(BaseModel):

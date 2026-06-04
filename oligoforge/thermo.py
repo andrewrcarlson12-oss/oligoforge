@@ -9,6 +9,7 @@ import primer3
 from Bio.SeqUtils import MeltingTemp as _mt
 import itertools
 import threading
+import re
 from functools import lru_cache
 
 _P3 = threading.Lock()        # primer3's C core is not safe under the sync-endpoint threadpool
@@ -67,6 +68,22 @@ def clean_seq(raw):
 
 def revcomp(seq):
     return "".join(_COMP.get(b, "N") for b in reversed(seq.upper()))
+
+
+_MOD_BLOCK = re.compile(r"/[^/]*/")   # IDT 5'/3'/internal modification codes: /56-FAM/, /3IABkFQ/, /ZEN/, ...
+
+
+def strip_mods(seq):
+    """Recover the bare nucleotide sequence from an oligo written in modification / LNA notation.
+    e.g. an IDT order string '/56-FAM/CTTA+CA+A+GATAT+CC+ACCACA/3IABkFQ/' -> 'CTTACAAGATATCCACCACA'.
+    Removes /.../ modification blocks (FAM, ZEN, IABkFQ, internal mods), the LNA '+' prefix (one '+'
+    marks the FOLLOWING base as a locked nucleic acid; the base itself stays), the phosphorothioate
+    '*' linkage marker, and whitespace. IUPAC letters are left intact and case is preserved; callers
+    do their own upper/U->T. A bare sequence passes through unchanged."""
+    if not seq:
+        return seq
+    s = _MOD_BLOCK.sub("", seq)
+    return s.replace("+", "").replace("*", "").replace(" ", "").replace("\t", "")
 
 
 def _resolve(seq):

@@ -110,6 +110,20 @@ try:
 except Exception as _e:
     check("project roundtrip", False, str(_e))
 
+# 15b. QC accepts a pasted IDT order string / LNA oligo (strips mod notation, scores DNA backbone)
+try:
+    from fastapi.testclient import TestClient as _TC3
+    import app as _APP3
+    _c3 = _TC3(_APP3.app)
+    _q = _c3.post("/api/qc", json={"seq": "/56-FAM/CTTA+CA+A+GATAT+CC+ACCACA/3IABkFQ/", "role": "probe"}).json()
+    check("QC parses IDT order string (no error)", not _q.get("error"))
+    check("QC recovers bare 20-mer from order string", _q.get("seq") == "CTTACAAGATATCCACCACA")
+    check("QC warns LNA Tm is DNA-backbone", bool(_q.get("lna_note")))
+    _q2 = _c3.post("/api/qc", json={"seq": "ACGTACGTACGTACGTACGT", "role": "primer"}).json()
+    check("QC plain oligo unaffected (no lna_note)", not _q2.get("lna_note"))
+except Exception as _e:
+    check("QC order-string handling", False, str(_e))
+
 # 16. NCBI api_key wiring: per-request, env fallback, and clearing
 try:
     import os as _os
