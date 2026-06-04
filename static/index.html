@@ -385,18 +385,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 #splash.gone{opacity:0;visibility:hidden;pointer-events:none}
 #splash .scard{position:relative;text-align:center;padding:34px 46px;max-width:520px;animation:splashIn .7s cubic-bezier(.2,.8,.2,1) both}
 @keyframes splashIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-#splash .helix3d{position:relative;width:160px;height:216px;margin:2px auto 4px;perspective:640px;animation:helixFloat 3.8s ease-in-out 1.6s infinite}
-#splash .helix3d-rot{position:absolute;inset:0;transform-style:preserve-3d;animation:helixSpin 9s linear infinite}
-#splash .bp{position:absolute;left:50%;top:50%;width:88px;height:3px;margin:-1.5px 0 0 -44px;transform-style:preserve-3d;transform:translateY(var(--ty)) rotateY(var(--ry));opacity:0;animation:bpIn .5s ease both}
-#splash .bp .bar{position:absolute;left:10px;right:10px;top:50%;height:2.6px;margin-top:-1.3px;border-radius:2px;opacity:.92}
-#splash .bp.at .bar{background:var(--acc)}
-#splash .bp.gc .bar{background:var(--acc2)}
-#splash .bp .node{position:absolute;top:50%;width:7.5px;height:7.5px;margin-top:-3.75px;border-radius:50%;background:var(--ink2);box-shadow:0 0 0 1.5px var(--bg)}
-#splash .bp .node.l{left:0}
-#splash .bp .node.r{right:0}
-@keyframes bpIn{from{opacity:0}to{opacity:1}}
-@keyframes helixSpin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
-@keyframes helixFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+#splash .helixCanvas{display:block;width:170px;height:228px;margin:0 auto 2px}
 #splash h1{margin:.3em 0 .1em;font:800 38px/1 var(--display);letter-spacing:-.5px;color:var(--ink);opacity:0;animation:wmIn .7s ease 1.25s both}
 #splash .tag{color:var(--ink2);font:13px/1.5 var(--mono);letter-spacing:.02em;opacity:0;animation:wmIn .7s ease 1.45s both}
 #splash .seqticker{color:var(--dim);font:11px/1.4 var(--mono);letter-spacing:3px;height:15px;overflow:hidden;margin:9px 0 14px}
@@ -406,7 +395,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 #splash .curve{width:236px;height:40px;margin:0 auto 18px;display:block;opacity:.85}
 #splash .curve path{fill:none;stroke:var(--acc);stroke-width:2.4;stroke-linecap:round;stroke-dasharray:320;stroke-dashoffset:320;animation:curveDraw 1.5s cubic-bezier(.6,0,.2,1) .45s forwards}
 @keyframes curveDraw{to{stroke-dashoffset:0}}
-@media (prefers-reduced-motion: reduce){#splash .helix3d,#splash .helix3d-rot{animation:none}#splash .helix3d-rot{transform:rotateY(22deg)}#splash .bp{animation:none;opacity:1}#splash h1,#splash .tag{animation:none;opacity:1}#splash .seqticker span{animation:none}#splash .curve path{animation:none;stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){#splash h1,#splash .tag{animation:none;opacity:1}#splash .seqticker span{animation:none}#splash .curve path{animation:none;stroke-dashoffset:0}}
 #splash button{font:600 15px var(--ui);color:#fff;background:var(--acc);border:0;border-radius:11px;padding:13px 32px;cursor:pointer;transition:background .15s}
 #splash button:hover{background:var(--acc-d)}
 #splash .hint{margin-top:13px;color:var(--dim);font:11px/1 var(--mono);letter-spacing:.08em}
@@ -434,38 +423,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <svg class="grain" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><filter id="grainf"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#grainf)"/></svg>
 <div id="splash" role="dialog" aria-label="Welcome to OligoForge" tabindex="-1">
   <div class="scard">
-    <div class="helix3d" aria-hidden="true"><div class="helix3d-rot">
-    <div class="bp at" style="--ty:-98.6px;--ry:0.0deg;animation-delay:0.18s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:-91.8px;--ry:36.0deg;animation-delay:0.23s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:-85.0px;--ry:72.0deg;animation-delay:0.28s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:-78.2px;--ry:108.0deg;animation-delay:0.33s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:-71.4px;--ry:144.0deg;animation-delay:0.38s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:-64.6px;--ry:180.0deg;animation-delay:0.43s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:-57.8px;--ry:216.0deg;animation-delay:0.48s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:-51.0px;--ry:252.0deg;animation-delay:0.53s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:-44.2px;--ry:288.0deg;animation-delay:0.58s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:-37.4px;--ry:324.0deg;animation-delay:0.63s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:-30.6px;--ry:360.0deg;animation-delay:0.68s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:-23.8px;--ry:396.0deg;animation-delay:0.73s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:-17.0px;--ry:432.0deg;animation-delay:0.78s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:-10.2px;--ry:468.0deg;animation-delay:0.83s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:-3.4px;--ry:504.0deg;animation-delay:0.88s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:3.4px;--ry:540.0deg;animation-delay:0.93s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:10.2px;--ry:576.0deg;animation-delay:0.98s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:17.0px;--ry:612.0deg;animation-delay:1.03s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:23.8px;--ry:648.0deg;animation-delay:1.08s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:30.6px;--ry:684.0deg;animation-delay:1.13s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:37.4px;--ry:720.0deg;animation-delay:1.18s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:44.2px;--ry:756.0deg;animation-delay:1.23s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:51.0px;--ry:792.0deg;animation-delay:1.28s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:57.8px;--ry:828.0deg;animation-delay:1.33s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:64.6px;--ry:864.0deg;animation-delay:1.38s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp at" style="--ty:71.4px;--ry:900.0deg;animation-delay:1.43s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:78.2px;--ry:936.0deg;animation-delay:1.48s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:85.0px;--ry:972.0deg;animation-delay:1.53s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:91.8px;--ry:1008.0deg;animation-delay:1.58s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-    <div class="bp gc" style="--ty:98.6px;--ry:1044.0deg;animation-delay:1.63s"><span class="node l"></span><span class="bar"></span><span class="node r"></span></div>
-  </div></div>
+    <canvas id="helixCanvas" class="helixCanvas" width="340" height="456" aria-hidden="true"></canvas>
     <h1>OligoForge</h1>
     <div class="tag">qPCR primer &amp; probe design · validation · QC</div>
     <div class="seqticker"><span>ACGT · CYTB · COI · 16S · ITS · rbcL · rpoB · IFNG · ACGT · CYTB · COI · 16S · ITS · rbcL · rpoB · IFNG · </span></div>
@@ -478,7 +436,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <header class="topbar">
   <div class="brand">
     <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2c0 4 12 4 12 8s-12 4-12 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M16 2c0 4-12 4-12 8s12 4 12 8" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/><path d="M5.6 5h8.8M5 10h10M5.6 15h8.8" stroke="rgba(255,255,255,.5)" stroke-width="1" stroke-linecap="round"/></svg></span>
-    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.21.3</span>
+    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.21.4</span>
   </div>
   <div class="spacer"></div>
   <div class="toolset">
@@ -950,7 +908,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
 </main>
 </div><!--/shell-->
-<footer>OligoForge v1.21.3</footer>
+<footer>OligoForge v1.21.4</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -1749,6 +1707,129 @@ renderPanel();
   sp.addEventListener('keydown',function(ev){ if(ev&&(ev.key==='Enter'||ev.key==='Escape')) enter(); });
   var seen=false; try{ seen=sessionStorage.getItem('of_seen_intro')==='1'; }catch(e){}
   if(seen){ try{sp.style.display='none';}catch(e){} } else if(b){ try{b.focus();}catch(e){} }
+}catch(e){}})();
+/* ---- Splash helix: a genuinely 3D double helix in canvas 2D (no WebGL, no deps).
+   Real perspective projection + painter's-algorithm occlusion (back strand hides behind front)
+   + per-object Lambert/specular sphere shading + atmospheric fog + additive bloom + center-out
+   assembly + cursor parallax. Defensively guarded so the headless / stub-DOM harnesses (which
+   have no real 2D context) bail cleanly. Pure presentation; touches only #helixCanvas. */
+(function(){try{
+  var c=document.getElementById('helixCanvas');
+  if(!c||typeof c.getContext!=='function') return;
+  var x=c.getContext('2d'); if(!x) return;
+  var raf=(typeof requestAnimationFrame==='function')?requestAnimationFrame:null;
+  var sp=document.getElementById('splash');
+
+  function tok(n,fb){try{var v=getComputedStyle(document.documentElement).getPropertyValue(n).trim();return v||fb;}catch(e){return fb;}}
+  function rgb(s){s=(s||'').trim();
+    if(s.charAt(0)==='#'){if(s.length===4)s='#'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3];
+      return [parseInt(s.substr(1,2),16),parseInt(s.substr(3,2),16),parseInt(s.substr(5,2),16)];}
+    var m=s.match(/(\d+(?:\.\d+)?)/g); return (m&&m.length>=3)?[+m[0],+m[1],+m[2]]:[128,128,128];}
+  function mix(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
+  function lighten(a,t){return mix(a,[255,255,255],t);}
+  function darken(a,t){return mix(a,[0,0,0],t);}
+  function css(a,al){return 'rgba('+(a[0]|0)+','+(a[1]|0)+','+(a[2]|0)+','+(al==null?1:al)+')';}
+  var C={at:rgb(tok('--acc','#3b82f6')),gc:rgb(tok('--acc2','#14b8a6')),
+         bone:rgb(tok('--ink2','#64748b')),bg:rgb(tok('--bg','#0b0f14'))};
+
+  // geometry: real-ish B-DNA — strand 2 offset 150deg (not 180) gives true major/minor grooves
+  var SEQ='ATGGGTTATGTATTACCTTGGTAGCACCCCATGAGTAGGAGCATCA';   // a Plasmodium cytb forward region
+  var N=26, RISE=7.05, RAD=45, TWIST=34*Math.PI/180, OFF=150*Math.PI/180;
+  var y0=-(N-1)/2*RISE;
+  var L=(function(){var v=[-0.45,0.62,0.64],n=Math.hypot(v[0],v[1],v[2]);return [v[0]/n,v[1]/n,v[2]/n];})();
+  var TILT=-13*Math.PI/180, CAMZ=240, FOCAL=240, W=170, H=228, CX=W/2, CY=H/2;
+
+  function resize(){var dpr=Math.min(window.devicePixelRatio||1,2);
+    c.width=Math.round(W*dpr); c.height=Math.round(H*dpr); c.style.width=W+'px'; c.style.height=H+'px';
+    x.setTransform(dpr,0,0,dpr,0,0);}
+  resize();
+  var reduce=false; try{reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+
+  function rot(px,py,pz,A,tl){var ca=Math.cos(A),sa=Math.sin(A);
+    var x1=px*ca+pz*sa, z1=-px*sa+pz*ca, y1=py;
+    var ct=Math.cos(tl),st=Math.sin(tl); return [x1, y1*ct-z1*st, y1*st+z1*ct];}
+  function proj(p){var s=FOCAL/(CAMZ-p[2]); return [CX+p[0]*s, CY-p[1]*s, s, p[2]];}
+  function fog(z){var t=(70-z)/140; if(t<0)t=0; if(t>1)t=1; return t*0.6;}
+
+  function build(A,tl,er){
+    var s1=[],s2=[],n1=[],n2=[];
+    for(var i=0;i<N;i++){var y=y0+i*RISE, a1=i*TWIST, a2=i*TWIST+OFF;
+      s1.push(proj(rot(RAD*Math.cos(a1),y,RAD*Math.sin(a1),A,tl)));
+      s2.push(proj(rot(RAD*Math.cos(a2),y,RAD*Math.sin(a2),A,tl)));
+      n1.push(rot(Math.cos(a1),0,Math.sin(a1),A,tl));
+      n2.push(rot(Math.cos(a2),0,Math.sin(a2),A,tl));}
+    function lamb(n){var d=n[0]*L[0]+n[1]*L[1]+n[2]*L[2]; return d<0?0:d;}
+    function rev(i){if(er>=1)return 1; var d=Math.abs(i-(N-1)/2)/((N-1)/2);
+      var t=er*1.35-d*0.85; return t<=0?0:(t>=0.5?1:t/0.5);}
+    var P=[];
+    for(var i=0;i<N;i++){var r=rev(i);
+      if(i>0){var rs=Math.min(rev(i-1),r); if(rs>0.02){
+        P.push({t:'tube',a:s1[i-1],b:s1[i],z:(s1[i-1][3]+s1[i][3])/2,col:C.bone,r:rs});
+        P.push({t:'tube',a:s2[i-1],b:s2[i],z:(s2[i-1][3]+s2[i][3])/2,col:C.bone,r:rs});}}
+      if(r>0.02){var ch=SEQ.charAt(i%SEQ.length), gc=(ch==='G'||ch==='C');
+        P.push({t:'rung',a:s1[i],b:s2[i],z:(s1[i][3]+s2[i][3])/2,col:gc?C.gc:C.at,r:r});
+        P.push({t:'ball',p:s1[i],z:s1[i][3],col:C.bone,lm:lamb(n1[i]),r:r});
+        P.push({t:'ball',p:s2[i],z:s2[i][3],col:C.bone,lm:lamb(n2[i]),r:r});}}
+    P.sort(function(p,q){return p.z-q.z;});       // far -> near = real occlusion
+    return P;
+  }
+
+  function draw(A,tl,er){
+    var P=build(A,tl,er); x.clearRect(0,0,W,H);
+    for(var k=0;k<P.length;k++){var pr=P[k], f=fog(pr.z);
+      if(pr.t==='tube'){var col=mix(pr.col,C.bg,f), lw=Math.max(1.3,2.9*((pr.a[2]+pr.b[2])/2));
+        x.lineCap='round'; x.lineWidth=lw; x.strokeStyle=css(col,0.95*pr.r);
+        x.beginPath(); x.moveTo(pr.a[0],pr.a[1]); x.lineTo(pr.b[0],pr.b[1]); x.stroke();
+        x.lineWidth=Math.max(0.5,lw*0.34); x.strokeStyle=css(lighten(col,0.55),0.45*pr.r);
+        x.beginPath(); x.moveTo(pr.a[0],pr.a[1]); x.lineTo(pr.b[0],pr.b[1]); x.stroke();
+      } else if(pr.t==='rung'){var rc=mix(pr.col,C.bg,f), lw=Math.max(1.1,2.6*((pr.a[2]+pr.b[2])/2));
+        x.lineCap='round'; x.lineWidth=lw; x.strokeStyle=css(rc,0.82*pr.r);
+        x.beginPath(); x.moveTo(pr.a[0],pr.a[1]); x.lineTo(pr.b[0],pr.b[1]); x.stroke();
+      } else {var R=Math.max(2.2,4.9*pr.p[2]), body=mix(pr.col,C.bg,f),
+        lit=lighten(body,0.12+0.5*pr.lm), sh=darken(body,0.46),
+        hx=pr.p[0]+R*0.4*L[0], hy=pr.p[1]-R*0.4*L[1];
+        var g=x.createRadialGradient(hx,hy,R*0.1,pr.p[0],pr.p[1],R*1.06);
+        g.addColorStop(0,css(lighten(lit,0.55),pr.r)); g.addColorStop(0.45,css(lit,pr.r)); g.addColorStop(1,css(sh,pr.r));
+        x.fillStyle=g; x.beginPath(); x.arc(pr.p[0],pr.p[1],R,0,6.2832); x.fill();
+        x.lineWidth=0.7; x.strokeStyle=css(darken(body,0.62),0.5*pr.r);
+        x.beginPath(); x.arc(pr.p[0],pr.p[1],R,0,6.2832); x.stroke();}
+    }
+    x.globalCompositeOperation='lighter';            // additive bloom on near, lit beads
+    for(var j=0;j<P.length;j++){var p=P[j]; if(p.t!=='ball')continue;
+      var near=(p.p[2]-0.85)/0.5; if(near<0)near=0; if(near>1)near=1;
+      var gl=(0.18+0.5*p.lm)*near*p.r; if(gl<0.04)continue;
+      var Rg=Math.max(3,4.9*p.p[2])*2.6, gc2=lighten(mix(p.col,C.bg,fog(p.z)),0.42);
+      var hg=x.createRadialGradient(p.p[0],p.p[1],0,p.p[0],p.p[1],Rg);
+      hg.addColorStop(0,css(gc2,gl)); hg.addColorStop(1,css(gc2,0));
+      x.fillStyle=hg; x.beginPath(); x.arc(p.p[0],p.p[1],Rg,0,6.2832); x.fill();}
+    x.globalCompositeOperation='source-over';
+  }
+
+  var SPIN=0.6, ASSEMBLE=1350, ang=0, last=null, t0=null, running=false, rid=0, mA=0, mT=0;
+  function loop(ts){
+    if(sp&&sp.classList&&sp.classList.contains('gone')){running=false;return;}
+    if(last==null)last=ts; if(t0==null)t0=ts;
+    var dt=(ts-last)/1000; if(dt>0.05)dt=0.05; last=ts;
+    var el=ts-t0, reveal=el<ASSEMBLE?el/ASSEMBLE:1, er=1-Math.pow(1-reveal,3);
+    ang+=SPIN*reveal*dt;                              // velocity eases in with the assembly
+    var bob=Math.sin(el/1000*0.75)*0.045;
+    draw(ang+mA, TILT+bob+mT, er);
+    if(running&&raf)rid=raf(loop);
+  }
+  function start(){if(running)return; running=true; last=null; if(raf)rid=raf(loop);}
+
+  if(reduce||!raf){ draw(26*Math.PI/180, TILT, 1); }
+  else{
+    start();
+    if(sp&&sp.addEventListener){
+      sp.addEventListener('mousemove',function(ev){try{var r=c.getBoundingClientRect();
+        mA=((ev.clientX-(r.left+r.width/2))/r.width)*0.5; mT=((ev.clientY-(r.top+r.height/2))/r.height)*0.28;}catch(e){}});
+      sp.addEventListener('mouseleave',function(){mA=0;mT=0;});
+    }
+    if(document.addEventListener) document.addEventListener('visibilitychange',function(){
+      if(document.hidden){running=false;} else if(sp&&(!sp.classList||!sp.classList.contains('gone'))){start();}});
+    if(window.addEventListener) window.addEventListener('resize',function(){try{resize();}catch(e){}});
+  }
 }catch(e){}})();
 /* ---- Isolate panel: inclusivity / exclusivity in-silico PCR ---- */
 let ISO_RES=[];
