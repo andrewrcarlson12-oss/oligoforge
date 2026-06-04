@@ -10,9 +10,9 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO
+from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR
 
-app = FastAPI(title="OligoForge", version="1.21.8")
+app = FastAPI(title="OligoForge", version="1.21.11")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -92,6 +92,7 @@ class MatrixReq(BaseModel):
 
 class DesignReq(BaseModel):
     template: str; profile: str = "idt_taqman"; off_targets: Optional[str] = None
+    panel: Optional[List[dict]] = None
 
 class FetchReq(BaseModel):
     accession: Optional[str] = None; gene: Optional[str] = None
@@ -261,15 +262,89 @@ def _parse_fasta_targets(text):
     return out, notes
 
 
+def _panel_fit(cand_oligos, amplicon_tm, is_sybr, panel, dimer_threshold=-6.0, amp_tm_gap=2.0):
+    """Cross-check ONE Design candidate against the existing workbench panel: heterodimers between the
+    candidate's oligos and every panel oligo (same thresholds + 3'-engagement test as the Multiplex tab),
+    plus SYBR amplicon-Tm proximity. Panel-internal conflicts are the Multiplex tab's job; this reports
+    only what dropping the NEW assay into the panel would add."""
+    cross = []
+    for cn, cs in cand_oligos:
+        cs = (cs or "").upper()
+        if not cs:
+            continue
+        for pa in panel:
+            anm = pa.get("name") or "assay"
+            for po in pa.get("oligos", []):
+                ps = (po.get("seq") or "").upper()
+                if not ps:
+                    continue
+                dg = T.hetero_dimer(cs, ps)
+                if dg <= dimer_threshold:
+                    end_dg = min(T.end_stability(cs, ps), T.end_stability(ps, cs))
+                    cross.append(dict(oligo=cn, assay=anm, oligo_b=po.get("name") or "?",
+                                      dg=round(dg, 2), end_dg=round(end_dg, 2), three_prime=end_dg <= -5.0))
+    cross.sort(key=lambda x: x["dg"])
+    melt = []
+    if is_sybr and amplicon_tm is not None:
+        for pa in panel:
+            if pa.get("amplicon_tm") is None:
+                continue
+            psybr = pa.get("sybr")
+            if psybr is None:
+                psybr = not any((o.get("name") == "P") for o in pa.get("oligos", []))
+            if not psybr:
+                continue
+            d = abs(float(amplicon_tm) - float(pa["amplicon_tm"]))
+            if d < amp_tm_gap:
+                melt.append(dict(assay=pa.get("name") or "assay", tm=round(float(pa["amplicon_tm"]), 1),
+                                 delta=round(d, 1)))
+        melt.sort(key=lambda x: x["delta"])
+    return dict(n_panel=len(panel), cross=cross[:12], melt=melt,
+                worst_dg=(cross[0]["dg"] if cross else None), three_prime=any(x["three_prime"] for x in cross))
+
+
+def _parse_junction_template(text):
+    """A single transcript whose exon boundaries are marked with '|'. Splits on '|', cleans each segment
+    with the same normalizer used everywhere else, and records the boundary positions in the CLEANED
+    sequence (clean_seq is character-wise, so piecewise cleaning concatenates to the same string and the
+    positions line up with the oligo spans). Returns (cleaned_seq, [junction_positions], notes)."""
+    segs = (text or "").split("|")
+    cleaned = []
+    for s in segs:
+        c, _n, err = T.clean_seq(s)
+        cleaned.append(c if (c and not err) else "")
+    ref = "".join(cleaned)
+    pos, run = [], 0
+    for c in cleaned[:-1]:
+        run += len(c)
+        if 0 < run < len(ref):
+            pos.append(run)
+    pos = sorted(set(pos))
+    notes = []
+    if "|" in (text or "") and not pos:
+        notes.append("exon marker '|' found but it isn't inside the sequence \u2014 ignoring it.")
+    elif pos:
+        notes.append("%d exon junction%s marked \u2014 candidates ranked for gDNA exclusion." %
+                     (len(pos), "s" if len(pos) != 1 else ""))
+    return ref, pos, notes
+
+
 @app.post("/api/design")
 def design(r: DesignReq):
-    targets, tnotes = _parse_fasta_targets(r.template)
+    junctions = []
+    if "|" in (r.template or ""):                            # single transcript with marked exon boundaries
+        ref_single, junctions, tnotes = _parse_junction_template(r.template)
+        targets = [ref_single] if (ref_single and len(ref_single) >= 60) else []
+    else:
+        targets, tnotes = _parse_fasta_targets(r.template)
     if not targets:
         return JSONResponse({"error": "no usable template \u2014 paste at least ~60 nt of the transcript / region "
-                                      "(raw sequence or multi-record FASTA)."}, status_code=200)
+                                      "(raw sequence, multi-record FASTA, or one sequence with '|' at exon boundaries)."},
+                            status_code=200)
     offs, _onotes = _parse_fasta_targets(r.off_targets) if r.off_targets else ([], [])
+    panel = [a for a in (r.panel or []) if a and a.get("oligos")]   # workbench assays to check multiplex fit against
     notes = list(tnotes or [])
-    multi = len(targets) >= 2
+    multi = len(targets) >= 2 and not junctions
     ref = _AD_design._reference(targets)                     # the sequence all spans / highlights map onto
     gc = 100.0 * sum(c in "GC" for c in ref) / max(1, len(ref))
     NCAND = 10
@@ -373,6 +448,24 @@ def design(r: DesignReq):
             deg = dict(forward=a.get("forward_deg"), reverse=a.get("reverse_deg"), probe=a.get("probe_deg"),
                        n=a.get("n_degenerate"), targets=a.get("deg_targets"))
 
+        pf = None                                           # multiplex fit vs the current workbench panel
+        if panel:
+            try:
+                cand_oligos = [("F", a["forward"]), ("R", a["reverse"])] + ([("P", a["probe"])] if a.get("probe") else [])
+                pf = _panel_fit(cand_oligos, a.get("amplicon_tm"), not a.get("probe"), panel)
+            except Exception:
+                pf = None
+
+        jx = None                                           # exon-junction / gDNA-exclusion relationship
+        if junctions:
+            def _crosses(sp):
+                return [j for j in junctions if sp and sp[0] < j < sp[1]]
+            pj = _crosses(pspan); fj = _crosses(fspan); rj = _crosses(rspan)
+            aj = [j for j in junctions if amp_span and amp_span[0] < j < amp_span[1]]
+            level = "strong" if (pj or fj or rj) else ("size" if aj else "none")
+            jx = dict(level=level, probe=bool(pj), forward=bool(fj), reverse=bool(rj),
+                      amplicon=bool(aj), junctions=sorted(set(pj + fj + rj + aj)), n_junctions=len(junctions))
+
         cands.append(dict(
             forward=a["forward"], reverse=a["reverse"], probe=a.get("probe"),
             amplicon=a["amplicon"], amplicon_tm=a.get("amplicon_tm"),
@@ -386,10 +479,79 @@ def design(r: DesignReq):
             f_span=fspan, r_span=rspan, probe_span=pspan, probe_rc=probe_rc, amp_span=amp_span,
             score_breakdown=dict(raw=sc.get("score_raw"), quality=sc.get("quality_penalty"),
                                  amplicon=sc.get("amplicon_penalty")),
-            conservation=cons_out, discrimination=disc_out, specificity=spec, degenerate=deg))
+            conservation=cons_out, discrimination=disc_out, specificity=spec, degenerate=deg, panel_fit=pf,
+            junction=jx))
+    if junctions:                                            # surface gDNA-excluding candidates first; engine score breaks ties
+        _jr = {"strong": 0, "size": 1, "none": 2}
+        cands.sort(key=lambda c: (_jr.get((c.get("junction") or {}).get("level", "none"), 2), -(c.get("score") or 0)))
     return dict(template=ref, profile=prof["name"], n=len(cands), candidates=cands,
-                n_targets=len(targets), n_offs=len(offs), off_control=off_ctrl,
+                n_targets=len(targets), n_offs=len(offs), n_panel=len(panel),
+                junctions=junctions, n_junctions=len(junctions), off_control=off_ctrl,
                 note=(" \u00b7 ".join(notes) if notes else None), constraint_note=res.get("constraint_note"))
+
+
+class AccessReq(BaseModel):
+    amplicon: str
+    forward: Optional[str] = None; reverse: Optional[str] = None; probe: Optional[str] = None
+    anneal_c: Optional[float] = None
+
+
+@app.post("/api/accessibility")
+def api_accessibility(r: AccessReq):
+    """Probe-site / primer-3' accessibility for ONE candidate: fold the amplicon (only) and report how
+    base-paired each binding site is at the annealing temperature, where the probe must actually hybridize.
+    On-demand (the Design call stays fast); folds the amplicon, never the template. ViennaRNA-guarded."""
+    if not STR.available():
+        return dict(available=False)
+    amp = ("".join(c for c in (r.amplicon or "").upper() if c in "ACGTUN")).replace("U", "T")
+    if len(amp) < 8:
+        return dict(available=True, folded=False, note="amplicon too short to fold")
+    anneal = r.anneal_c if r.anneal_c is not None else T.ANNEAL_C
+    fe = STR.fold_ensemble(amp, anneal_c=anneal)
+    if not fe:
+        return dict(available=True, folded=False, note="amplicon outside the foldable range (8\u20131000 nt)")
+    pa, pp = fe.get("paired_anneal"), fe.get("paired_prob")
+
+    def locate(sub):
+        if not sub:
+            return None
+        s = sub.upper().replace("U", "T")
+        i = amp.find(s)
+        if i < 0:
+            i = amp.find(T.revcomp(s))
+        return i if i >= 0 else None
+
+    def site(start, end):
+        start = max(0, start); end = min(len(amp), end)
+        if end <= start:
+            return None
+        return dict(anneal_paired=(STR.site_paired_fraction(pa, start, end) if pa is not None else None),
+                    ens_paired=STR.site_paired_prob(pp, start, end))
+
+    out = dict(available=True, folded=True, anneal_c=anneal, dna_params=fe["dna_params"],
+               mfe=fe["mfe"], mfe_anneal=fe.get("mfe_anneal"), n=fe["n"])
+    if r.probe:
+        pi = locate(r.probe)
+        if pi is not None:
+            out["probe"] = site(pi, pi + len(r.probe))
+    if r.forward:
+        L = len(r.forward)
+        out["f3"] = site(L - 5, L)                          # forward 3' end sits at the amplicon's 5' start
+    if r.reverse:
+        L = len(r.reverse)
+        out["r3"] = site(len(amp) - L, len(amp) - L + 5)    # reverse 3' end = left edge of revcomp(R) at the amplicon's 3' end
+
+    def grade(frac):
+        if frac is None:
+            return None
+        return "ok" if frac <= 0.0 else ("warn" if frac <= 0.4 else "risk")
+    # verdict: probe accessibility if there's a probe, else the worse of the primer 3' ends
+    if out.get("probe"):
+        out["verdict"] = grade(out["probe"].get("anneal_paired"))
+    else:
+        fr = [s.get("anneal_paired") for s in (out.get("f3"), out.get("r3")) if s and s.get("anneal_paired") is not None]
+        out["verdict"] = grade(max(fr)) if fr else None
+    return out
 
 @app.post("/api/fetch")
 def fetch(r: FetchReq):
