@@ -436,7 +436,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <header class="topbar">
   <div class="brand">
     <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2c0 4 12 4 12 8s-12 4-12 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M16 2c0 4-12 4-12 8s12 4 12 8" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/><path d="M5.6 5h8.8M5 10h10M5.6 15h8.8" stroke="rgba(255,255,255,.5)" stroke-width="1" stroke-linecap="round"/></svg></span>
-    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.21.4</span>
+    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.21.6</span>
   </div>
   <div class="spacer"></div>
   <div class="toolset">
@@ -908,7 +908,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
 </main>
 </div><!--/shell-->
-<footer>OligoForge v1.21.4</footer>
+<footer>OligoForge v1.21.6</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -979,8 +979,13 @@ function _degFold(s){const f={R:2,Y:2,S:2,W:2,K:2,M:2,B:3,V:3,D:3,H:3,N:4};let n
 [["p_f",()=>doPair()],["p_r",()=>doPair()],["q_ng",()=>doCopies()],["q_len",()=>doCopies()],["gf_org",()=>suggestGenes()],["gene_q",()=>geneFind()],["gene_org",()=>geneFind()]].forEach(([id,fn])=>{const e=document.getElementById(id);if(e)e.addEventListener("keydown",ev=>{if(ev.key==="Enter"){ev.preventDefault();fn();}});});
 async function api(path,body){let r,j;
  if(body&&typeof body==="object"&&!Array.isArray(body)){try{const _em=(document.getElementById("email")||{}).value;const _ky=(document.getElementById("ncbi_key")||{}).value;if(_em&&body.email==null)body.email=_em;if(_ky)body.ncbi_key=_ky;}catch(e){}}
- try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
- catch(e){return {error:"cannot reach the server — is it still running in the terminal?"};}
+ var _ctl=(typeof AbortController!=="undefined")?new AbortController():null;
+ var _to=_ctl?setTimeout(function(){try{_ctl.abort();}catch(e){}},180000):0;
+ try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:_ctl?_ctl.signal:undefined});}
+ catch(e){if(_to)clearTimeout(_to);
+  if(e&&e.name==="AbortError")return {error:"the server didn\u2019t respond in time \u2014 if this is the hosted demo it may be waking up (the free tier sleeps after inactivity). Try again in a moment."};
+  return {error:"cannot reach the server \u2014 if you\u2019re running it locally, check the terminal window is still open."};}
+ if(_to)clearTimeout(_to);
  try{j=await r.json();}catch(e){return {error:"server returned a non-JSON response (HTTP "+r.status+")"};}
  if(!r.ok && !(j&&j.error)){
   if(Array.isArray(j.detail))return {error:"input problem — "+j.detail.map(e=>(e.loc?e.loc[e.loc.length-1]+": ":"")+e.msg).join("; ")};
@@ -1055,7 +1060,7 @@ function ampliconMap(d){
   </div>
   <div class="amp-scale"><span>5&prime; ${fs}</span><span>amplicon ${span} bp</span><span>${re} 3&prime;</span></div></div>`;
 }
-async function doDesign(){const o=document.getElementById("d_out");o.innerHTML="…";
+async function doDesign(){const o=document.getElementById("d_out");o.innerHTML='<div class="working">designing\u2026 <span class="hint">a sleeping demo server can take ~30\u201360s to wake on the first call</span></div><div class="ofbar"></div>';
  const d=await api("/api/design",{template:document.getElementById("d_tmpl").value,profile:document.getElementById("d_prof").value});
  if(d.error){o.innerHTML=err(d.error);return;}
  LAST_DESIGN=d;
@@ -1822,9 +1827,23 @@ renderPanel();
   else{
     start();
     if(sp&&sp.addEventListener){
-      sp.addEventListener('mousemove',function(ev){try{var r=c.getBoundingClientRect();
-        mA=((ev.clientX-(r.left+r.width/2))/r.width)*0.5; mT=((ev.clientY-(r.top+r.height/2))/r.height)*0.28;}catch(e){}});
-      sp.addEventListener('mouseleave',function(){mA=0;mT=0;});
+      // drag to rotate: the helix only responds while the left button is held (hover does nothing).
+      var drag=false, sx=0, sy=0, aA=0, aT=0;
+      try{c.style.cursor='grab';}catch(e){}
+      function dStart(ev){ if(ev.button!=null&&ev.button!==0)return; drag=true; sx=ev.clientX; sy=ev.clientY; aA=mA; aT=mT; try{c.style.cursor='grabbing';}catch(e){} }
+      function dMove(ev){ if(!drag)return; try{var r=c.getBoundingClientRect();
+        mA=aA+((ev.clientX-sx)/Math.max(1,r.width))*2.4;        // horizontal drag spins
+        mT=aT+((ev.clientY-sy)/Math.max(1,r.height))*1.2;       // vertical drag tilts
+        if(mT>0.6)mT=0.6; if(mT<-0.6)mT=-0.6;
+      }catch(e){} }
+      function dEnd(){ if(!drag)return; drag=false; try{c.style.cursor='grab';}catch(e){} }
+      c.addEventListener('mousedown',dStart);
+      if(window.addEventListener){ window.addEventListener('mousemove',dMove); window.addEventListener('mouseup',dEnd); }
+      c.addEventListener('touchstart',function(e){try{if(e.touches&&e.touches[0])dStart(e.touches[0]);}catch(x){}},{passive:true});
+      if(window.addEventListener){
+        window.addEventListener('touchmove',function(e){try{if(drag&&e.touches&&e.touches[0])dMove(e.touches[0]);}catch(x){}},{passive:true});
+        window.addEventListener('touchend',dEnd);
+      }
     }
     if(document.addEventListener) document.addEventListener('visibilitychange',function(){
       if(document.hidden){running=false;} else if(sp&&(!sp.classList||!sp.classList.contains('gone'))){start();}});
@@ -2112,33 +2131,45 @@ function vwManualToWorkbench(){const f=[...VW.manual].reverse().find(m=>m.role==
   });
 })();
 
-/* ---- live status lamp + server-driven version: polls so a transient/cold-start miss can't stick on "offline" ---- */
+/* ---- live status lamp + server-driven version. Polls so a transient/cold-start miss can't
+   stick; never trusts navigator.onLine (it false-negatives behind some VPNs/adapters and would
+   wedge the lamp on "reconnecting" while the server is actually reachable); each probe is
+   time-boxed; the label distinguishes "waking" from "offline"; click the lamp to retry now. ---- */
 (function(){try{
-  var lamp=document.getElementById("lamp"); var ok=false;
-  function paint(j){
-    if(lamp){if(lamp.classList){lamp.classList.remove("bad");lamp.classList.add("ok");}
-      lamp.innerHTML='<i></i> '+(j&&j.version?("primer3 \u00b7 v"+j.version):"primer3 online");}
+  var lamp=document.getElementById("lamp"); if(!lamp) return; var ok=false, tries=0;
+  function set(cls,text,tip){try{
+    if(lamp.classList){lamp.classList.remove("ok","bad"); if(cls)lamp.classList.add(cls);}
+    lamp.innerHTML='<i></i> '+text; if(tip!=null)lamp.title=tip;
+  }catch(e){}}
+  function paint(j){ ok=true;
+    set("ok", (j&&j.version)?("primer3 \u00b7 v"+j.version):"primer3 online", "Server reachable.");
     if(j&&j.version){
       var v=document.getElementById("ver"); if(v)v.textContent="v"+j.version;
       var ft=document.querySelector("footer");
       if(ft)ft.textContent="OligoForge v"+j.version+(j.commit&&j.commit!=="unknown"?(" \u00b7 "+j.commit):"");
     }
-    ok=true;
   }
-  function fail(){
-    if(ok)return;                       // already confirmed online once -> ignore a later blip
-    if(lamp){if(lamp.classList){lamp.classList.remove("ok");lamp.classList.add("bad");}
-      lamp.innerHTML='<i></i> reconnecting\u2026';}
+  function fail(kind){ if(ok)return; tries++;
+    var label=(kind==="slow"||tries<=2)?"waking server\u2026":"reconnecting\u2026";
+    var tip=(kind==="slow")?"The server didn\u2019t answer in time \u2014 if this is the hosted demo it may be waking up (free tier sleeps after ~15 min idle). Retrying\u2026 click to retry now."
+           :(kind==="net")?"Can\u2019t reach the server. If you\u2019re running it locally, check the terminal window is still open. Retrying\u2026 click to retry now."
+           :"Contacting the server\u2026 click to retry now.";
+    set("bad", label, tip);
   }
   function ping(){
     if(typeof fetch!=="function")return;
-    if(navigator&&navigator.onLine===false){fail();return;}
-    fetch("/healthz",{cache:"no-store"}).then(function(r){return r.ok?r.json():null;})
-      .then(function(j){if(j)paint(j);else fail();}).catch(fail);
+    var ctl=(typeof AbortController!=="undefined")?new AbortController():null;
+    var to=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},8000):0;
+    fetch("/healthz",{cache:"no-store",signal:ctl?ctl.signal:undefined})
+      .then(function(r){if(to)clearTimeout(to);return r.ok?r.json():null;})
+      .then(function(j){if(j)paint(j);else fail("net");})
+      .catch(function(e){if(to)clearTimeout(to);fail((e&&e.name==="AbortError")?"slow":"net");});
   }
+  set("", "checking\u2026", "Checking the server\u2026");   // neutral initial state, not a failure
   ping();
-  var retry=setInterval(function(){if(ok){clearInterval(retry);}else{ping();}},5000);  // retry until first success, then stop
-  if(retry&&retry.unref)retry.unref();
+  var iv=setInterval(function(){if(ok){clearInterval(iv);}else{ping();}},5000);  // retry until first success, then stop
+  if(iv&&iv.unref)iv.unref();
+  if(lamp.addEventListener)lamp.addEventListener("click",function(){if(!ok)ping();});
   if(window.addEventListener){window.addEventListener("online",ping);window.addEventListener("focus",ping);}
 }catch(e){}})();
 </script>
