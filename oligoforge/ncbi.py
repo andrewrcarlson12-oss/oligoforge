@@ -1,7 +1,7 @@
 """NCBI retrieval via Entrez (biopython): fetch by accession, search a gene in
 an organism, pull all mRNA isoforms, and find the region common to every isoform
 (so an assay reads total transcript, not one variant)."""
-import time, difflib, socket, os
+import time, difflib, socket, os, re
 from Bio import Entrez, SeqIO
 
 # Bound every NCBI HTTP call so a genuinely stalled connection eventually fails
@@ -431,6 +431,83 @@ def gene_id_from_accession(acc):
     return None
 
 
+# ---- gene / marker synonym canonicalization ----------------------------------------------------
+# One gene is written many ways: "cytochrome b" / "cyt b" / "cyt-b" / "cytb" / "cob" / "MT-CYB". As raw
+# NCBI text these match DIFFERENT record sets, so a design or an isolate panel silently changed with the
+# user's wording. Every free-text gene query is routed through this table first, so the retrieved set is
+# the union of all spellings and no longer depends on which one was typed. Each group is (canonical label,
+# [equivalent forms, lowercase]); matching is word-boundary, longest-form-first, case-insensitive, and an
+# explicitly field-tagged token ("cytb[Gene]") is left untouched.
+_SYNONYM_GROUPS = [
+    ("cytochrome b", ["cytochrome b", "cytochrome-b", "cyt b", "cyt-b", "cytb", "cob", "mt-cyb", "mtcyb", "cyb"]),
+    ("cytochrome c oxidase subunit I", ["cytochrome c oxidase subunit 1", "cytochrome c oxidase subunit i",
+        "cytochrome oxidase subunit 1", "cytochrome oxidase subunit i", "cox1", "coxi", "coi", "co1", "mt-co1", "mtco1"]),
+    ("cytochrome c oxidase subunit II", ["cytochrome c oxidase subunit 2", "cytochrome c oxidase subunit ii",
+        "cytochrome oxidase subunit 2", "cox2", "coxii", "coii", "co2", "mt-co2"]),
+    ("cytochrome c oxidase subunit III", ["cytochrome c oxidase subunit 3", "cytochrome c oxidase subunit iii",
+        "cytochrome oxidase subunit 3", "cox3", "coxiii", "coiii", "co3", "mt-co3"]),
+    ("NADH dehydrogenase subunit 1", ["nadh dehydrogenase subunit 1", "nad1", "nd1", "mt-nd1"]),
+    ("NADH dehydrogenase subunit 2", ["nadh dehydrogenase subunit 2", "nad2", "nd2", "mt-nd2"]),
+    ("NADH dehydrogenase subunit 4", ["nadh dehydrogenase subunit 4", "nad4", "nd4", "mt-nd4"]),
+    ("NADH dehydrogenase subunit 5", ["nadh dehydrogenase subunit 5", "nad5", "nd5", "mt-nd5"]),
+    ("cytochrome c oxidase subunit", []),  # (placeholder, intentionally empty: see specific subunits above)
+    ("16S ribosomal RNA", ["16s ribosomal rna", "16s rrna", "16s rdna", "16s"]),
+    ("18S ribosomal RNA", ["18s ribosomal rna", "18s rrna", "18s rdna", "18s"]),
+    ("28S ribosomal RNA", ["28s ribosomal rna", "28s rrna", "28s rdna", "28s"]),
+    ("12S ribosomal RNA", ["12s ribosomal rna", "12s rrna", "12s rdna", "12s"]),
+    ("internal transcribed spacer", ["internal transcribed spacer", "its1", "its2", "its region", "its"]),
+]
+_SYNONYM_GROUPS = [g for g in _SYNONYM_GROUPS if g[1]]   # drop empty placeholders
+
+
+def _or_terms(forms, field="[All Fields]"):
+    """An OR group of synonym forms, each carrying `field`; multi-word / hyphenated forms are quoted."""
+    parts = []
+    for f in forms:
+        t = ('"%s"' % f) if any(ch not in "abcdefghijklmnopqrstuvwxyz0123456789" for ch in f) else f
+        parts.append(t + field)
+    return "(" + " OR ".join(parts) + ")"
+
+
+_SYN_FORMS = sorted(((m, gi) for gi, (_lab, ms) in enumerate(_SYNONYM_GROUPS) for m in ms),
+                    key=lambda x: -len(x[0]))
+
+
+def canonicalize_query(query, field="[All Fields]"):
+    """Expand recognised gene/marker names to the OR of all their synonyms so an NCBI fetch returns the
+    same records regardless of spelling. Returns dict(expanded, taxon, groups): `expanded` is the query
+    with each gene phrase replaced by its synonym OR-group (each term carries `field`); `taxon` is the
+    query with those phrases stripped (the organism remainder); `groups` is [(canonical_label,
+    or_expansion), ...]. A query with no known gene name comes back unchanged (groups empty)."""
+    q = query or ""
+    low = q.lower()
+    consumed = [False] * len(q)
+    hits, spans = {}, []
+    for form, gi in _SYN_FORMS:
+        if gi in hits:
+            continue                                   # group already matched once -> same gene, skip
+        pat = r"(?<![A-Za-z0-9])" + re.escape(form) + r"(?![A-Za-z0-9])"
+        for mt in re.finditer(pat, low):
+            s, e = mt.start(), mt.end()
+            if any(consumed[s:e]):
+                continue
+            if e < len(q) and q[e] == "[":             # user field-tagged this token -> respect it
+                continue
+            for i in range(s, e):
+                consumed[i] = True
+            hits[gi] = (_SYNONYM_GROUPS[gi][0], _or_terms(_SYNONYM_GROUPS[gi][1], field))
+            spans.append((s, e, gi))
+            break
+    if not spans:
+        return dict(expanded=q, taxon=q.strip(), groups=[])
+    expanded = q
+    for s, e, gi in sorted(spans, key=lambda x: -x[0]):
+        expanded = expanded[:s] + hits[gi][1] + expanded[e:]
+    taxon = re.sub(r"\s+", " ", "".join(c for i, c in enumerate(q) if not consumed[i])).strip(" ,;")
+    groups = [hits[gi] for (_, _, gi) in sorted(spans, key=lambda x: x[0])]
+    return dict(expanded=expanded, taxon=taxon, groups=groups)
+
+
 def search_fetch_fasta(query, n=10):
     """esearch + efetch a nucleotide query -> [(description, sequence), ...].
 
@@ -442,7 +519,7 @@ def search_fetch_fasta(query, n=10):
     ~375 MB through `h.read()` and OOM-killed the worker (HTTP 502)."""
     from Bio import SeqIO
     n = max(1, min(int(n), 40))
-    term = f"({query}) AND 50:120000[SLEN]"      # keep genes / mitogenomes, drop chromosome & genome records
+    term = f"({canonicalize_query(query)['expanded']}) AND 50:120000[SLEN]"   # canonicalize gene synonyms (cytb == cytochrome b == cob ...) so spelling can't change the record set; drop genome-scale records
     ids = _esearch_read("nucleotide", term, n)["IdList"]
     if not ids:
         return []
@@ -549,17 +626,26 @@ def search_genomes(query, retmax=40, gene=None):
     q = (query or "").strip()
     if not q:
         return []
-    marker, taxon = (gene or "").strip(), q
-    if not marker:
-        toks = q.split()
+    # Canonicalize the gene/marker so "cytb", "cyt b" and "cytochrome b" pull the SAME records (the OR of
+    # every spelling) — and so the full name triggers MARKER mode just like the abbreviation does, instead
+    # of silently dropping to whole-genome mode and returning a different (wrong) set for e.g. haemosporidians.
+    marker_term, taxon = "", q
+    cg = canonicalize_query((gene or "").strip() or q)
+    if cg["groups"]:
+        marker_term = cg["groups"][0][1]                          # OR group, already [All Fields]-tagged
+        taxon = q if (gene or "").strip() else (cg["taxon"] or q)
+    elif (gene or "").strip():
+        marker_term, taxon = gene.strip() + "[All Fields]", q     # caller named a marker we don't expand
+    else:
+        toks = q.split()                                          # fall back to single-token hints (matK, rpoB, D-loop, ...)
         mk = [t for t in toks if t.lower().strip(",.;") in _MARKER_HINT]
         if mk:
-            marker = mk[0]
+            marker_term = mk[0] + "[All Fields]"
             taxon = " ".join(t for t in toks if t.lower().strip(",.;") not in _MARKER_HINT).strip() or q
-    if marker:
+    if marker_term:
         tiers = [
-            f'({taxon}[Organism]) AND {marker}[All Fields] AND 150:30000[SLEN]',
-            f'({taxon}) AND {marker}[All Fields] AND 150:30000[SLEN]',
+            f'({taxon}[Organism]) AND {marker_term} AND 150:30000[SLEN]',
+            f'({taxon}) AND {marker_term} AND 150:30000[SLEN]',
             f'({taxon}[Organism]) AND 150:30000[SLEN] NOT genome[Title]',
         ]
     else:

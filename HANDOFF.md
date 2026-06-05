@@ -395,6 +395,61 @@ pairs via /api/pair fxr_end_dg and for multiplex via the three_prime annotation)
 Gate: 14/14 Python (test_cq added; locked panel + autodesign golden + regression PASS), 7/7 JS,
 clean-unzip boot under Render Docker CMD -> /healthz 200 v1.17.0; /api/cq + /api/standard_curve live-smoked.
 
+## v1.26.2 — isolate panel: raise the 40-record search cap (the real reason "cytb vs cytochrome b" felt unfixed)
+Follow-up to v1.26.1. Andrew reported the isolate tab still needed both spellings to "get all genes."
+Diagnosis: the synonym fix WAS working there — verified live through `/api/isolate_genomes` that
+"plasmodium cytb" and "plasmodium cytochrome b" now return an IDENTICAL accession set. The real limiter
+was a hard `retmax=40` (hardcoded in the frontend) against ~14,090 matching records. Before v1.26.1 the
+two spellings happened to return two DIFFERENT 40-record sets (~80 total), so typing both was an accidental
+way to pull more; once the spellings correctly converged, that workaround closed and one search still
+returned only 40 — which read as "not fixed."
+**Fix:** raise and expose the cap. Frontend: new "records per search" control (`#iso_n`, default 60,
+range 5-200) in the isolate options row; `isoFind` reads it and passes it as `retmax` (was the literal
+40); tooltip explains one spelling now returns the full set so you raise this instead of typing variants.
+Server: `IsolateGenomesReq.retmax` default 60; `api_isolate_genomes` clamps to `min(max(retmax,5),200)`.
+`_esummary_read` joins ids into one call, safe at ≤200 (~1.8 KB GET). The picker already accumulates across
+searches and has select-all/none, so a higher single-pull plus accumulation gives broad lineage coverage.
+**Verified live:** one search at retmax 120 → 120 records (was 40); cytb and cytochrome b identical at
+120; server ceiling holds (ask 999 → ≤200). **Gate:** py + JS parse OK, Python 14/14, JS 8/8, healthz
+v1.26.2. Patch release. (Synonym convergence itself is covered by tests/test_query_canon.py from v1.26.1;
+this change is a cap/secondary-UI control, no logic to unit-test offline.)
+NOTE for future: 200 is a browsable ceiling, not "every record." If a genuinely exhaustive lineage pull is
+wanted later, the right tool is esearch pagination (retstart batches) with optional dedup/clustering —
+offered, not built.
+
+## v1.26.1 — BUG FIX: gene-name spelling silently changed NCBI results ("cytb" ≠ "cytochrome b")
+Andrew reported designs/panels changing with wording — "plasmodium cytb" vs "plasmodium cytochrome b"
+gave very different results. Confirmed against live NCBI: `plasmodium cytb` → **11,760** records,
+`plasmodium cytochrome b` → **14,838** (a 3,078-record / ~26 % divergence); the genus-probe offtarget
+"haemoproteus cytb" had the same problem. Two independent root causes, both fixed at one shared table.
+**Root cause 1 — free-text fetch:** `ncbi.search_fetch_fasta(query)` (autodesign target AND offtarget,
+markerscan, the direct fetch endpoint) passed the raw query straight into the esearch term, so "cytb"
+and "cytochrome b" were literally different text searches over different record sets.
+**Root cause 2 — isolate panels:** `ncbi.search_genomes(query)` recognised a marker only if a SINGLE
+TOKEN was in a hint list, so "cytb" entered MARKER mode but "cytochrome b" fell through to WHOLE-GENOME
+mode — a completely different (and for haemosporidians, wrong/empty) result.
+**Fix (`oligoforge/ncbi.py`):** new shared `canonicalize_query(query, field="[All Fields]")` backed by a
+curated `_SYNONYM_GROUPS` table. It expands any recognised gene/marker name to the OR of ALL its
+spellings (so the retrieved set is the union and no longer depends on wording) and returns
+dict(expanded, taxon, groups). Matching is word-boundary (`(?<![A-Za-z0-9])…(?![A-Za-z0-9])`),
+longest-form-first, case-insensitive; a token the user explicitly field-tagged ("cytb[Gene]") is left
+untouched so the precise autodesign `[Gene Name]` path is preserved. Helper `_or_terms` quotes multi-word
+/ hyphenated forms and tags each with `field`. Wired into BOTH `search_fetch_fasta` (the `term`) AND
+`search_genomes` (marker detection now uses canonicalize first, single-token `_MARKER_HINT` only as a
+fallback for markers without synonyms like matK/rpoB) — so every NCBI text path canonicalizes identically.
+**Coverage:** cytochrome b (cytb/cyt b/cyt-b/cob/MT-CYB/CYB…), COI / COX1-3 (incl. CO1/COXI/"cytochrome c
+oxidase subunit 1"), ND1/2/4/5, 16S/18S/28S/12S rRNA, ITS. Groups are disjoint; COII never collides with
+COI. **Conservative:** unknown symbols and lookalikes (AMA1, MSP1, **COX10** — a different gene, protected
+by the word boundary, not matched by cox1, "216s") are returned unchanged, so no behaviour change for
+queries that were already consistent.
+**Verified:** live NCBI — the 11,760/14,838 split now resolves to a single 15,005-record union for both
+spellings (≥ both raw counts); deterministic term-equality across 8 cytb spellings, COI/rRNA/ITS
+convergence, COI≠COII, field-tags respected, isolate panel enters MARKER mode on the full name.
+**Test:** `tests/test_query_canon.py` (NEW, offline, pure string logic) — suite now **14**. Covers
+convergence, no-over-match, field-tag respect, taxon extraction, isolate-mode parity, determinism.
+**Gate:** py + JS parse OK, Python **14/14**, JS **8/8**, healthz v1.26.1. Five sync points bumped.
+Patch release (correctness fix; no engine/API surface change beyond the new internal helper).
+
 ## v1.26.0 — MIQE validation consolidation: predicted (engine) + observed (bench) + provenance in one record (pillar 2 start)
 First rung of pillar 2 (the empirical validation loop). New `oligoforge/miqe.py` + `/api/validate` +
 workbench UI. It is the JOIN between the physical-chemistry engine (pillar 1) and the empirical analyses

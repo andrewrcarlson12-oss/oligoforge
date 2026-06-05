@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR, nn as NN
 
-app = FastAPI(title="OligoForge", version="1.26.0")
+app = FastAPI(title="OligoForge", version="1.26.2")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -1039,14 +1039,14 @@ def api_autodesign(r: AutoDesignReq):
 
 # ============ isolate panel validation (inclusivity / exclusivity in-silico PCR) ============
 class IsolateGenomesReq(BaseModel):
-    query: str; retmax: int = 40
+    query: str; retmax: int = 60
     email: Optional[str] = None; ncbi_key: Optional[str] = None
 
 @app.post("/api/isolate_genomes")
 def api_isolate_genomes(r: IsolateGenomesReq):
     _set_email(r.email, r.ncbi_key)
     try:
-        return {"genomes": ncbi.search_genomes(r.query, r.retmax)}
+        return {"genomes": ncbi.search_genomes(r.query, min(max(int(r.retmax or 60), 5), 200))}
     except Exception as e:
         return JSONResponse({"error": f"genome search failed: {e}"}, status_code=200)
 
