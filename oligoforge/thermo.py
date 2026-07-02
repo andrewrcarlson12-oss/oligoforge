@@ -133,6 +133,21 @@ def amplicon_tm(seq):
 #                 SantaLucia 1997, the set underlying the 1998 unified parameters.
 # Selection and display are separated deliberately: improving the displayed accuracy must never
 # change which primers the tool designs.
+#
+# SALT-MODEL AUDIT (v1.27.0): the qPCR-Mg2+ salt-correction question was reviewed and the model
+# left unchanged, because it is already the correct one where it matters. Every Tm the user READS
+# and REPORTS (QC / pair / viewer / report / MIQE, all via tm_acc + nn.params) uses the
+# divalent-aware Owczarzy-2008 correction with free Mg2+ = [Mg2+] - [dNTP] (von Ahsen 1:1
+# chelation) -- the quantity that actually sets duplex stability in a PCR master mix. This was
+# verified to within 0.03 C against an independent from-scratch Owczarzy-2008 reimplementation
+# across all 14 locked-panel oligos, and it responds correctly to Mg2+ (e.g. Mg 3->6 mM raises a
+# 22-mer ~1.3 C) and to dNTP chelation (0.8 mM dNTP lowers it ~0.5 C). primer3's selection Tm is
+# near-insensitive to Mg2+ (Owczarzy-2004 monovalent-equivalent path; Mg 1.5->6 mM moves it <0.3 C
+# and dNTP chelation is ignored) -- acceptable BECAUSE it is used ONLY to rank/gate candidates
+# against a fixed window, never shown as an accurate number. Switching the displayed Tm's salt
+# model would change nothing (it is already Owczarzy-2008); switching the SELECTION Tm's model
+# would shift the hand-validated locked panel and autodesign goldens for no accuracy gain, so it
+# was deliberately not done. Mg/dNTP sensitivity of the reported Tm is pinned in test_regression.
 TM_METHOD = "santalucia"      # primer3 NN set for the selection Tm
 SALT_METHOD = "owczarzy"      # primer3 monovalent salt model (Owczarzy 2004) for the selection Tm
 _NN_TABLE = _mt.DNA_NN3       # Biopython NN set for the accurate (display) Tm
@@ -226,8 +241,8 @@ def set_conditions(mv_conc=None, dv_conc=None, dntp_conc=None, dna_conc=None, an
     if anneal_c is not None:
         ANNEAL_C = float(anneal_c)
     tm.cache_clear(); tm_acc.cache_clear(); hairpin.cache_clear(); self_dimer.cache_clear(); hetero_dimer.cache_clear()
-    hairpin_full.cache_clear(); self_dimer_full.cache_clear()
-    hetero_dimer_full.cache_clear(); end_stability.cache_clear()
+    _hairpin_full_at.cache_clear(); _self_dimer_full_at.cache_clear()
+    _hetero_dimer_full_at.cache_clear(); end_stability.cache_clear()
     return dict(COND, anneal_c=ANNEAL_C)
 
 
@@ -293,37 +308,55 @@ def hetero_dimer(a, b):
 # Each returns (dG@37 C, dG@anneal C, structure melting Tm C). dG@37 is byte-identical to the
 # 37 C function above; dG@anneal is the temperature-correct value; the melting Tm answers
 # "does this structure even exist at the anneal temperature" directly (Tm < anneal => melted).
+# The anneal temperature is an EXPLICIT argument (part of the cache key), not the module global,
+# so an assay is gated at ITS OWN anneal temp: 60 C for the host TaqMan/SYBR panel, 54 C for the
+# AT-rich parasite mtDNA assays. Judging a 54 C assay's structure at 60 C melts ~6 C more than
+# reality and under-rejects (a self-dimer that survives 54 C is scored as gone) -- the mirror of the
+# 37 C over-rejection this release fixed. Design gates pass the profile's anneal_c (design.py); QC/
+# display callers pass none and fall back to the session global via the public wrappers below.
 @lru_cache(maxsize=8192)
-def hairpin_full(seq):
+def _hairpin_full_at(seq, anneal_c):
     s = _resolve(seq)
     if len(s) > _P3_MAXLEN:
         return 0.0, 0.0, 0.0
     with _P3:
         r37 = primer3.calc_hairpin(s, temp_c=37.0, **COND)
-        ran = primer3.calc_hairpin(s, temp_c=ANNEAL_C, **COND)
+        ran = primer3.calc_hairpin(s, temp_c=anneal_c, **COND)
     return r37.dg / 1000.0, ran.dg / 1000.0, r37.tm
 
 
+def hairpin_full(seq, anneal_c=None):
+    return _hairpin_full_at(seq, ANNEAL_C if anneal_c is None else float(anneal_c))
+
+
 @lru_cache(maxsize=8192)
-def self_dimer_full(seq):
+def _self_dimer_full_at(seq, anneal_c):
     s = _resolve(seq)
     if len(s) > _P3_MAXLEN:
         return 0.0, 0.0, 0.0
     with _P3:
         r37 = primer3.calc_homodimer(s, temp_c=37.0, **COND)
-        ran = primer3.calc_homodimer(s, temp_c=ANNEAL_C, **COND)
+        ran = primer3.calc_homodimer(s, temp_c=anneal_c, **COND)
     return r37.dg / 1000.0, ran.dg / 1000.0, r37.tm
 
 
+def self_dimer_full(seq, anneal_c=None):
+    return _self_dimer_full_at(seq, ANNEAL_C if anneal_c is None else float(anneal_c))
+
+
 @lru_cache(maxsize=8192)
-def hetero_dimer_full(a, b):
+def _hetero_dimer_full_at(a, b, anneal_c):
     sa, sb = _resolve(a), _resolve(b)
     if len(sa) > _P3_MAXLEN or len(sb) > _P3_MAXLEN:
         return 0.0, 0.0, 0.0
     with _P3:
         r37 = primer3.calc_heterodimer(sa, sb, temp_c=37.0, **COND)
-        ran = primer3.calc_heterodimer(sa, sb, temp_c=ANNEAL_C, **COND)
+        ran = primer3.calc_heterodimer(sa, sb, temp_c=anneal_c, **COND)
     return r37.dg / 1000.0, ran.dg / 1000.0, r37.tm
+
+
+def hetero_dimer_full(a, b, anneal_c=None):
+    return _hetero_dimer_full_at(a, b, ANNEAL_C if anneal_c is None else float(anneal_c))
 
 
 @lru_cache(maxsize=8192)

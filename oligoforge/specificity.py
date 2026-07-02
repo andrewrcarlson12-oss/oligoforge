@@ -101,9 +101,10 @@ def intron_check(gene, organism, amp_start=None, amp_end=None, mrna_acc=None,
     forward and reverse primers are, the amplicon is located on the mRNA automatically
     (forward and the reverse-complement of reverse), so the coordinates fill themselves.
     """
+    _UNKNOWN = "could not determine junction spanning (exon structure unavailable)"
     junctions, info, acc = exon_junctions_mrna(gene, organism, mrna_acc)
     if junctions is None:
-        return dict(ok=None, info=info, junctions=None, spanned=[])
+        return dict(ok=None, info=info, junctions=None, spanned=[], verdict=_UNKNOWN)
 
     located = False
     if (amp_start is None or amp_end is None) and forward and reverse:
@@ -113,21 +114,21 @@ def intron_check(gene, organism, amp_start=None, amp_end=None, mrna_acc=None,
         except Exception as e:
             mrna = ""
         if not mrna:
-            return dict(ok=None, junctions=junctions, spanned=[],
+            return dict(ok=None, junctions=junctions, spanned=[], verdict=_UNKNOWN,
                         info=f"{info}; couldn't fetch mRNA {acc} to locate the amplicon — enter amp start/end manually")
         fs = _locate(forward, mrna)
         rrc = _rc_iupac(reverse)
         rs = _locate(rrc, mrna)
         if fs is None or rs is None:
             miss = " and ".join(n for n, ok in (("forward", fs is not None), ("reverse", rs is not None)) if not ok)
-            return dict(ok=None, junctions=junctions, spanned=[], amp_located=False,
+            return dict(ok=None, junctions=junctions, spanned=[], amp_located=False, verdict=_UNKNOWN,
                         info=f"{info}; could not locate the {miss} primer in {acc} (different isoform?) — enter amp start/end manually")
         amp_start = fs + 1
         amp_end = rs + len(rrc)
         located = True
 
     if amp_start is None or amp_end is None:
-        return dict(ok=None, junctions=junctions, spanned=[],
+        return dict(ok=None, junctions=junctions, spanned=[], verdict=_UNKNOWN,
                     info=f"{info}; enter amplicon start/end (mRNA coordinates), or paste both primers to auto-locate")
 
     spanned = [j for j in junctions if amp_start <= j < amp_end]

@@ -198,5 +198,99 @@ if _STR.available():
 else:
     check("structure ensemble (ViennaRNA absent -- skipped)", True)
 
+# ---- v1.27.0: structure gates evaluated at the annealing temperature ----
+# The reject gates in design.py now judge hairpins/dimers at ANNEAL_C (54-60 C), not primer3's
+# 37 C default. Pin (a) the hand-validated golden designs are UNCHANGED by the switch, and
+# (b) the switch actually admits the melted-structure candidates the 37 C gate wrongly discarded.
+import os as _os2, json as _json2
+_HMBS = ("GGCCCGGATTCAGACTGATAGTGTAGTTATGATGCTCCGTGAGCTATACCCCGACCTCTGCTTTGAGATTGTGGCC"
+         "ATGTCAACAACTGGGGACAAGATCTTGGATACAGCGCTTTCCAAGATTGGAGAGAAGAGTCTCTTCACCAAAGAGTTGGAAAATGCACTTGAAAGAA")
+T.set_conditions(anneal_c=60)
+_a = D.design_assay(_HMBS, P.PROFILES["idt_taqman"])
+check("gate@anneal: HMBS golden forward unchanged", _a["forward"] == "GAGCTATACCCCGACCTCTG", _a["forward"])
+check("gate@anneal: HMBS golden reverse unchanged", _a["reverse"] == "CTTCTCTCCAATCTTGGAAAGCG", _a["reverse"])
+check("gate@anneal: HMBS golden amplicon 93 unchanged", _a["amplicon"] == 93, _a["amplicon"])
+_fw, _rv = D.enumerate_primers(_HMBS, P.PROFILES["idt_taqman"])
+check("gate@anneal: admits more candidates than the 37C gate (HMBS >150 fwd)", len(_fw) > 150, len(_fw))
+# a primer whose hairpin is real at 37 C but fully melted at 60 C must now be ACCEPTED
+_melt = "GAGCTATACCCCGACCTCTG"   # golden fwd: passes both; a positive control that acceptance still works
+check("gate@anneal: golden fwd still passes _ok_primer", D._ok_primer(_melt, P.PROFILES["idt_taqman"]))
+
+# ---- v1.27.0: reported Tm is divalent-aware (Owczarzy-2008 + von Ahsen free Mg) ----
+# The salt-model audit: the DISPLAYED Tm must respond to Mg2+ and to dNTP chelation; the SELECTION
+# Tm (primer3) is near-Mg-insensitive by design. Pin both so a future salt-model edit is caught.
+_S = "AGTCATTCTGATGTCGCTGATG"
+T.set_conditions(mv_conc=50, dv_conc=3.0, dntp_conc=0.8, dna_conc=200, anneal_c=60)
+_acc_mg3 = T.tm_acc(_S); _sel_mg3 = T.tm(_S)
+T.set_conditions(dv_conc=6.0)
+_acc_mg6 = T.tm_acc(_S); _sel_mg6 = T.tm(_S)
+T.set_conditions(dv_conc=3.0, dntp_conc=0.0)
+_acc_dntp0 = T.tm_acc(_S)
+T.set_conditions(mv_conc=50, dv_conc=3.0, dntp_conc=0.8, dna_conc=200, anneal_c=60)   # restore
+check("salt: reported Tm rises with Mg2+ (3->6 mM, >=0.8 C)", _acc_mg6 - _acc_mg3 >= 0.8, (_acc_mg3, _acc_mg6))
+check("salt: dNTP chelation lowers reported Tm (0.8 mM dNTP drops it >=0.2 C)",
+      _acc_dntp0 - _acc_mg3 >= 0.2, (_acc_mg3, _acc_dntp0))
+check("salt: selection Tm is near-Mg-insensitive by design (3->6 mM, <0.4 C)",
+      abs(_sel_mg6 - _sel_mg3) < 0.4, (_sel_mg3, _sel_mg6))
+check("salt: reported Tm reads above selection Tm (Owczarzy-2008 vs primer3, ~1-2 C)",
+      1.0 <= _acc_mg3 - _sel_mg3 <= 2.5, (_sel_mg3, _acc_mg3))
+
+# ---- v1.27.0: intron_check returns a 'verdict' on EVERY path (graceful degradation) ----
+_ir = SP.intron_check("NOSUCHGENE___", "Nonexistent organism", 1, 100)   # offline None-path
+check("intron: 'verdict' present on the degraded path (no KeyError)", "verdict" in _ir, sorted(_ir))
+check("intron: degraded verdict is a non-empty string", isinstance(_ir.get("verdict"), str) and _ir["verdict"], _ir.get("verdict"))
+
+# ---- v1.27.0: Plasmodium-vs-Haemoproteus conservation/discrimination reproduces (offline fixtures) ----
+_FX = _os2.path.join(_os2.path.dirname(_os2.path.abspath(__file__)), "fixtures")
+try:
+    _plas = _json2.load(open(_os2.path.join(_FX, "plasmodium_cytb.json")))["sequences"]
+    _haem = _json2.load(open(_os2.path.join(_FX, "haemoproteus_cytb.json")))["sequences"]
+except Exception:
+    _plas = _haem = None
+if _plas and _haem:
+    _cons = C.conservation("CTTACAAGATATCCACCACA", _plas)         # locked Plas probe
+    _mi = _cons["mean_ident"] if isinstance(_cons, dict) else None
+    check("cons: locked Plas probe >=98% conserved across Plasmodium", _mi is not None and _mi >= 98.0, _mi)
+    _disc = C.discrimination("CTTACAAGATATCCACCACA", _haem)        # vs Haemoproteus off-target
+    check("cons: Plas probe >=3 mismatch to closest Haemoproteus", (_disc.get("min_mismatch") or 0) >= 3, _disc.get("min_mismatch"))
+    check("cons: Plas probe max off-target identity <=90%", (_disc.get("max_ident") or 100) <= 90.0, _disc.get("max_ident"))
+else:
+    check("cons: Plasmodium/Haemoproteus fixtures present", False, "fixtures missing")
+
+# ---- v1.27.1: secondary-structure REJECTION is gated at each ASSAY'S anneal temp, not a session global ----
+# The host TaqMan/SYBR/GC panel anneals at 60 C; the AT-rich parasite mtDNA assays at ~54 C. Before this
+# fix every profile was judged at the module global (default 60 C), so the 54 C parasite assays were gated
+# 6 C too hot and under-rejected structure that survives at 54 C. Guard: profiles carry the right temp, the
+# gate honors it per-assay, and it no longer depends on the mutable global (thread-safe under the endpoint pool).
+for _k, _p in P.PROFILES.items():
+    _want = 54.0 if _k.startswith("parasite") else 60.0
+    check(f"anneal_c on profile '{_k}' == {_want:.0f} C", _p.get("anneal_c") == _want, _p.get("anneal_c"))
+
+# A self-dimer that persists at 54 C but is melted by 60 C: REJECTED by the parasite profile, ADMITTED by the
+# host profile. Same -6.0 self-dimer floor on both, so the ONLY thing that can differ is the anneal temperature.
+_FLIP = "ACAGGAAGCTTCATGGCCTAT"
+_par, _host = P.PROFILES["parasite_mtdna"], P.PROFILES["idt_taqman"]
+_sd54 = T.self_dimer_full(_FLIP, _par["anneal_c"])[1]
+_sd60 = T.self_dimer_full(_FLIP, _host["anneal_c"])[1]
+check("gate: flip-oligo self-dimer rejected at parasite 54 C", _sd54 <= _par["self_dimer_min"], f"{_sd54:.2f}")
+check("gate: same oligo admitted at host 60 C (per-assay, not global)", _sd60 > _host["self_dimer_min"], f"{_sd60:.2f}")
+
+# Global-independence: perturbing the session anneal global must NOT move a profile-temp evaluation.
+_before = T.self_dimer_full(_FLIP, 54.0)[1]
+T.set_conditions(anneal_c=37.0)
+_after = T.self_dimer_full(_FLIP, 54.0)[1]
+T.set_conditions(anneal_c=60.0)   # restore
+check("gate: 54 C evaluation is independent of the session global", abs(_before - _after) < 1e-9, (_before, _after))
+
+# The parasite autodesign winner is preserved now that the gate genuinely runs at 54 C (design gated through
+# the profile's anneal_c, not the default global). Byte-identical to the pinned discrimination winner.
+if _plas and _haem:
+    from oligoforge import autodesign as _AD
+    _d54 = _AD.design_from_sequences(_plas, P.PROFILES["parasite_mtdna"], offs=_haem, n_candidates=5)
+    _w = (_d54.get("candidates") or [{}])[0].get("assay", {})
+    check("autodesign: parasite disc winner preserved at 54 C gate",
+          _w.get("forward") == "TTTCCATTTATAGCCTTATGTATTG" and _w.get("amplicon") == 96,
+          (_w.get("forward"), _w.get("amplicon")))
+
 if fails: print("REGRESSION FAILURES:", fails); sys.exit(1)
 print("ALL REGRESSION ASSERTS PASS")

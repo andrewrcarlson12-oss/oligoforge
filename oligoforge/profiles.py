@@ -151,6 +151,17 @@ PROFILES = {
     "gc_rich": GC_RICH, "gc_rich_sybr": GC_RICH_SYBR,
 }
 
+# Annealing temperature per profile: the temperature at which secondary-structure REJECTION gates
+# are judged (design.py -> thermo.hairpin_full / self_dimer_full / hetero_dimer_full). The host
+# TaqMan/SYBR/GC panels run a 60 C 2-step; the AT-rich apicomplexan-mtDNA assays anneal at ~54 C.
+# Carrying it on the profile makes each assay's structure gate use ITS OWN Ta instead of a single
+# session global (which defaulted to 60 C and silently judged the 54 C parasite assays 6 C too hot,
+# under-rejecting structure that survives at 54 C). setdefault so an explicit per-profile value or a
+# user override is never clobbered; 60.0 for every non-parasite profile == the prior global default,
+# so their designs are byte-for-byte unchanged.
+for _k, _p in PROFILES.items():
+    _p.setdefault("anneal_c", 54.0 if _k.startswith("parasite") else 60.0)
+
 
 def lint_oligo(seq, role, profile):
     """Return [(rule, status, detail)] for one oligo against a profile.

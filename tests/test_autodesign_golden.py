@@ -52,10 +52,14 @@ if d.get("candidates"):
     check("disc winner F_deg", w.get("forward_deg") == "TTTCCWTTTATAGCYTTATGTATTG", w.get("forward_deg"))
     check("disc winner P_deg", w.get("probe_deg") == "ACATTTACAAGGTAGCACWAATCCTTT", w.get("probe_deg"))
     check("disc winner n_degenerate 3", w.get("n_degenerate") == 3, w.get("n_degenerate"))
-    # ranking (the scorer's order)
+    # ranking (the scorer's order). Re-captured in v1.27.0: the structure-rejection gate now
+    # judges hairpins/dimers at the annealing temperature (54 C here) instead of primer3's 37 C
+    # default, so primers whose structure is fully melted at Ta are no longer discarded and now
+    # compete for the runner-up slots. The winner and its discrimination call are unchanged; the
+    # runners-up are new, legitimately-admitted candidates.
     rank = [c["assay"]["forward"] for c in d["candidates"][:3]]
     check("disc top-3 ranking stable",
-          rank == ["TTTCCATTTATAGCCTTATGTATTG", "TTTCTACATTTACAAGGTAGCA", "ATATCAATAGTTACTGCTTTTATGG"], rank)
+          rank == ["TTTCCATTTATAGCCTTATGTATTG", "ATATCAATAGTTACTGCTTTTATGG", "CAATAGTTACTGCTTTTATGGG"], rank)
     # THE discrimination decision: the forward 3'-blocks Haemoproteus (>=1 terminal mismatch),
     # and the off-target is genuinely separated (median identity well below 100%).
     disc = d["candidates"][0].get("discrimination") or {}

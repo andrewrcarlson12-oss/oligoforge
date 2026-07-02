@@ -467,7 +467,7 @@ def _annotate(out, ref, prefer_junction):
         c["amp_span"] = list(rspan) if rspan else None
         if STR.available() and ref and rspan:
             amp = ref[rspan[0]:rspan[1]]
-            f = STR.fold_ensemble(amp, anneal_c=T.ANNEAL_C)
+            f = STR.fold_ensemble(amp, anneal_c=profile.get("anneal_c", T.ANNEAL_C))
             if f:
                 fl, rl = len(a["forward"]), len(a["reverse"])
                 pp = SP._locate(a["probe"], amp) if a.get("probe") else None

@@ -13,8 +13,15 @@ def _ok_primer(seq, c):
     if T.last5_gc(seq) > c["max_3prime_gc"]: return False
     if T.max_run(seq, "G") >= c["max_g_run"]: return False
     if T.max_run(seq) >= c["max_any_run"]: return False
-    if T.hairpin(seq)[0] <= c["hairpin_min"]: return False
-    if T.self_dimer(seq) <= c["self_dimer_min"]: return False
+    # Structure REJECTION is judged at THIS ASSAY'S annealing temperature (c["anneal_c"]: 60 C host,
+    # 54 C parasite), not primer3's 37 C default and not a single session global: a hairpin/self-dimer
+    # fully melted at Ta does not exist during priming and must not disqualify an otherwise-good primer,
+    # and a 54 C assay must be judged at 54 C, not 60. hairpin_full/self_dimer_full return
+    # (dG@37, dG@anneal, structure_Tm); we gate on the anneal-temperature dG. Thresholds are unchanged.
+    # (Ranking/tie-breaks elsewhere stay on the 37 C basis so validated picks are stable.)
+    ac = c.get("anneal_c", T.ANNEAL_C)
+    if T.hairpin_full(seq, ac)[1] <= c["hairpin_min"]: return False
+    if T.self_dimer_full(seq, ac)[1] <= c["self_dimer_min"]: return False
     return True
 
 
@@ -44,6 +51,7 @@ def pair_primers(fwd, rev, c):
     top pairs every caller actually uses; just orders of magnitude fewer dimer calls."""
     amin, amax = c["amp_min"], c["amp_max"]
     gmin, gapmax, topt = c["min_probe_gap"], c["pair_tm_gap_max"], c["tm_opt"]
+    ac = c.get("anneal_c", T.ANNEAL_C)
     rtm = [(rs, re, r, T.tm(r)) for (rs, re, r) in rev]
     prelim = []
     for (fs, fe, f) in fwd:
@@ -65,9 +73,11 @@ def pair_primers(fwd, rev, c):
             v = T.self_dimer(s); _sd[s] = v
         return v
     for (score, fs, fe, f, rs, re, r, amp, gap) in prelim:
-        h = T.hetero_dimer(f, r)
-        if h <= c["pair_dimer_min"]: continue
-        worst = min(_self(f), _self(r), h)
+        # REJECT cross-dimers that persist at the annealing temperature; a cross-dimer melted at Ta
+        # is not a real interference. The reported/ranked `worst` dimer stays on the 37 C basis so
+        # the dimer-floor tie-break (and thus every validated pick) is unchanged.
+        if T.hetero_dimer_full(f, r, ac)[1] <= c["pair_dimer_min"]: continue
+        worst = min(_self(f), _self(r), T.hetero_dimer(f, r))
         pairs.append(dict(score=score, fstart=fs, fend=fe, f=f,
                           rstart=rs, rend=re, r=r, amp=amp, gap=gap, dimer=round(worst, 2)))
         if len(pairs) >= _PAIR_CAP: break
@@ -83,6 +93,7 @@ def find_probe(template, fend, rstart, fseq, rseq, c):
     template = template.upper()
     inner = template[fend:rstart]
     maxp = max(T.tm(fseq), T.tm(rseq))
+    ac = c.get("anneal_c", T.ANNEAL_C)
     best = None
     for a in range(len(inner)):
         for k in range(c["probe_len_min"], c["probe_len_max"] + 1):
@@ -95,11 +106,14 @@ def find_probe(template, fend, rstart, fseq, rseq, c):
                 if T.max_run(sub) >= c["max_any_run"]: continue
                 t = T.tm(sub)
                 if not (maxp + c["probe_offset_min"] <= t <= maxp + c["probe_offset_max"]): continue
-                hdg, htm = T.hairpin(sub)
-                if hdg <= c["probe_hairpin_min"]: continue
-                if T.self_dimer(sub) <= c["self_dimer_min"]: continue
-                if T.hetero_dimer(sub, fseq) <= c["pair_dimer_min"]: continue
-                if T.hetero_dimer(sub, rseq) <= c["pair_dimer_min"]: continue
+                # REJECT probe structure at the annealing temperature (a probe hairpin/dimer melted
+                # at Ta will not block hybridization); hdg (dG@37) is retained for reporting and for
+                # the weakest-hairpin tie-break below so the validated probe pick is stable.
+                hdg, hdg_an, htm = T.hairpin_full(sub, ac)
+                if hdg_an <= c["probe_hairpin_min"]: continue
+                if T.self_dimer_full(sub, ac)[1] <= c["self_dimer_min"]: continue
+                if T.hetero_dimer_full(sub, fseq, ac)[1] <= c["pair_dimer_min"]: continue
+                if T.hetero_dimer_full(sub, rseq, ac)[1] <= c["pair_dimer_min"]: continue
                 # Prefer a probe ~9 C over the hotter primer -- the standard 8-10 C TaqMan placement --
                 # whenever one is reachable, clamped to the profile's allowed window (AT-rich profiles
                 # whose window caps below 9 fall back to their ceiling). Offset distance is bucketed to
