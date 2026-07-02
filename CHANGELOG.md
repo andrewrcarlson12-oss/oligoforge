@@ -52,7 +52,7 @@ an independent thermodynamics implementation.** *(tests/benchmark/, test_benchma
   Correct-by-construction, no read-path locks. **All 118 spot-checked thermo values are
   byte-identical** to the pre-refactor implementation across two conditions (same
   conditions → same snapshot → same primer3 call → same number), and a stress test shows
-  **0 torn/stale reads across 25 000 concurrent reads** under three threads flipping the
+  **0 torn/stale reads across 20 000 read cycles** (5 threads × 4 000) under three threads flipping the
   master mix. This is a single-user local app, so shared master-mix state is intended —
   the fix guarantees it is never *torn or stale*, not per-request isolation.
 
