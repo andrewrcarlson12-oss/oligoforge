@@ -1,5 +1,102 @@
 # Changelog
 
+## v1.27.2 — engine validation benchmark, concurrency hardening, input validation, UI/print polish
+
+A hardening release. No validated design changed: the locked panel, the HMBS host
+regression anchor, and the two parasite autodesign winners are all byte-identical
+(pinned in `test_locked_panel.py`, `test_regression.py`, `test_autodesign_golden.py`).
+Suite grew from 24 to **27 Python scripts + 8 Node UI harnesses — 35/35 green**, run
+by a new `run_tests.py` CI entry point.
+
+### Science — engine validation benchmark (Track C)
+
+**A standing 18-target benchmark now cross-validates the engine against real data and
+an independent thermodynamics implementation.** *(tests/benchmark/, test_benchmark.py)*
+
+- **What it is.** 18 real templates pulled fresh from NCBI RefSeq/GenBank (accessions +
+  provenance recorded, then committed as an offline fixture so scoring is deterministic
+  and network-free): apicomplexan mtDNA/rRNA (Plasmodium, Toxoplasma), 8 human
+  housekeeping mRNAs, bacterial (M. tuberculosis rpoB, E. coli 16S), viral (SARS-CoV-2
+  N), and plant (Arabidopsis ACT2), spanning **26.8–61.9 % GC**. One golden anchor
+  (HMBS), one published pair (PrimerBank human ACTB), 16 hand/profile-rubric.
+- **What it checks.** Each target is designed at its real annealing temperature; the
+  displayed Tm (`tm_acc`, Biopython Owczarzy-2008 path) is cross-checked against the
+  repo's **independent from-scratch NN engine** (`oligoforge.nn.params`) — genuine
+  two-implementation agreement, not the same code twice.
+- **Result.** Tm agrees to **max 0.060 °C / mean 0.032 °C across 37 oligos**; 18/18 valid
+  designs; the anneal-temperature structure ΔG reproduces a direct primer3
+  `calc_hairpin(temp_c=…)` to **0.0000 kcal/mol**; every TaqMan/GC probe sits +6–9 °C
+  above its primers and avoids 5′-G; SDHA straddles its exon junction unprompted;
+  degenerate Tm spans and LNA increments are reported correctly. **No engine defect
+  surfaced.** The single reference divergence — OligoForge declines the published ACTB
+  pair — is classification (b), *both valid*: the Tm is right (0.008 °C) and the primers
+  locate (250 bp), but OligoForge applies stricter modern SYBR 3′ rules (weak GC-clamp,
+  no 3′-T) that the older pair predates. Recorded, engine unchanged (no cosmetic overfit).
+
+### Concurrency — race-free reaction conditions
+
+**Tm and structure caches are now keyed on an immutable conditions snapshot, and
+`set_conditions` swaps the salt atomically.** *(thermo.py, test_concurrency.py)*
+
+- **The problem.** `COND` (salt) and `ANNEAL_C` are process-global and were mutated by
+  `/api/conditions`; the Tm/structure `lru_cache`s were cleared on every change. Under
+  the sync-endpoint threadpool (48 of 52 routes), a `/api/conditions` call concurrent
+  with a design/QC request exposed two hazards: a **torn read** (a Tm computed while
+  `COND` was half-updated) and a **stale cache** (a value computed under the old
+  conditions served under the new ones).
+- **The fix.** `set_conditions` builds a whole new `COND` dict and rebinds it in one
+  atomic assignment under a writer-only lock (readers never lock). Every cached Tm/
+  structure function is split into a snapshot-keyed worker + a thin public wrapper that
+  folds an immutable `(mv, dv, dntp, dna, anneal)` snapshot into the cache key, so a
+  conditions change yields a *new* key and can never corrupt an in-flight compute.
+  Correct-by-construction, no read-path locks. **All 118 spot-checked thermo values are
+  byte-identical** to the pre-refactor implementation across two conditions (same
+  conditions → same snapshot → same primer3 call → same number), and a stress test shows
+  **0 torn/stale reads across 25 000 concurrent reads** under three threads flipping the
+  master mix. This is a single-user local app, so shared master-mix state is intended —
+  the fix guarantees it is never *torn or stale*, not per-request isolation.
+
+### Robustness — input validation + uniform error contract
+
+*(app.py, thermo.py, test_fuzz.py)*
+
+- **Length caps.** A giant accidental paste no longer runs unbounded thermodynamics on a
+  sync worker: `/api/qc` caps oligos at 300 nt (a primer/probe is ≤60 nt) and
+  `/api/design` caps templates at 50 000 nt, each with a clean explanatory error. (A
+  400 kB QC paste previously ran ~0.6 s of NN math per request.)
+- **Non-finite salt.** `Infinity` / `NaN` / `-Infinity` in a `/api/conditions` body are
+  rejected with `{"error": "… must be a finite number"}` (HTTP 200), not a 500.
+- **Free-Mg warning.** `dNTP ≥ Mg²⁺` was silently accepted even though it drives free
+  Mg²⁺ (`[Mg]−[dNTP]`, von Ahsen) to ~0 and collapses the divalent salt correction.
+  Still allowed (a user may model it), but now returns a non-fatal `warning` so the Tm
+  isn't misread.
+- **Error contract pinned.** 13 hostile sequences × 4 endpoints + 7 bad-condition
+  payloads → **zero 5xx**; every bad input yields HTTP 200 + `{error}` or a clean 4xx.
+- **Documented `design_assay` contract.** `design_assay` returns `None` on failure
+  (empty/too-short/all-N template); the docstring now states this and warns against
+  "fixing" it to a truthy error-dict (which would silently break the existing `if not a`
+  guards in `batch_design`, `autodesign`, and `design_candidates`). No public endpoint
+  500s on such input; behavior unchanged.
+
+### UI — accessibility + print, within the no-build constraint
+
+*(static/index.html — CSS/markup only; all 8 Node UI harnesses still pass)*
+
+- **Print styles.** The cockpit had no `@media print` rules, so PDF-ing a panel or report
+  for the lab notebook printed the dark chrome, nav rail, and buttons. Print now drops
+  the chrome and renders clean black-on-white content with page-break-avoid on cards/rows.
+- **Accessibility.** Added a skip-to-content link, an `aria-label` on the section nav, an
+  `sr-only` utility, and `id`/`tabindex` on `<main>`. (Focus-visible states,
+  reduced-motion handling, and ARIA roles were already present.)
+- **Micro-polish.** A subtle, theme-aware card hover-lift (respects the existing global
+  reduced-motion rule). No JS function or handler-referenced element ID was touched.
+
+### Tests / CI
+
+- New: `test_benchmark.py` (15 asserts), `test_concurrency.py` (7), `test_fuzz.py` (12).
+- New `run_tests.py` runs the full Python suite **and** the Node UI harnesses (when
+  `node` is on PATH), exiting non-zero on any failure. 27 Python + 8 Node = 35/35 green.
+
 ## v1.27.1 — per-assay annealing temperature for the structure gate
 
 Follow-up to the v1.27.0 anneal-temperature fix. That release moved

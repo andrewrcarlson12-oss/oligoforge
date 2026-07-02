@@ -15,8 +15,40 @@ from functools import lru_cache
 _P3 = threading.Lock()        # primer3's C core is not safe under the sync-endpoint threadpool
 _P3_MAXLEN = 60               # primer3 thermo alignment refuses (raises) on sequences > 60 nt
 
+# Input-size ceilings (v1.27.2). A single-user local server still must not let one accidental
+# giant paste stall a sync-endpoint worker. A primer/probe is <=60 nt, so an "oligo" over a few
+# hundred nt is a paste error, not an oligo; a design template over ~50 kb is far larger than any
+# qPCR amplicon's transcript/region and only slows the sliding-window search. Endpoints check these
+# and return a clean error instead of doing 500 kB of thermodynamics. Generous, not stingy.
+MAX_OLIGO_LEN = 300           # QC / primer / probe inputs
+MAX_TEMPLATE_LEN = 50000      # design / conservation template inputs
+
 # Typical TaqMan/SYBR master-mix conditions. Edit here to match your kit.
 COND = dict(mv_conc=50.0, dv_conc=3.0, dntp_conc=0.8, dna_conc=200.0)
+
+# ---- Concurrency model for the reaction conditions (v1.27.2) ----
+# COND + ANNEAL_C are process-global (a local single-user server). Two hazards under the sync-
+# endpoint threadpool when /api/conditions runs concurrently with a design/QC request:
+#   (1) a TORN READ -- a Tm computed while COND is half-updated, mixing old and new fields;
+#   (2) a STALE CACHE -- a value computed under the old conditions stored into an lru_cache entry
+#       that a reader then serves under the new conditions.
+# Both are closed WITHOUT locking the read path by (a) swapping COND ATOMICALLY as one new dict
+# (never mutating fields in place), and (b) folding an immutable conditions SNAPSHOT into every
+# cached Tm/structure key, so a conditions change yields a NEW key rather than corrupting an
+# in-flight compute. Same conditions -> same snapshot -> same primer3 call -> identical numbers,
+# so this changes no value the panel/goldens depend on (pinned byte-for-byte in test_concurrency).
+_COND_LOCK = threading.Lock()   # serialises writers (set_conditions) only; readers never take it.
+
+def _snapshot():
+    """Immutable (mv, dv, dntp, dna, anneal) snapshot of the current reaction conditions, read
+    without locking. A single local rebind of COND is atomic under the GIL, so this never sees a
+    half-updated dict; the tuple is hashable and used as part of every cached Tm/structure key."""
+    c = COND                     # one bytecode load: sees either the whole old dict or the whole new one
+    return (c["mv_conc"], c["dv_conc"], c["dntp_conc"], c["dna_conc"], ANNEAL_C)
+
+def _kw(snap):
+    """primer3 salt kwargs from a snapshot tuple (mv, dv, dntp, dna, anneal)."""
+    return dict(mv_conc=snap[0], dv_conc=snap[1], dntp_conc=snap[2], dna_conc=snap[3])
 # qPCR annealing/extension temperature. Secondary structure is evaluated HERE (where priming
 # actually happens) in addition to 37 C: a hairpin or dimer with a strong 37 C dG can be fully
 # melted by ~60 C, so the 37 C value alone over-calls structure. 37 C is kept because it is the
@@ -165,24 +197,39 @@ def _calc_tm(seq, salt_method=None):
 
 
 @lru_cache(maxsize=8192)
+def _tm_at(seq, snap):
+    with _P3:
+        r = _resolve(seq)
+        if not r:
+            return 0.0
+        return primer3.calc_tm(r, tm_method=TM_METHOD, salt_corrections_method=SALT_METHOD, **_kw(snap))
+
+
 def tm(seq):
-    return _calc_tm(seq, SALT_METHOD)
+    """Selection Tm (primer3 SantaLucia + Owczarzy-2004). Keyed on the current conditions snapshot
+    so a concurrent /api/conditions change can never serve a stale or torn value."""
+    return _tm_at(seq, _snapshot())
 
 
 @lru_cache(maxsize=8192)
-def tm_acc(seq):
-    """Accurate, IDT-method Tm (deg C): SantaLucia 1998 NN + Owczarzy 2008 + Ct/4. Shown to the
-    user wherever a Tm is displayed. Tracks IDT OligoAnalyzer to ~0.5 C for plain DNA."""
+def _tm_acc_at(seq, snap):
     r = _resolve(seq)
     if len(r) < 2:
         return 0.0
     try:
         return float(_mt.Tm_NN(r, nn_table=_NN_TABLE,
-                               dnac1=COND["dna_conc"], dnac2=COND["dna_conc"], selfcomp=False,
-                               Na=COND["mv_conc"], K=0.0, Tris=0.0,
-                               Mg=COND["dv_conc"], dNTPs=COND["dntp_conc"], saltcorr=7))
+                               dnac1=snap[3], dnac2=snap[3], selfcomp=False,
+                               Na=snap[0], K=0.0, Tris=0.0,
+                               Mg=snap[1], dNTPs=snap[2], saltcorr=7))
     except Exception:
         return 0.0
+
+
+def tm_acc(seq):
+    """Accurate, IDT-method Tm (deg C): SantaLucia 1998 NN + Owczarzy 2008 + Ct/4. Shown to the
+    user wherever a Tm is displayed. Tracks IDT OligoAnalyzer to ~0.5 C for plain DNA. Keyed on the
+    current conditions snapshot (race-free under concurrent /api/conditions)."""
+    return _tm_acc_at(seq, _snapshot())
 
 
 _IUPAC_SETS = {"A": "A", "C": "C", "G": "G", "T": "T", "R": "AG", "Y": "CT", "S": "GC",
@@ -226,24 +273,41 @@ def set_conditions(mv_conc=None, dv_conc=None, dntp_conc=None, dna_conc=None, an
             return dict(error="anneal_c must be a finite number")
         if _a < 30.0 or _a > 85.0:
             return dict(error="anneal_c out of range (30..85)")
-    _eff_mv = float(mv_conc) if mv_conc is not None else COND["mv_conc"]
-    _eff_dv = float(dv_conc) if dv_conc is not None else COND["dv_conc"]
-    if _eff_mv + _eff_dv <= 0:
-        return dict(error="need some salt: monovalent + divalent must be > 0 mM")
-    if mv_conc is not None:
-        COND["mv_conc"] = float(mv_conc)
-    if dv_conc is not None:
-        COND["dv_conc"] = float(dv_conc)
-    if dntp_conc is not None:
-        COND["dntp_conc"] = float(dntp_conc)
-    if dna_conc is not None:
-        COND["dna_conc"] = float(dna_conc)
-    if anneal_c is not None:
-        ANNEAL_C = float(anneal_c)
-    tm.cache_clear(); tm_acc.cache_clear(); hairpin.cache_clear(); self_dimer.cache_clear(); hetero_dimer.cache_clear()
-    _hairpin_full_at.cache_clear(); _self_dimer_full_at.cache_clear()
-    _hetero_dimer_full_at.cache_clear(); end_stability.cache_clear()
-    return dict(COND, anneal_c=ANNEAL_C)
+    global COND
+    _COND_LOCK.acquire()   # serialise concurrent writers; readers never take this lock
+    try:
+        _eff_mv = float(mv_conc) if mv_conc is not None else COND["mv_conc"]
+        _eff_dv = float(dv_conc) if dv_conc is not None else COND["dv_conc"]
+        if _eff_mv + _eff_dv <= 0:
+            return dict(error="need some salt: monovalent + divalent must be > 0 mM")
+        # Build the FULL new conditions dict, then rebind COND in ONE atomic assignment. Never mutate
+        # COND field-by-field: a concurrent reader (_snapshot / miqe / nn / report) must see either the
+        # entire old dict or the entire new one, never a half-updated mix (torn read).
+        newc = dict(COND)
+        if mv_conc is not None:   newc["mv_conc"] = float(mv_conc)
+        if dv_conc is not None:   newc["dv_conc"] = float(dv_conc)
+        if dntp_conc is not None: newc["dntp_conc"] = float(dntp_conc)
+        if dna_conc is not None:  newc["dna_conc"] = float(dna_conc)
+        COND = newc                                   # atomic swap
+        if anneal_c is not None:
+            ANNEAL_C = float(anneal_c)
+        # Snapshot-keyed caches never serve a stale value (a new snapshot is a new key), so clearing
+        # is not needed for correctness -- only to bound memory as conditions change. Cheap; done here.
+        for _fn in (_tm_at, _tm_acc_at, _hairpin_at, _self_dimer_at, _hetero_dimer_at,
+                    _hairpin_full_at, _self_dimer_full_at, _hetero_dimer_full_at, _end_stability_at):
+            _fn.cache_clear()
+        out = dict(COND, anneal_c=ANNEAL_C)
+        # Physically legal but worth flagging: if dNTP >= Mg2+, free Mg2+ = [Mg]-[dNTP] (von Ahsen)
+        # is <= 0, so the divalent salt correction effectively vanishes and the Tm collapses toward
+        # its low-salt value. Not an error (a user may deliberately model this), but silent acceptance
+        # hid it before -- surface a warning so the number isn't misread.
+        if COND["dntp_conc"] >= COND["dv_conc"]:
+            out["warning"] = ("dNTP (%.2f mM) >= Mg2+ (%.2f mM): free Mg2+ is ~0, so the divalent salt "
+                              "correction drops out and Tm falls toward its low-salt value. Check your "
+                              "master-mix numbers if this wasn't intended." % (COND["dntp_conc"], COND["dv_conc"]))
+        return out
+    finally:
+        _COND_LOCK.release()
 
 
 def tm_range(seq, cap=64):
@@ -276,31 +340,43 @@ def tm_range(seq, cap=64):
 
 
 @lru_cache(maxsize=8192)
-def hairpin(seq):
+def _hairpin_at(seq, snap):
     s = _resolve(seq)
     if len(s) > _P3_MAXLEN:              # not an oligo; primer3 would raise. Neutral (no hairpin).
         return 0.0, 0.0
     with _P3:
-        r = primer3.calc_hairpin(s, **COND)
+        r = primer3.calc_hairpin(s, **_kw(snap))
     return r.dg / 1000.0, r.tm           # (dG kcal/mol, melting Tm C)
 
 
+def hairpin(seq):
+    return _hairpin_at(seq, _snapshot())
+
+
 @lru_cache(maxsize=8192)
-def self_dimer(seq):
+def _self_dimer_at(seq, snap):
     s = _resolve(seq)
     if len(s) > _P3_MAXLEN:
         return 0.0
     with _P3:
-        return primer3.calc_homodimer(s, **COND).dg / 1000.0
+        return primer3.calc_homodimer(s, **_kw(snap)).dg / 1000.0
+
+
+def self_dimer(seq):
+    return _self_dimer_at(seq, _snapshot())
 
 
 @lru_cache(maxsize=8192)
-def hetero_dimer(a, b):
+def _hetero_dimer_at(a, b, snap):
     sa, sb = _resolve(a), _resolve(b)
     if len(sa) > _P3_MAXLEN or len(sb) > _P3_MAXLEN:
         return 0.0
     with _P3:
-        return primer3.calc_heterodimer(sa, sb, **COND).dg / 1000.0
+        return primer3.calc_heterodimer(sa, sb, **_kw(snap)).dg / 1000.0
+
+
+def hetero_dimer(a, b):
+    return _hetero_dimer_at(a, b, _snapshot())
 
 
 # ---- anneal-temperature structure profiles (additive QC; the design gate still uses the
@@ -315,52 +391,52 @@ def hetero_dimer(a, b):
 # 37 C over-rejection this release fixed. Design gates pass the profile's anneal_c (design.py); QC/
 # display callers pass none and fall back to the session global via the public wrappers below.
 @lru_cache(maxsize=8192)
-def _hairpin_full_at(seq, anneal_c):
+def _hairpin_full_at(seq, anneal_c, snap):
     s = _resolve(seq)
     if len(s) > _P3_MAXLEN:
         return 0.0, 0.0, 0.0
     with _P3:
-        r37 = primer3.calc_hairpin(s, temp_c=37.0, **COND)
-        ran = primer3.calc_hairpin(s, temp_c=anneal_c, **COND)
+        r37 = primer3.calc_hairpin(s, temp_c=37.0, **_kw(snap))
+        ran = primer3.calc_hairpin(s, temp_c=anneal_c, **_kw(snap))
     return r37.dg / 1000.0, ran.dg / 1000.0, r37.tm
 
 
 def hairpin_full(seq, anneal_c=None):
-    return _hairpin_full_at(seq, ANNEAL_C if anneal_c is None else float(anneal_c))
+    return _hairpin_full_at(seq, ANNEAL_C if anneal_c is None else float(anneal_c), _snapshot())
 
 
 @lru_cache(maxsize=8192)
-def _self_dimer_full_at(seq, anneal_c):
+def _self_dimer_full_at(seq, anneal_c, snap):
     s = _resolve(seq)
     if len(s) > _P3_MAXLEN:
         return 0.0, 0.0, 0.0
     with _P3:
-        r37 = primer3.calc_homodimer(s, temp_c=37.0, **COND)
-        ran = primer3.calc_homodimer(s, temp_c=anneal_c, **COND)
+        r37 = primer3.calc_homodimer(s, temp_c=37.0, **_kw(snap))
+        ran = primer3.calc_homodimer(s, temp_c=anneal_c, **_kw(snap))
     return r37.dg / 1000.0, ran.dg / 1000.0, r37.tm
 
 
 def self_dimer_full(seq, anneal_c=None):
-    return _self_dimer_full_at(seq, ANNEAL_C if anneal_c is None else float(anneal_c))
+    return _self_dimer_full_at(seq, ANNEAL_C if anneal_c is None else float(anneal_c), _snapshot())
 
 
 @lru_cache(maxsize=8192)
-def _hetero_dimer_full_at(a, b, anneal_c):
+def _hetero_dimer_full_at(a, b, anneal_c, snap):
     sa, sb = _resolve(a), _resolve(b)
     if len(sa) > _P3_MAXLEN or len(sb) > _P3_MAXLEN:
         return 0.0, 0.0, 0.0
     with _P3:
-        r37 = primer3.calc_heterodimer(sa, sb, temp_c=37.0, **COND)
-        ran = primer3.calc_heterodimer(sa, sb, temp_c=anneal_c, **COND)
+        r37 = primer3.calc_heterodimer(sa, sb, temp_c=37.0, **_kw(snap))
+        ran = primer3.calc_heterodimer(sa, sb, temp_c=anneal_c, **_kw(snap))
     return r37.dg / 1000.0, ran.dg / 1000.0, r37.tm
 
 
 def hetero_dimer_full(a, b, anneal_c=None):
-    return _hetero_dimer_full_at(a, b, ANNEAL_C if anneal_c is None else float(anneal_c))
+    return _hetero_dimer_full_at(a, b, ANNEAL_C if anneal_c is None else float(anneal_c), _snapshot())
 
 
 @lru_cache(maxsize=8192)
-def end_stability(a, b):
+def _end_stability_at(a, b, snap):
     """dG (kcal/mol) of the most stable 3'-end-anchored duplex of primer a against b
     (primer3 calc_end_stability). The 3'-anchored case is the dangerous one: a 3'-engaged
     primer-dimer can be EXTENDED into an artifact that competes with the target, whereas an
@@ -370,7 +446,11 @@ def end_stability(a, b):
     if not sa or not sb or len(sa) > _P3_MAXLEN or len(sb) > _P3_MAXLEN:
         return 0.0
     with _P3:
-        return primer3.calc_end_stability(sa, sb, **COND).dg / 1000.0
+        return primer3.calc_end_stability(sa, sb, **_kw(snap)).dg / 1000.0
+
+
+def end_stability(a, b):
+    return _end_stability_at(a, b, _snapshot())
 
 
 def max_run(seq, base=None):

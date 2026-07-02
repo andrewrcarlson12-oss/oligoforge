@@ -131,7 +131,15 @@ def find_probe(template, fend, rstart, fseq, rseq, c):
 
 def design_assay(template, c):
     """Full pipeline: best primer pair + its probe + gBlock, against a template.
-    For no-probe (SYBR) profiles, returns the best primer pair with probe=None."""
+    For no-probe (SYBR) profiles, returns the best primer pair with probe=None.
+
+    CONTRACT: returns a dict on success, or **None** when no assay clears the profile
+    (empty / too-short / all-N template, or no pair+probe passes the gates). Callers MUST
+    guard for None before subscripting or .get() -- e.g. `a = design_assay(...); if not a:`.
+    Every in-tree caller (batch_design, autodesign._design_one, design_candidates) already
+    does, and /api/design length-checks the template first and returns a clean {error}.
+    Do NOT "fix" this to return {"error": ...}: an error-dict is truthy and would silently
+    break the existing `if not a` guards. Pinned by test_fuzz.py (no design endpoint 500s)."""
     fwd, rev = enumerate_primers(template, c)
     pairs = pair_primers(fwd, rev, c)
     if c.get("no_probe"):

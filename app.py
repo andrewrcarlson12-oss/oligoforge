@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR, nn as NN
 
-app = FastAPI(title="OligoForge", version="1.27.1")
+app = FastAPI(title="OligoForge", version="1.27.2")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -147,6 +147,10 @@ def profiles():
 @app.post("/api/qc")
 def qc(r: OligoReq):
     raw = r.seq or ""
+    if len(raw) > T.MAX_OLIGO_LEN:
+        return JSONResponse({"error": "oligo too long (%d nt; limit %d). A primer/probe is <=60 nt — "
+                                      "this looks like a template. Use the Design tab for a full sequence."
+                                      % (len(raw), T.MAX_OLIGO_LEN)}, status_code=200)
     mod_bits = []
     if "/" in raw: mod_bits.append("5'/3' or internal modification codes")
     if "+" in raw: mod_bits.append("LNA (+) bases")
@@ -349,6 +353,10 @@ def _parse_junction_template(text):
 @app.post("/api/design")
 def design(r: DesignReq):
     junctions = []
+    if len(r.template or "") > T.MAX_TEMPLATE_LEN:
+        return JSONResponse({"error": "template too long (%d nt; limit %d). Paste the transcript / "
+                                      "amplicon region, not a whole chromosome." % (len(r.template or ""), T.MAX_TEMPLATE_LEN)},
+                            status_code=200)
     if "|" in (r.template or ""):                            # single transcript with marked exon boundaries
         ref_single, junctions, tnotes = _parse_junction_template(r.template)
         targets = [ref_single] if (ref_single and len(ref_single) >= 60) else []
