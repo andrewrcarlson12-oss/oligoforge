@@ -1,0 +1,66 @@
+[
+  {
+    "name": "Plas_F (locked panel)",
+    "seq": "TACCTGGACTWGTTTCATGG",
+    "tmin": 58.0,
+    "tmax": 59.2,
+    "n": 2,
+    "tms": [
+      58.03989375481967,
+      59.15235782085108
+    ],
+    "span": 1.2
+  },
+  {
+    "name": "genus F_deg",
+    "seq": "TTYYTACATTTACAAGGTAGCA",
+    "tmin": 55.1,
+    "tmax": 58.5,
+    "n": 4,
+    "tms": [
+      55.11863197030692,
+      56.51592624980162,
+      56.51592624980162,
+      58.46190334582013
+    ],
+    "span": 3.4
+  },
+  {
+    "name": "genus R_deg",
+    "seq": "TCAAGACTTAAWAGATTTGGATAGA",
+    "tmin": 56.3,
+    "tmax": 57.2,
+    "n": 2,
+    "tms": [
+      56.320037137991505,
+      57.16398682688629
+    ],
+    "span": 0.9
+  },
+  {
+    "name": "SARS RdRp_F (R)",
+    "seq": "GTGARATGGTCATGTGTGGCGG",
+    "tmin": 66.5,
+    "tmax": 67.9,
+    "n": 2,
+    "tms": [
+      66.4699407144966,
+      67.86826368740464
+    ],
+    "span": 1.4
+  },
+  {
+    "name": "SARS RdRp_R (R,S)",
+    "seq": "CARATGTTAAASACACTATTAGCATA",
+    "tmin": 56.8,
+    "tmax": 58.4,
+    "n": 4,
+    "tms": [
+      56.82229670370339,
+      57.239629512002296,
+      58.00074330188153,
+      58.41605798185651
+    ],
+    "span": 1.6
+  }
+]

@@ -38,6 +38,134 @@ def _locate(primer, seq):
     return m.start() if m else None
 
 
+# ------------------------------------------------------------------ #
+#  Offline in-silico PCR: deterministic primer-site scan of a         #
+#  user-supplied FASTA (genome / transcriptome), no network, no BLAST  #
+#  install. Produces hits in the SAME shape epcr()/assay_verdict()     #
+#  consume, so the downstream amplicon + probe-binding logic is shared. #
+# ------------------------------------------------------------------ #
+_BASE = {"A", "C", "G", "T"}
+# IUPAC degeneracy sets, for mismatch-tolerant matching of a (possibly degenerate) primer
+_IUPAC_SET = {"A": {"A"}, "C": {"C"}, "G": {"G"}, "T": {"T"}, "U": {"T"},
+              "R": {"A", "G"}, "Y": {"C", "T"}, "S": {"G", "C"}, "W": {"A", "T"},
+              "K": {"G", "T"}, "M": {"A", "C"}, "B": {"C", "G", "T"}, "D": {"A", "G", "T"},
+              "H": {"A", "C", "T"}, "V": {"A", "C", "G"}, "N": {"A", "C", "G", "T"}}
+
+
+def parse_fasta(text_or_path):
+    """Parse a FASTA string OR a path to a FASTA file into [(id, seq_upper), ...].
+    Sequence ids are the first whitespace-delimited token of the header. Non-ACGT
+    letters are kept (matching handles degeneracy); whitespace/gaps are dropped."""
+    import os
+    if text_or_path and "\n" not in text_or_path and len(text_or_path) < 4096 and os.path.exists(text_or_path):
+        with open(text_or_path) as fh:
+            text = fh.read()
+    else:
+        text = text_or_path or ""
+    recs, cur_id, cur = [], None, []
+    for line in text.splitlines():
+        if line.startswith(">"):
+            if cur_id is not None:
+                recs.append((cur_id, "".join(cur).upper()))
+            cur_id = line[1:].strip().split()[0] if line[1:].strip() else "seq%d" % (len(recs) + 1)
+            cur = []
+        elif line.strip():
+            cur.append(re.sub(r"[^A-Za-z]", "", line))
+    if cur_id is not None:
+        recs.append((cur_id, "".join(cur).upper()))
+    return recs
+
+
+def _match_at(primer_sets, window, three_prime_at="end"):
+    """Count mismatches of a primer (as list of IUPAC sets) against an equal-length
+    window; returns (n_mismatch, ok_3prime) where ok_3prime = the primer's 3'-terminal
+    3 bases all match (the physical requirement for polymerase extension).
+
+    `three_prime_at` says WHERE in primer_sets the primer's 3' terminus sits:
+      'end'   -> primer_sets is the primer as written (a '+'-strand hit): 3' end is the last base.
+      'start' -> primer_sets is the reverse-complement of the primer (a '-'-strand hit): after
+                 reverse-complementing, the 3' terminus maps to index 0, so the anchor is the
+                 FIRST 3 bases. (Checking the last 3 here would wrongly enforce a 5' anchor.)"""
+    mm = 0
+    n = len(primer_sets)
+    for i, allowed in enumerate(primer_sets):
+        if window[i] not in allowed:
+            mm += 1
+    if three_prime_at == "start":
+        ok3 = all(window[k] in primer_sets[k] for k in range(min(3, n)))
+    else:
+        ok3 = all(window[n - 1 - k] in primer_sets[n - 1 - k] for k in range(min(3, n)))
+    return mm, ok3
+
+
+def scan_primer_sites(primer, subjects, max_mm=2, anchor3=True, label="F"):
+    """All binding sites of `primer` across `subjects` [(id, seq), ...], both strands,
+    IUPAC-aware, up to `max_mm` internal mismatches with a required exact 3'-terminal
+    anchor (the physical requirement for polymerase extension).
+
+    Returns hits: [{primer, subject, lo, hi, strand, q3, mm, site}] with 0-based
+    inclusive [lo, hi] in subject coordinates. A '+' hit means the primer anneals to
+    the minus strand and extends rightward (primer sequence == plus strand here); a
+    '-' hit means it anneals to the plus strand and extends leftward (primer == RC of
+    the plus-strand window). This matches epcr()'s convergent-orientation convention."""
+    p = "".join(c for c in (primer or "").upper() if c.isalpha()).replace("U", "T")
+    if len(p) < 6:
+        return []
+    fwd_sets = [_IUPAC_SET.get(b, set()) for b in p]
+    rc_sets = [_IUPAC_SET.get(b, set()) for b in _rc_iupac(p)]
+    L = len(p)
+    hits = []
+    for sid, seq in subjects:
+        s = seq.upper()
+        n = len(s)
+        for i in range(0, n - L + 1):
+            win = s[i:i + L]
+            # '+' strand product end: primer matches plus strand as-is (extends right).
+            # primer_sets == primer, so its 3' terminus is the LAST base of the window.
+            mm, ok3 = _match_at(fwd_sets, win, three_prime_at="end")
+            if mm <= max_mm and (ok3 or not anchor3):
+                hits.append(dict(primer=label, subject=sid, lo=i, hi=i + L - 1,
+                                 strand="+", q3=bool(ok3), mm=mm, site=win))
+            # '-' strand: primer matches the reverse complement of the window (extends left).
+            # rc_sets == RC(primer), so the primer's 3' terminus maps to index 0 (FIRST base).
+            mm2, ok32 = _match_at(rc_sets, win, three_prime_at="start")
+            if mm2 <= max_mm and (ok32 or not anchor3):
+                hits.append(dict(primer=label, subject=sid, lo=i, hi=i + L - 1,
+                                 strand="-", q3=bool(ok32), mm=mm2, site=win))
+    return hits
+
+
+def in_silico_pcr_offline(forward, reverse, fasta, probe=None, max_mm=2,
+                          min_product=40, max_product=3000, require_3prime=True):
+    """Deterministic offline in-silico PCR against a supplied FASTA (path or string).
+
+    Scans forward + reverse primer binding sites (both strands, <= max_mm mismatches,
+    exact 3' anchor), predicts amplicons via the shared epcr(), and — if a probe is
+    given — annotates which products the probe would actually bind (real fluorescence
+    risk). No network, no BLAST install: fully reproducible for a validation suite.
+
+    Returns the assay_verdict() dict plus forward_hits / reverse_hits / probe_hit_count /
+    n_subjects_scanned, so it drops into the same UI/report path as the remote engine."""
+    subjects = parse_fasta(fasta)
+    if not subjects:
+        return dict(error="no FASTA records parsed")
+    fh = scan_primer_sites(forward, subjects, max_mm=max_mm, anchor3=require_3prime, label="F")
+    rh = scan_primer_sites(reverse, subjects, max_mm=max_mm, anchor3=require_3prime, label="R")
+    hits = ([dict(primer="F", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in fh] +
+            [dict(primer="R", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in rh])
+    products = epcr(hits, min_product, max_product, require_3prime=require_3prime)
+    phits = []
+    if probe:
+        # a probe binds on either strand; record its span so assay_verdict can test containment
+        ph = scan_primer_sites(probe, subjects, max_mm=max_mm, anchor3=False, label="P")
+        phits = [dict(subject=h["subject"], lo=h["lo"], hi=h["hi"], strand=h["strand"]) for h in ph]
+    v = assay_verdict(products, phits, size_tol_frac=(max(10, int(0.10 * 100)) / 100.0))
+    v.update(forward_hits=len(fh), reverse_hits=len(rh), probe_hit_count=len(phits),
+             probe_used=bool(probe), n_subjects_scanned=len(subjects), mode="offline", max_mm=max_mm)
+    v["products"] = v["products"][:50]
+    return v
+
+
 def exon_junctions_mrna(gene, organism, mrna_acc=None):
     """Exon-junction positions in mRNA coordinates from NCBI gene_table.
     Sections are anchored to their transcript accession so the right isoform
@@ -264,8 +392,11 @@ def epcr(hits, min_product=40, max_product=3000, require_3prime=True):
 
 
 def in_silico_pcr(forward, reverse, mode="remote", db="nt", db_path=None,
-                  organism=None, min_product=40, max_product=3000):
+                  organism=None, min_product=40, max_product=3000, fasta=None, max_mm=2):
     fwd, rev = forward.upper().strip(), reverse.upper().strip()
+    if mode == "offline":
+        return in_silico_pcr_offline(fwd, rev, fasta or "", max_mm=max_mm,
+                                     min_product=min_product, max_product=max_product)
     pair, err = (_blast_local_pair(fwd, rev, db_path or "") if mode == "local"
                  else _blast_remote_pair(fwd, rev, organism=organism, db=db))
     if err:
@@ -404,11 +535,15 @@ def assay_verdict(products, probe_hits, size_tol_frac=0.10):
 
 
 def assay_specificity(forward, reverse, probe=None, mode="remote", db="nt", db_path=None,
-                      organism=None, min_product=40, max_product=3000):
-    """Full-assay specificity: BLAST F + R (+ probe) against NCBI (mode='remote', the default) or a
-    local DB, predict amplicons (epcr), and check whether the probe binds inside any of them."""
+                      organism=None, min_product=40, max_product=3000, fasta=None, max_mm=2):
+    """Full-assay specificity: BLAST F + R (+ probe) against NCBI (mode='remote', the default), a
+    local DB (mode='local'), or a deterministic scan of a supplied FASTA (mode='offline', no
+    network/install); predict amplicons (epcr), and check whether the probe binds inside any."""
     fwd, rev = forward.upper().strip(), reverse.upper().strip()
     pr = (probe or "").upper().strip()
+    if mode == "offline":
+        return in_silico_pcr_offline(fwd, rev, fasta or "", probe=pr or None, max_mm=max_mm,
+                                     min_product=min_product, max_product=max_product)
     if mode == "local":
         pair, err = _blast_local_pair(fwd, rev, db_path or "")
         phits = []

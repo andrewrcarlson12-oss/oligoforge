@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR, nn as NN
 
-app = FastAPI(title="OligoForge", version="1.27.2")
+app = FastAPI(title="OligoForge", version="1.28.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -822,6 +822,7 @@ class EpcrReq(BaseModel):
     forward: str; reverse: str; mode: str = "remote"; db: str = "nt"
     db_path: Optional[str] = None; organism: Optional[str] = None
     min_product: int = 40; max_product: int = 3000; email: Optional[str] = None; ncbi_key: Optional[str] = None
+    fasta: Optional[str] = None; max_mm: int = 2
 class LnaReq(BaseModel):
     seq: str; n_lna: Optional[int] = None; snp_pos: Optional[int] = None
 
@@ -836,7 +837,8 @@ def api_epcr(r: EpcrReq):
     _set_email(r.email, r.ncbi_key)
     try:
         return SP.in_silico_pcr(r.forward, r.reverse, r.mode, r.db, r.db_path,
-                                r.organism, r.min_product, r.max_product)
+                                r.organism, r.min_product, r.max_product,
+                                fasta=r.fasta, max_mm=r.max_mm)
     except Exception as e:
         return JSONResponse({"error": f"in-silico PCR failed: {e}"}, status_code=200)
 
@@ -846,12 +848,14 @@ class AssaySpecReq(BaseModel):
     organism: Optional[str] = None
     min_product: int = 40; max_product: int = 3000
     email: Optional[str] = None; ncbi_key: Optional[str] = None
+    fasta: Optional[str] = None; max_mm: int = 2
 @app.post("/api/assay_specificity")
 def api_assay_specificity(r: AssaySpecReq):
     _set_email(r.email, r.ncbi_key)
     try:
         return SP.assay_specificity(r.forward, r.reverse, r.probe, r.mode, r.db, r.db_path,
-                                    r.organism, r.min_product, r.max_product)
+                                    r.organism, r.min_product, r.max_product,
+                                    fasta=r.fasta, max_mm=r.max_mm)
     except Exception as e:
         return JSONResponse({"error": f"assay specificity failed: {e}"}, status_code=200)
 

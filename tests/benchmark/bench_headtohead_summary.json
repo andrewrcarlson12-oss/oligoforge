@@ -1,0 +1,50 @@
+{
+  "n_published_assays": 11,
+  "n_oligos": 25,
+  "n_nondeg": 25,
+  "tm_of_vs_nn_mean": 0.03,
+  "tm_of_vs_nn_max": 0.06,
+  "tm_of_vs_p3qpcr_mean": 0.442,
+  "tm_of_vs_p3default_mean": 3.972,
+  "struct_of_vs_p3_at37_mean": 0.0,
+  "struct_anneal_shift_mean": 0.25,
+  "struct_anneal_shift_max": 1.595,
+  "gate_impact": [
+    {
+      "template": "Mtb_rpoB_GCrich",
+      "profile": "idt_taqman",
+      "anneal_c": 60.0,
+      "admits_37": 1510,
+      "admits_ta": 2254,
+      "gained": 744,
+      "pct": 49.3
+    },
+    {
+      "template": "HMBS_host_balanced",
+      "profile": "idt_taqman",
+      "anneal_c": 60.0,
+      "admits_37": 2664,
+      "admits_ta": 3525,
+      "gained": 861,
+      "pct": 32.3
+    },
+    {
+      "template": "plas_cytb_ATrich",
+      "profile": "parasite_mtdna",
+      "anneal_c": 54.0,
+      "admits_37": 2058,
+      "admits_ta": 2058,
+      "gained": 0,
+      "pct": 0.0
+    },
+    {
+      "template": "human_GC_GNAS",
+      "profile": "idt_taqman",
+      "anneal_c": 60.0,
+      "admits_37": 2903,
+      "admits_ta": 3798,
+      "gained": 895,
+      "pct": 30.8
+    }
+  ]
+}

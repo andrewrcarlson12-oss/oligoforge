@@ -1,5 +1,104 @@
 # Changelog
 
+## v1.28.0 — publication track: published-primer benchmark vs Primer3, offline in-silico-PCR specificity, LNA/degenerate validation
+
+A **validation and differentiation** release aimed at making OligoForge publishable (JOSS now;
+a bioinformatics software article with further work). No validated design changed: the locked
+panel, the HMBS host regression anchor, and the two parasite autodesign winners remain
+**byte-identical** (pinned in `test_locked_panel.py`, `test_regression.py`,
+`test_autodesign_golden.py`). Suite grew from 27 to **30 Python scripts + 8 Node UI harnesses**,
+all green. A companion `paper_readiness.md` gives the honest publishability assessment, including
+where OligoForge does **not** beat Primer3.
+
+### Why this release
+
+v1.27.2 proved the engine self-consistent. The open question for publication was **differentiation**:
+what, specifically and quantifiably, does OligoForge do that Primer3 does not — and where does that
+advantage stop? This release answers that with head-to-head benchmarks against a published-primer
+corpus, adds the one capability the tool was missing (offline specificity), and validates the two
+under-tested paths (LNA, degenerate).
+
+### Science — published-primer corpus + head-to-head vs Primer3 *(tests/benchmark/, test_headtohead.py)*
+
+- **Published-primer corpus** (`bench_corpus_published.json`): **11 assays** from peer-reviewed
+  sources, each **dual-verified** — every primer *locates* in its cited RefSeq/GenBank accession
+  (forward + reverse-complement, correct orientation and amplicon) **and** the citation DOI
+  resolves in OpenAlex. Sequences were taken from the source document / OA full text, never from
+  memory (a first from-memory batch was caught with wrong amplicons and discarded). Sources:
+  geNorm (Vandesompele 2002, 8 housekeeping genes), Corman 2020 (SARS-CoV-2 E + N), Kamau 2011
+  (pan-Plasmodium 18S). Dropped entries documented (UBC repeat junction; RdRp pan-sarbecovirus
+  degenerate reverse). Provenance in `corpus_provenance.csv`.
+- **Tm head-to-head** (`bench_headtohead_tm.csv`): on 25 non-degenerate published oligos —
+  - OligoForge display Tm vs an **independent** NN reimplementation (`nn.params`, a separate code
+    path from `tm_acc`): **mean 0.030 °C, max 0.060 °C** — genuine two-implementation agreement.
+  - vs Primer3 at **matched qPCR salt**: **+0.44 °C mean** (the divalent-aware term; Primer3's
+    SantaLucia salt path is near-Mg-insensitive).
+  - vs Primer3 at **its defaults**: **+3.97 °C mean** — reported explicitly as the *naive-user*
+    gap (unconfigured Primer3), **not** a method-vs-method advantage.
+- **Structure head-to-head** (`bench_headtohead_structure.csv`): hairpin ΔG at 37 °C matches
+  Primer3 **exactly (0.0000 kcal/mol)** — same backend, so the annealing-temperature evaluation
+  is the *only* difference. ΔG(Ta)−ΔG(37) = **+0.25 kcal/mol mean, up to +1.60**.
+- **Design-time differentiator** (`bench_gate_impact.csv`): candidate primers admitted at the true
+  annealing temperature vs a 37 °C gate scale with template GC exactly as physics requires — Mtb
+  rpoB (61.9 % GC) **+49.3 %**, HMBS (52.8 %) **+32.3 %**, GNAS (56.2 %) **+30.8 %**, Plasmodium
+  cytb (26.8 % AT-rich) **+0.0 %**. Reported as a candidate-admission effect, not an assay-quality
+  claim (0/25 published oligos cross the structure floor at either temperature).
+- Figures: `tm_comparison.png` (3-panel), `structure_comparison.png` (2-panel).
+
+### Feature — offline in-silico-PCR specificity engine *(oligoforge/specificity.py, test_specificity_offline.py)*
+
+The biggest capability gap: `in_silico_pcr` defaulted to remote BLAST with no deterministic offline
+path. Added a self-contained engine that scans a supplied FASTA (genome/transcriptome):
+
+- `parse_fasta()`, `scan_primer_sites()`, `in_silico_pcr_offline()`. Both strands, IUPAC-aware,
+  ≤ `max_mm` internal mismatches with a **required exact 3′-terminal anchor** — the physical
+  requirement for polymerase extension. The 3′ anchor is **strand-aware**: for a minus-strand hit
+  the primer is reverse-complemented, so its 3′ terminus maps to the *start* of the footprint;
+  this was fixed after an initial version checked the wrong end on `−` hits (a real bug, now
+  regression-guarded on both orientations).
+- Emits hits in the exact `{subject, lo, hi, strand, q3}` shape the existing `epcr()` /
+  `assay_verdict()` consume, so all amplicon + probe-binding logic is shared and unchanged.
+- Threaded `mode="offline"` + `fasta=`/`max_mm=` through `in_silico_pcr`, `assay_specificity`,
+  and both API endpoints (`/api/epcr`, `/api/assay_specificity`). No network, no BLAST install.
+- **Validation**: **sensitivity 100 %, specificity 100 % on 14 controls** — 8 specific assays
+  clear (each hits only its own gene in an 8-gene mini-transcriptome), a near-identical
+  pseudogene / a 2-mismatch paralog / an off-size misprime are all flagged, and 3′-terminal-mismatch
+  variants are correctly rejected on **both** strands. Sequences committed as
+  `specificity_fixture.json` (deterministic, offline). Figure: `specificity_validation.png`.
+- Honest framing preserved: verdicts read "a BLAST screen, not wet-lab proof," and the capability
+  is specificity against a *supplied* genome, not a genome-wide off-target guarantee.
+
+### Science — LNA + degenerate path validation *(test_lna_degenerate.py)*
+
+- **LNA Tm vs McTigue et al. 2004** (the primary source the 32-term NN increment set is transcribed
+  from): **RMSE 1.86 °C, MAE 1.62 °C** on 12 experimental duplexes at the paper's conditions.
+  **8/12 within ±2 °C, 12/12 within ±3 °C**; worst single duplex 3.0 °C (an outlier *beyond*
+  ±2 °C, flagged in the figure). One assert was corrected from "all per-LNA increments > 0" to a
+  mean-in-band check — McTigue's model is genuinely context-dependent and has negative increments
+  (a weak-A/T-context LNA can be mildly destabilizing). MELTING/rmelting (the reference
+  implementation) needs Java, unavailable here, so validation is against the embedded experimental
+  subset.
+- **Degenerate path stressed**: `tm_range` expands every IUPAC resolution **exactly** (verified
+  vs brute-force enumeration on the display Tm scale) and caps astronomically-degenerate input
+  (4¹⁵ ≈ 10⁹ resolutions) without blow-up; `_resolve` maps every IUPAC code to ACGT;
+  autodesign's `_degenerate` collapses a real recurrent minor allele to an IUPAC code but ignores
+  a singleton (sequencing-noise guard); the real Plasmodium-cytb genus workflow reproduces its
+  golden. Figure: `lna_degenerate_validation.png`.
+
+### Tests
+
+- New: `test_headtohead.py` (6 checks), `test_specificity_offline.py` (9), `test_lna_degenerate.py`
+  (13). All findings above are pinned. Goldens byte-identical; full suite **30 Python + 8 Node**
+  green via `run_tests.py`.
+
+### Honest limitations (see `paper_readiness.md` for the full list)
+
+No wet-lab validation yet; OligoForge is a qPCR-correct **application layer on Primer3**, not a new
+thermodynamic method; specificity is validated on a constructed control set, not a genome-wide
+benchmark; the matched-salt Tm advantage is **modest (~0.4 °C)** — only the naive-default
+comparison reaches ~4 °C; Primer3 is the sole comparator so far. The publishable claims are
+**correctness and integration**, not algorithmic novelty or empirical superiority.
+
 ## v1.27.2 — engine validation benchmark, concurrency hardening, input validation, UI/print polish
 
 A hardening release. No validated design changed: the locked panel, the HMBS host
