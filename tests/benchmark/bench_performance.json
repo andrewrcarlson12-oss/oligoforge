@@ -1,0 +1,283 @@
+{
+  "schema": "oligoforge/bench_performance/1",
+  "description": "Runtime benchmark (G9). OligoForge single-assay design latency and an honest head-to-head vs Primer3's C core; Tm throughput; and the offline in-silico-PCR specificity scan's scaling in subject length. Absolute ms are host-dependent (see env); portable claims are the shapes.",
+  "env": {
+    "python": "3.12.3",
+    "system": "Linux",
+    "machine": "x86_64",
+    "cpu_count": 1,
+    "note": "Single-host wall-clock; absolute ms are host-dependent. Portable claims are the SHAPES (linearity, OF>P3 direction, ratio-vs-GC monotonicity, sub-ms Tm), which test_performance.py re-checks live on any machine."
+  },
+  "design_vs_primer3": {
+    "have_primer3": true,
+    "rows": [
+      {
+        "id": "plas_cytb_ATrich",
+        "organism": "Plasmodium (haemosporidian) cytb",
+        "len": 459,
+        "gc": 26.8,
+        "profile": "parasite_mtdna",
+        "of_design_ms": 2665.6,
+        "primer3_ms": 23.3,
+        "of_over_p3": 114.2,
+        "design_succeeded": true
+      },
+      {
+        "id": "HMBS_host_balanced",
+        "organism": "Aphelocoma coerulescens HMBS",
+        "len": 1336,
+        "gc": 52.8,
+        "profile": "idt_taqman",
+        "of_design_ms": 3011.6,
+        "primer3_ms": 19.6,
+        "of_over_p3": 153.5,
+        "design_succeeded": true
+      },
+      {
+        "id": "SDHA_intron_spanning",
+        "organism": "Aphelocoma coerulescens SDHA",
+        "len": 2299,
+        "gc": 50.0,
+        "profile": "idt_taqman",
+        "of_design_ms": 5967.1,
+        "primer3_ms": 26.2,
+        "of_over_p3": 227.8,
+        "design_succeeded": true
+      },
+      {
+        "id": "Mtb_rpoB_GCrich",
+        "organism": "Mycobacterium tuberculosis rpoB",
+        "len": 1194,
+        "gc": 61.9,
+        "profile": "gc_rich",
+        "of_design_ms": 5494.8,
+        "primer3_ms": 17.4,
+        "of_over_p3": 314.9,
+        "design_succeeded": true
+      },
+      {
+        "id": "human_ACTB_published",
+        "organism": "Homo sapiens ACTB",
+        "len": 1812,
+        "gc": 55.2,
+        "profile": "sybr_generic",
+        "of_design_ms": 1280.6,
+        "primer3_ms": 19.5,
+        "of_over_p3": 65.8,
+        "design_succeeded": true
+      },
+      {
+        "id": "human_GAPDH",
+        "organism": "Homo sapiens GAPDH",
+        "len": 1285,
+        "gc": 56.1,
+        "profile": "idt_taqman",
+        "of_design_ms": 2133.4,
+        "primer3_ms": 16.7,
+        "of_over_p3": 128.1,
+        "design_succeeded": true
+      },
+      {
+        "id": "human_B2M",
+        "organism": "Homo sapiens B2M",
+        "len": 943,
+        "gc": 39.1,
+        "profile": "idt_taqman",
+        "of_design_ms": 1568.0,
+        "primer3_ms": 20.6,
+        "of_over_p3": 76.1,
+        "design_succeeded": true
+      },
+      {
+        "id": "human_HPRT1",
+        "organism": "Homo sapiens HPRT1",
+        "len": 1395,
+        "gc": 40.4,
+        "profile": "idt_taqman",
+        "of_design_ms": 1666.7,
+        "primer3_ms": 17.2,
+        "of_over_p3": 96.7,
+        "design_succeeded": true
+      },
+      {
+        "id": "human_TBP",
+        "organism": "Homo sapiens TBP",
+        "len": 1857,
+        "gc": 46.6,
+        "profile": "idt_taqman",
+        "of_design_ms": 2526.2,
+        "primer3_ms": 20.8,
+        "of_over_p3": 121.6,
+        "design_succeeded": true
+      },
+      {
+        "id": "human_GUSB",
+        "organism": "Homo sapiens GUSB",
+        "len": 2199,
+        "gc": 55.5,
+        "profile": "idt_taqman",
+        "of_design_ms": 4224.5,
+        "primer3_ms": 27.4,
+        "of_over_p3": 154.3,
+        "design_succeeded": true
+      },
+      {
+        "id": "human_RPLP0",
+        "organism": "Homo sapiens RPLP0",
+        "len": 1105,
+        "gc": 53.0,
+        "profile": "idt_taqman",
+        "of_design_ms": 2133.5,
+        "primer3_ms": 19.4,
+        "of_over_p3": 110.1,
+        "design_succeeded": true
+      },
+      {
+        "id": "human_PPIA",
+        "organism": "Homo sapiens PPIA",
+        "len": 2237,
+        "gc": 46.0,
+        "profile": "idt_taqman",
+        "of_design_ms": 5190.0,
+        "primer3_ms": 22.5,
+        "of_over_p3": 231.1,
+        "design_succeeded": true
+      },
+      {
+        "id": "Tgondii_B1",
+        "organism": "Toxoplasma gondii B1",
+        "len": 2214,
+        "gc": 48.1,
+        "profile": "idt_taqman",
+        "of_design_ms": 5706.4,
+        "primer3_ms": 36.7,
+        "of_over_p3": 155.3,
+        "design_succeeded": true
+      },
+      {
+        "id": "Pfal_18S",
+        "organism": "Plasmodium falciparum 18S",
+        "len": 2090,
+        "gc": 35.6,
+        "profile": "idt_taqman",
+        "of_design_ms": 2176.5,
+        "primer3_ms": 19.2,
+        "of_over_p3": 113.4,
+        "design_succeeded": true
+      },
+      {
+        "id": "Athaliana_ACT2",
+        "organism": "Arabidopsis thaliana ACT2",
+        "len": 1888,
+        "gc": 42.5,
+        "profile": "idt_taqman",
+        "of_design_ms": 4673.9,
+        "primer3_ms": 25.4,
+        "of_over_p3": 184.0,
+        "design_succeeded": true
+      },
+      {
+        "id": "SARSCoV2_Ngene",
+        "organism": "SARS-CoV-2 N gene",
+        "len": 1260,
+        "gc": 47.2,
+        "profile": "idt_taqman",
+        "of_design_ms": 3515.1,
+        "primer3_ms": 16.5,
+        "of_over_p3": 213.6,
+        "design_succeeded": true
+      },
+      {
+        "id": "human_GC_GNAS",
+        "organism": "Homo sapiens GNAS",
+        "len": 1854,
+        "gc": 56.2,
+        "profile": "idt_taqman",
+        "of_design_ms": 3238.7,
+        "primer3_ms": 20.8,
+        "of_over_p3": 155.4,
+        "design_succeeded": true
+      },
+      {
+        "id": "Ecoli_16S",
+        "organism": "E. coli 16S rRNA",
+        "len": 1541,
+        "gc": 54.4,
+        "profile": "idt_taqman",
+        "of_design_ms": 3256.5,
+        "primer3_ms": 21.4,
+        "of_over_p3": 151.9,
+        "design_succeeded": true
+      }
+    ],
+    "of_design_ms_median": 3125.1,
+    "of_design_ms_min": 1280.6,
+    "of_design_ms_max": 5967.1,
+    "of_slower_than_primer3_on_all": true,
+    "of_over_p3_min": 65.8,
+    "of_over_p3_max": 314.9,
+    "driver_correlations": {
+      "r_gc_vs_ratio": 0.375,
+      "r_len_vs_ratio": 0.212,
+      "r_len_vs_of_ms": 0.49,
+      "note": "Slowdown is driven mainly by template length and candidate count; GC contributes weakly-to-moderately via the anneal gate admitting more GC-rich candidates (mechanism quantified in bench_gate_impact.csv). NOT a monotone GC law -- mid-GC points are noisy; only the extreme is robust."
+    },
+    "gc_extreme": {
+      "most_AT_rich": {
+        "id": "plas_cytb_ATrich",
+        "gc": 26.8,
+        "ratio": 114.2
+      },
+      "most_GC_rich": {
+        "id": "Mtb_rpoB_GCrich",
+        "gc": 61.9,
+        "ratio": 314.9
+      },
+      "GCrich_ratio_exceeds_ATrich": true
+    },
+    "all_designs_succeeded": true
+  },
+  "tm_throughput": {
+    "n": 400,
+    "cold_us_per_oligo": 40.87,
+    "warm_us_per_oligo": 0.511
+  },
+  "specificity_scan_scaling": {
+    "points": [
+      {
+        "bp": 15774,
+        "ms": 168.0
+      },
+      {
+        "bp": 31548,
+        "ms": 328.4
+      },
+      {
+        "bp": 78870,
+        "ms": 837.1
+      },
+      {
+        "bp": 157740,
+        "ms": 1616.6
+      },
+      {
+        "bp": 315480,
+        "ms": 3157.4
+      },
+      {
+        "bp": 630960,
+        "ms": 6390.4
+      }
+    ],
+    "linear_fit": {
+      "measured_max_bp": 630960,
+      "us_per_bp": 10.081,
+      "r2": 0.99991,
+      "projected_E_coli_4.6Mb_s": 46.4,
+      "projected_250Mb_chromosome_s": 2520.3,
+      "projected_human_3.2Gb_s": 32259.9
+    },
+    "is_linear_r2_over_0_99": true
+  },
+  "honest_reading": "OligoForge's exhaustive Python design is 65x-314x slower than Primer3's C core on the same templates (slower on all 18). The slowdown is driven mainly by template length (r(len,OF ms)=0.49) and candidate count; GC contributes weakly-to-moderately (r(GC,ratio)=0.38) via the anneal gate (D2) admitting more GC-rich candidates -- the extreme is clean (most-AT-rich plas_cytb_ATrich 114.2x vs most-GC-rich Mtb_rpoB_GCrich 314.9x) but it is NOT a monotone GC law. Absolute design cost (1281-5967 ms on a 1-core x86_64 host) is fine for interactive single-assay use, the tool's actual scope; it is NOT a batch/genome-scale design engine. The specificity scan is linear (R^2=0.9999, ~10.1 us/bp): fine for transcriptomes and small genomes, impractical for a whole 3.2 Gb human genome (~9 h projected) -- which is why specificity is checked against a supplied FASTA, not claimed genome-wide."
+}
