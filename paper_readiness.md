@@ -1,6 +1,6 @@
 # OligoForge — Paper-Readiness Assessment
 
-**Version:** 1.29.0 · **Date:** 2026-07-03 · **Scope:** honest evaluation of what is
+**Version:** 1.30.0 · **Date:** 2026-07-03 · **Scope:** honest evaluation of what is
 publishable now, what a reviewer will push back on, and what is missing.
 
 > This document is deliberately critical. Every quantitative claim below is traceable to a
@@ -8,6 +8,15 @@ publishable now, what a reviewer will push back on, and what is missing.
 > incumbent (Primer3, Primer-BLAST, or OligoAnalyzer/MELTING), that is stated plainly — an
 > honest benchmark that shows a *tie or a loss* on some axis is more useful than one engineered
 > to win.
+
+> **v1.30.0 update:** G9 (performance/runtime never benchmarked) is now **closed** — with a
+> result that is deliberately unflattering. On the same templates OligoForge's exhaustive Python
+> design is **65×–315× slower than Primer3's C core**, and the specificity scan, while linear
+> (R²≈1.0, ~10 µs/bp), extrapolates to **~9 h for a whole 3.2 Gb human genome**. These are
+> reported as limitations, not spun: OligoForge is an *interactive single-assay* tool, not a
+> batch/genome-scale engine. See §2 (D9) and the revised §4/§5. The remaining code-closable gap
+> toward the software-article bar is **G5 (corpus breadth)**; the principal remaining requirement
+> overall is still **G1 (wet-lab validation)**, which is being closed at the bench.
 
 > **v1.29.0 update:** three of the gaps flagged in the v1.28.0 assessment (G3 real-genome
 > specificity, G6 comparator breadth, G7 LNA independent cross-check) have been **closed with
@@ -111,7 +120,7 @@ golden (F `TTTCTACATTTACAAGGTAGCA`, amp 86, n_degenerate 4).
 Local-first (no cloud, no data egress — a genuine advantage for clinical/field use), single-file
 no-build UI, MIQE-structured reporting, per-request-safe conditions (immutable-snapshot cache
 key; 0 torn/stale reads across 20 000 read cycles), input-validation hardening (length caps,
-non-finite salt rejection), and a **41-module test suite** (33 Python + 8 Node) with byte-locked
+non-finite salt rejection), and a **42-module test suite** (34 Python + 8 Node) with byte-locked
 golden designs.
 
 ### D7 — OligoAnalyzer Tm head-to-head (new in 1.29.0)
@@ -157,6 +166,35 @@ reproducible, and agrees with the standard tools where they are right — includ
 Primer-BLAST's own conservative bias, and tying MELTING against real LNA data." That is a
 defensible, honest publication claim; a superiority claim would not be.
 
+### D9 — runtime/performance, benchmarked honestly (new in 1.30.0)
+A software article needs runtime numbers, and OligoForge's are **unflattering by design** — reported
+as such rather than hidden (`bench_performance.{json,csv}`, `test_performance.py`, 15 checks). Timed
+on the 18-target `bench_corpus` (real templates, GC 27–62 %) against Primer3's C core on the same
+templates:
+- **OligoForge design is 65×–315× slower than Primer3** — slower on **all 18** targets, no exceptions.
+  This is the compute price of the tool's design: exhaustive candidate enumeration in *Python* vs
+  Primer3's *C* core. The slowdown is driven **mainly by template length** (r(len, OF ms) ≈ 0.49) and
+  candidate count; GC contributes **weakly-to-moderately** (r(GC, ratio) ≈ 0.38) via the anneal gate
+  (D2) admitting more GC-rich candidates — the mechanism already quantified in `bench_gate_impact.csv`.
+  The **extreme is clean** (most-AT-rich Plasmodium ~106–114× vs most-GC-rich Mtb rpoB ~305–315×) but
+  it is explicitly **not** claimed as a monotone GC law (mid-GC points are noisy; a lucky-run monotone
+  claim would be dishonest).
+- **Absolute cost:** ~1.3–6 s per assay on a constrained 1-core host (sub-second to ~2.5 s on a normal
+  workstation). Fine for **interactive single-assay design — the tool's actual scope.** OligoForge is
+  **not** a batch or genome-scale design engine, and this benchmark says so with numbers rather than
+  leaving it to a reviewer to discover.
+- **Tm throughput:** ~40 µs/oligo cold, ~0.5 µs warm (lru-cached). Not a bottleneck.
+- **Specificity scan scales linearly** in subject length: **R² ≈ 1.0, ~10 µs/bp** across 16 kb → 630 kb.
+  This bounds it honestly: a ~5 Mb bacterial genome ≈ 45 s; a whole **3.2 Gb human genome ≈ 9 h**
+  (linear projection) — impractical, which is precisely why specificity is checked against a *supplied*
+  FASTA (transcriptome / target genome), not claimed as a genome-wide guarantee (consistent with D3).
+
+**D9-note:** this is the "OligoForge loses to a comparator on some axis" result. It costs 1–2 orders of
+magnitude of speed relative to Primer3, and does not scale to whole large genomes. Both are stated as
+limitations. They do **not** undermine the tool's claims (correctness, parity, integration, offline
+reproducibility), because those claims were never about speed or genome-scale throughput — but a
+software article must report them, and now does.
+
 ---
 
 ## 3. Figures & tables inventory (paper-ready)
@@ -171,6 +209,7 @@ defensible, honest publication claim; a superiority claim would not be.
 | **F6** | `primerblast_headtohead.png` | figure (2-panel) | **NEW** — per-pair concordance grid (OF = Primer-BLAST); identical sens/spec bars |
 | **F7** | `realgenome_specificity.png` | figure (2-panel) | **NEW** — confusion matrix; pan-Plasmodium genus-specificity + probe nuance |
 | **F8** | `lna_validation_hardened.png` | figure (3-panel) | **NEW** — OF & MELTING vs McTigue experiment; 96-oligo increment agreement; error dists |
+| **F9** | `performance_benchmark.png` | figure (3-panel) | **NEW (1.30.0)** — design latency OF vs Primer3 (log-y); slowdown vs GC (weak +); linear specificity scan |
 | T1 | `bench_headtohead_tm.csv` | table | per-oligo Tm: OligoForge / independent NN / Primer3 (qPCR + default salt) |
 | T2 | `bench_headtohead_structure.csv` | table | per-oligo hairpin ΔG at 37 °C and Ta vs Primer3 |
 | T3 | `bench_gate_impact.csv` | table | candidate admission at 37 °C vs Ta, by template GC |
@@ -182,12 +221,15 @@ defensible, honest publication claim; a superiority claim would not be.
 | **T9** | `bench_specificity_primerblast.csv` | table | **NEW** — per-pair subject calls: ground truth / OligoForge / Primer-BLAST |
 | **T10** | `bench_specificity_realgenome.json` | data | **NEW** — confusion, concordance, shared-FP explanation, Plasmodium case |
 | **T11** | `lna_validation_v2.json` + `lna_expanded_panel.csv` | data | **NEW** — MELTING cross-check (12 + 96 oligos), increment agreement |
+| **T12** | `bench_performance.csv` | table | **NEW (1.30.0)** — per-target design latency: OligoForge / Primer3 / ratio, by length & GC |
+| **T13** | `bench_performance.json` (+ `bench_performance_scan.csv`) | data | **NEW (1.30.0)** — driver correlations, GC extreme, Tm throughput, scan linear fit + projected envelope |
 
 Supporting: `bench_headtohead_report.md`, `bench_report.md`. Tests pinning every finding:
 `test_headtohead.py` (6 checks), `test_specificity_offline.py` (9), `test_lna_degenerate.py` (13),
 `test_oligoanalyzer_tm.py` (9), `test_specificity_primerblast.py` (9), `test_lna_hardening.py` (13),
-`test_benchmark.py` (design-side), `test_nn.py` (LNA + NN core). (Check counts are grep-verifiable
-`check(` call-sites, not runtime PASS lines, which inflate through loop bodies.)
+`test_performance.py` (15), `test_benchmark.py` (design-side), `test_nn.py` (LNA + NN core). (Check
+counts are grep-verifiable `check(` call-sites, not runtime PASS lines, which inflate through loop
+bodies.)
 
 ---
 
@@ -245,29 +287,44 @@ the NN path is the one validated here and used for reporting.
 **G8 — "More candidates admitted" ≠ "better assay" (see D2 caveat).** The gate result is a
 design-space claim, not an assay-quality claim.
 
-**G9 — Performance not benchmarked.** Exhaustive candidate enumeration in Python is slower than
-Primer3's C core; no runtime numbers are reported. Fine for interactive single-assay design;
-untested at batch/genome scale.
+**G9 — Performance/runtime — ✅ CLOSED (v1.30.0, honestly — OligoForge loses to Primer3).**
+`bench_performance.py` times design, Tm, and specificity-scan on 18 real `bench_corpus` templates
+(GC 27–62 %) against Primer3's C core. Findings, reported as-measured: (i) OligoForge's exhaustive
+Python design is **65×–315× slower than Primer3, slower on all 18 templates**; the slowdown is
+driven **mainly by template length** (r(len,OF ms)=0.49) and candidate count, with **GC a weak-to-
+moderate secondary factor** (r(GC,ratio)=0.38) via the anneal gate (D2) admitting more GC-rich
+candidates — the GC *extreme* is clean (AT-rich 114× vs GC-rich 315×) but this is **not** a monotone
+GC law (mid-GC noisy). (ii) Absolute design cost 1.3–6.0 s/assay on a 1-core x86_64 host —
+fine for **interactive single-assay use, the tool's actual scope; not a batch/genome-scale engine**.
+(iii) Tm throughput ~41 µs/oligo cold, ~0.5 µs warm. (iv) The specificity scan is **linear**
+(R²=0.9999, ~10 µs/bp), projecting to ~46 s for a 4.6 Mb bacterial genome but **~9 h for the whole
+3.2 Gb human genome** — impractical, which is exactly why specificity is checked against a supplied
+FASTA (D3), not claimed genome-wide. *Remaining honest limit:* the tool is correct and interactive-
+fast but is **one-to-two orders of magnitude slower than the C incumbent and does not scale to a
+whole mammalian genome** — a real ceiling, reported rather than hidden. (`test_performance.py`,
+15 checks; artifacts `bench_performance.json/.csv`, `performance_benchmark.png`.)
 
 ---
 
 ## 5. Venue fit (honest)
 
 - **JOSS** — **strong fit now.** JOSS evaluates software quality, tests, docs, and utility, not
-  novel biology. OligoForge has a real user, a 41-module test suite with byte-locked goldens,
-  reproducible benchmarks, and a clear scope. This is the most defensible near-term target. Needs:
-  a short paper, install/usage docs, contribution guidelines.
+  novel biology. OligoForge has a real user, a 42-module test suite (34 Python + 8 Node) with
+  byte-locked goldens, reproducible benchmarks, and a clear scope. This is the most defensible
+  near-term target. Needs: a short paper, install/usage docs, contribution guidelines.
 - **Bioinformatics Advances / BMC Bioinformatics (Software article)** — **materially closer after
-  1.29.0.** The comparator gaps a reviewer flags first (G3 real-genome specificity, G6 Primer-BLAST
-  + OligoAnalyzer head-to-heads, G7 independent LNA cross-check) are **now closed with honest
-  benchmarks**. What remains is **G1 (wet-lab / real-assay validation)** — still the single biggest
-  limitation — plus broadening the corpus (G5) and reporting runtime (G9). The submittable case is
-  now concrete: a local-first, offline, reproducible qPCR design+QC tool whose numbers **match the
-  standard tools** (Primer-BLAST, OligoAnalyzer/MELTING, Primer3) where those are right — including
-  matching Primer-BLAST's own conservative specificity bias. The honest framing is **parity +
-  integration + reproducibility**, not algorithmic novelty or superiority — and the benchmarks now
-  *demonstrate* that parity rather than asserting it. With wet-lab data from the panel being
-  ordered, this becomes a solid submission.
+  1.29.0 and 1.30.0.** The comparator gaps a reviewer flags first (G3 real-genome specificity, G6
+  Primer-BLAST + OligoAnalyzer head-to-heads, G7 independent LNA cross-check) are **closed with
+  honest benchmarks**, and **runtime is now benchmarked (G9)** — reported honestly, including that
+  OligoForge is 65–315× slower than Primer3 and does not scale to a whole human genome. What remains
+  is **G1 (wet-lab / real-assay validation)** — still the single biggest limitation — plus
+  **broadening the corpus (G5)**. The submittable case is now concrete: a local-first, offline,
+  reproducible qPCR design+QC tool whose numbers **match the standard tools** (Primer-BLAST,
+  OligoAnalyzer/MELTING, Primer3) where those are right — including matching Primer-BLAST's own
+  conservative specificity bias — with its performance ceiling measured and stated rather than
+  hidden. The honest framing is **parity + integration + reproducibility**, not speed, algorithmic
+  novelty, or superiority — and the benchmarks now *demonstrate* that parity rather than asserting
+  it. With wet-lab data from the panel being ordered, this becomes a solid submission.
 - **A methods/thermodynamics journal** — **not without wet-lab data and a novel method.** The
   thermodynamics is applied, not new; the 1.29.0 benchmarks confirm parity with reference engines,
   which strengthens a *software* article but is not itself a methods contribution.
@@ -276,15 +333,18 @@ untested at batch/genome scale.
 
 ## 6. Bottom line
 
-OligoForge is **publishable as a software tool (JOSS) now**. After 1.29.0 it is **materially
-closer to a bioinformatics software-article bar**: the Primer-BLAST and OligoAnalyzer comparisons a
-reviewer asks for, and the independent LNA cross-check, are done — leaving **wet-lab validation
-(G1)** as the principal remaining requirement before a methods-journal software submission. The
-engine is scientifically sound and its qPCR-specific choices (divalent salt, anneal-temperature
-gating, offline specificity, LNA/degenerate handling) are correct and quantified. The claims that
-survive scrutiny are **correctness, parity with the standard tools, and integration** — not
-**algorithmic novelty** or **empirical superiority**. The 1.29.0 benchmarks were built to test
-exactly that: OligoForge matches Primer-BLAST (100 % concordance, same failure mode), agrees with
-OligoAnalyzer's documented algorithm to a sub-degree mean, and ties MELTING on LNA against real
-data. An honest tie with the incumbents — offline, reproducible, and locally run — is the claim,
-and it is now demonstrated rather than asserted.
+OligoForge is **publishable as a software tool (JOSS) now**. After 1.29.0 and 1.30.0 it is
+**materially closer to a bioinformatics software-article bar**: the Primer-BLAST and OligoAnalyzer
+comparisons a reviewer asks for, the independent LNA cross-check, and now the runtime benchmark are
+done — leaving **wet-lab validation (G1)** as the principal remaining requirement (with corpus
+breadth, G5, the next code increment) before a methods-journal software submission. The engine is
+scientifically sound and its qPCR-specific choices (divalent salt, anneal-temperature gating,
+offline specificity, LNA/degenerate handling) are correct and quantified. The claims that survive
+scrutiny are **correctness, parity with the standard tools, and integration** — not **speed**,
+**algorithmic novelty**, or **empirical superiority**. The benchmarks were built to test exactly
+that: OligoForge matches Primer-BLAST (100 % concordance, same failure mode), agrees with
+OligoAnalyzer's documented algorithm to a sub-degree mean, ties MELTING on LNA against real data —
+and, measured head-to-head, is **65–315× slower than Primer3 and does not scale to a whole human
+genome (~9 h projected)**. That performance ceiling is now reported, not hidden. An honest tie with
+the incumbents on *correctness* — offline, reproducible, locally run, and slower — is the claim, and
+it is now demonstrated rather than asserted.

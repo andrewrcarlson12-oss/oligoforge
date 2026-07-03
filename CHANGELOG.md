@@ -1,5 +1,51 @@
 # Changelog
 
+## v1.30.0 — runtime/performance benchmark (G9): OligoForge is 65–315× slower than Primer3, reported honestly
+
+A **measurement-only** release that closes the last code-closable gap the v1.29.0
+`paper_readiness.md` still listed open: **G9 (runtime never benchmarked)**. **No feature was added
+and no validated design changed** — the locked panel, the HMBS host regression anchor, and the two
+parasite autodesign winners remain **byte-identical** (`test_locked_panel.py`, `test_regression.py`,
+`test_autodesign_golden.py`). Suite grew from **33 → 34 Python scripts** (+ 8 Node UI harnesses),
+all green (**42/42**). `paper_readiness.md` is updated: G9 marked closed, venue verdict and bottom
+line revised.
+
+### Why this release
+
+v1.29.0 answered the reviewer's comparator questions (Primer-BLAST, OligoAnalyzer, LNA). The next
+question a software-article reviewer asks is *"how fast is it, and does it scale?"* — which had
+never been measured. This release measures it. The governing principle is unchanged: **honesty over
+salesmanship**. The result is unflattering — OligoForge loses to Primer3 by one-to-two orders of
+magnitude and does not scale to a whole mammalian genome — and is reported exactly as measured,
+because a limitation stated is worth more than a limitation hidden.
+
+### G9 — design/Tm/specificity performance vs Primer3 *(test_performance.py, 15 checks)*
+
+- **Design latency (the headline, honest): OligoForge is 65×–315× slower than Primer3's C core,
+  slower on all 18 `bench_corpus` templates.** Absolute cost on a 1-core x86_64 host: median
+  **3125 ms/assay** (range 1281–5967 ms). This is fine for **interactive single-assay design — the
+  tool's actual scope — and is not a batch or genome-scale engine.** No attempt is made to spin the
+  gap; Primer3 wins on speed, decisively.
+- **What drives the slowdown (mechanism, not just the number):** mainly **template length**
+  (r(len, OF ms)=0.49) and candidate count. **GC is a weak-to-moderate secondary factor**
+  (r(GC, ratio)=0.38) via the anneal gate (D2) admitting more GC-rich candidates. The GC *extreme*
+  is clean — most-AT-rich `plas_cytb_ATrich` (GC 26.8 %) at 114×, most-GC-rich `Mtb_rpoB_GCrich`
+  (GC 61.9 %) at 315× — but this is **explicitly not claimed as a monotone GC law**: mid-GC points
+  are noisy, and only the extreme is robust.
+- **Tm throughput:** ~**40.9 µs/oligo cold**, ~**0.51 µs/oligo warm** (n=400) — the NN cache earns
+  roughly an 80× warm speedup. Sub-millisecond either way; Tm is never the bottleneck.
+- **Specificity scan scales linearly:** R²=**0.9999**, ~**10.1 µs/bp**. Projects to **~46 s for a
+  4.6 Mb bacterial genome** but **~9 h for the whole 3.2 Gb human genome** — impractical, which is
+  exactly why specificity is evaluated against a **supplied FASTA (D3), not claimed genome-wide.**
+  The linear fit is the portable claim; absolute µs/bp is host-dependent.
+- **Test design:** `test_performance.py` pins the committed JSON's structural findings and
+  **re-computes the hardware-robust shapes live** (scan linearity R²>0.99; OF slower than Primer3
+  on both GC extremes; GC-rich extreme > AT-rich extreme; sub-ms Tm; all designs succeed). It pins
+  **no absolute millisecond value**, so it is not flaky across machines.
+- New files: `tests/benchmark/bench_performance.py`, `tests/test_performance.py`. Artifacts:
+  `bench_performance.json`, `bench_performance.csv`, `bench_performance_scan.csv`, and the 3-panel
+  `performance_benchmark.png` (design latency OF-vs-P3 log-y; slowdown-vs-GC scatter; linear scan fit).
+
 ## v1.29.0 — gap-closing benchmarks: Primer-BLAST + OligoAnalyzer head-to-heads, real-genome specificity, independent LNA cross-check
 
 A **benchmark-hardening** release that closes three of the gaps the v1.28.0 `paper_readiness.md`
