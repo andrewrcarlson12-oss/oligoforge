@@ -448,6 +448,7 @@ def _annotate(out, ref, prefer_junction):
     gene_table returns and the amplicon is re-located on THAT transcript -- not assumed to
     match the reference (isoform variants differ in exon structure)."""
     cands = out.get("candidates") or []
+    _prof = PROF.PROFILES.get(out.get("profile_used")) or {}   # anneal temp for the fold; falls back to the global default
     junctions = mrna = None
     if prefer_junction and out.get("source_accession"):
         try:
@@ -467,7 +468,7 @@ def _annotate(out, ref, prefer_junction):
         c["amp_span"] = list(rspan) if rspan else None
         if STR.available() and ref and rspan:
             amp = ref[rspan[0]:rspan[1]]
-            f = STR.fold_ensemble(amp, anneal_c=profile.get("anneal_c", T.ANNEAL_C))
+            f = STR.fold_ensemble(amp, anneal_c=_prof.get("anneal_c", T.ANNEAL_C))
             if f:
                 fl, rl = len(a["forward"]), len(a["reverse"])
                 pp = SP._locate(a["probe"], amp) if a.get("probe") else None

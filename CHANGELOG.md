@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.30.1 — bugfix: autodesign query path crashed with "name 'profile' is not defined"
+
+A one-line bugfix. **No feature added, no validated design changed** — the locked panel, the HMBS
+regression anchor, and the two parasite autodesign winners remain byte-identical.
+
+### The bug
+
+The "Autodesign from a target" path (`design_from_query` → fetch → design → annotate) called the
+private `_annotate(out, ref, prefer_junction)` helper to attach amplicon secondary-structure info
+to each candidate. That helper folded the amplicon with `profile.get("anneal_c", ...)`, but
+`profile` was never a parameter or local of `_annotate` — so on any install with ViennaRNA present
+(i.e. every real one) the fold line raised `NameError: name 'profile' is not defined` for the first
+candidate, and the request returned **"autodesign failed: name 'profile' is not defined."** The
+single-template Design tab (`design_assay`) and the sequence-paste path (`design_from_sequences`)
+were unaffected; only the target-query path routes through `_annotate`.
+
+Why the 42-test suite stayed green: the golden and regression tests exercise `design_assay` and
+`design_from_sequences` **directly** and never route through `_annotate`, which lives only on the
+NCBI-fetch query path. A whole code path had no offline test.
+
+### The fix
+
+- `_annotate` now derives the profile from `out["profile_used"]` at the top —
+  `_prof = PROF.PROFILES.get(out.get("profile_used")) or {}` — the same pattern already used a few
+  lines below for the nested-PCR call, and folds with `_prof.get("anneal_c", T.ANNEAL_C)`. When the
+  profile has no explicit anneal temperature it falls back to the global default, so behavior is
+  unchanged except that it no longer crashes.
+- New offline regression test **`tests/test_autodesign_annotate.py` (7 checks)**: builds a real
+  design with no network, calls `_annotate` directly, and asserts it does not raise, that the
+  per-candidate loop runs (amp_span populated), and — when ViennaRNA is present — that the
+  previously-crashing fold line executes and uses the profile's anneal temperature. Also checks the
+  `prefer_junction=True` branch is crash-safe with no source accession. Verified to fail against the
+  old code (reproduces the exact NameError) and pass with the fix.
+- Suite: **35 Python + 8 Node = 43/43 green.** Goldens byte-identical.
+
 ## v1.30.0 — runtime/performance benchmark (G9): OligoForge is 65–315× slower than Primer3, reported honestly
 
 A **measurement-only** release that closes the last code-closable gap the v1.29.0
