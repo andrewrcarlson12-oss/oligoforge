@@ -1,0 +1,83 @@
+{
+  "human_transcriptome": {
+    "ACTB": {
+      "accession": "NM_001101.2",
+      "length": 1793
+    },
+    "ACTG1": {
+      "accession": "NM_001614.5",
+      "length": 1919
+    },
+    "GAPDH": {
+      "accession": "NM_002046.7",
+      "length": 1285
+    },
+    "B2M": {
+      "accession": "NM_004048.4",
+      "length": 943
+    },
+    "HMBS": {
+      "accession": "NM_000190.4",
+      "length": 1505
+    },
+    "HPRT1": {
+      "accession": "NM_000194.3",
+      "length": 1395
+    },
+    "RPL13A": {
+      "accession": "NM_012423.4",
+      "length": 1127
+    },
+    "SDHA": {
+      "accession": "NM_004168.4",
+      "length": 2693
+    },
+    "YWHAZ": {
+      "accession": "NM_003406.4",
+      "length": 5033
+    },
+    "YWHAB": {
+      "accession": "NM_003404.4",
+      "length": 3231
+    },
+    "YWHAE": {
+      "accession": "NM_006761.5",
+      "length": 2052
+    },
+    "TUBB": {
+      "accession": "NM_178014.4",
+      "length": 2515
+    },
+    "TUBB4B": {
+      "accession": "NM_006088.6",
+      "length": 1563
+    }
+  },
+  "apicomplexa_18S": {
+    "Pfalciparum_18S": {
+      "accession": "M19172.1",
+      "length": 2090
+    },
+    "Pvivax_18S": {
+      "accession": "U03079.1",
+      "length": 2064
+    },
+    "Pberghei_18S": {
+      "accession": "M14599.1",
+      "length": 2059
+    },
+    "Hcatharti_18S": {
+      "accession": "AF465552.1",
+      "length": 560
+    },
+    "Leucocytozoon_18S": {
+      "accession": "AF461187.1",
+      "length": 2544
+    },
+    "Toxoplasma_18S": {
+      "accession": "L37415.1",
+      "length": 1738
+    }
+  },
+  "note": "Real RefSeq/GenBank sequences fetched from NCBI nuccore. Human set includes real paralog families (ACTB/ACTG1, YWHAZ/YWHAB/YWHAE, TUBB/TUBB4B) as natural off-target challenges; apicomplexan set includes Plasmodium spp. (on-target genus) plus Haemoproteus/Leucocytozoon (off-target-risk related genera) for the Kamau pan-Plasmodium assay."
+}

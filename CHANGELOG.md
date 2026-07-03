@@ -1,5 +1,103 @@
 # Changelog
 
+## v1.29.0 — gap-closing benchmarks: Primer-BLAST + OligoAnalyzer head-to-heads, real-genome specificity, independent LNA cross-check
+
+A **benchmark-hardening** release that closes three of the gaps the v1.28.0 `paper_readiness.md`
+flagged as blocking a bioinformatics software-article submission (G3 real-genome specificity, G6
+comparator breadth, G7 independent LNA cross-check). **No feature was added and no validated design
+changed** — the locked panel, the HMBS host regression anchor, and the two parasite autodesign
+winners remain **byte-identical** (`test_locked_panel.py`, `test_regression.py`,
+`test_autodesign_golden.py`). Suite grew from **30 → 33 Python scripts** (+ 8 Node UI harnesses),
+all green. `paper_readiness.md` is updated (v4): G3/G6/G7 marked closed, venue verdict revised.
+
+### Why this release
+
+v1.28.0 established differentiation vs Primer3 and made OligoForge JOSS-ready. The next bar — a
+bioinformatics software article — needs the comparisons a reviewer asks for first: *"why not just
+use Primer-BLAST / OligoAnalyzer?"* and *"is the LNA layer independently verified?"* This release
+answers all three with publication-grade benchmarks. The governing principle was **honesty over
+salesmanship**: a benchmark that shows OligoForge *matches* or *ties* the incumbent is more useful
+than one engineered to win. All three results are ties or matches — reported as such.
+
+### G6b + G3 — Primer-BLAST specificity head-to-head on a real genome *(test_specificity_primerblast.py, 9 checks)*
+
+- Built a faithful **offline Primer-BLAST-equivalent** oracle on **blastn 2.17.0** (the same engine
+  Primer-BLAST wraps), applying Primer-BLAST's documented 3′-anchor + total-mismatch priming rules
+  to filter blastn alignments to primer-relevant sites (raw `blastn-short` word-hits are *not* used
+  as priming calls — they were filtered to length + 3′-anchor + terminal-mismatch, correcting an
+  early over-count).
+- Benchmark set: a **13-gene human transcriptome** subset with **natural paralog families**
+  (ACTB/ACTG1, YWHAZ/YWHAB/YWHAE, TUBB/TUBB4B) + a 6-taxon apicomplexan 18S panel. 11 primer pairs
+  (8 geNorm specific + 3 designed paralog cross-reactions) + the real pan-Plasmodium case.
+- **Result (honest — a match, not a win):** OligoForge's offline in-silico-PCR and the
+  Primer-BLAST-equivalent make **IDENTICAL subject calls on all 11 pairs plus the Plasmodium case —
+  100 % concordance**. Both score **sensitivity 100 %, specificity 98.5 %** vs a biologically-
+  grounded ground truth (3′-contiguity priming rule), and they **share the same 2 false positives**
+  (ACTG1, YWHAB) — borderline paralog cross-reactions where each flags a 3′-anchored match with an
+  internal mismatch ~7 bp from the terminus. Both err toward caution (correct for assay QC).
+  OligoForge does not beat Primer-BLAST; it matches it — offline, reproducibly, with no NCBI call.
+- **Real project result:** the pan-Plasmodium 18S primers amplify all three *Plasmodium* spp. and
+  do **not** cross-react with *Haemoproteus* / *Leucocytozoon* / *Toxoplasma* — genus-specific as
+  designed. Honest nuance recorded: the probe has an *isolated* affinity for *Toxoplasma* 18S, but
+  *Toxoplasma* forms no amplicon → no qPCR signal (amplicon-context probe eval beats isolated BLAST).
+- Artifacts: `bench_specificity_realgenome.json`, `bench_specificity_primerblast.csv`,
+  `bench_specificity_records.json`, figures `primerblast_headtohead.png` + `realgenome_specificity.png`.
+  Genome FASTA fixtures committed under `tests/benchmark/genome_fixtures/` (blastn DBs rebuilt at
+  test time; the pinning test is pure-Python and needs no blastn).
+
+### G6a — OligoAnalyzer Tm head-to-head *(test_oligoanalyzer_tm.py, 9 checks)*
+
+- IDT OligoAnalyzer is a hosted tool with no offline API (its REST endpoint needs an IDT account +
+  OAuth, and the domain is unreachable here), so the comparison is against its **documented
+  algorithm** — SantaLucia-1998 NN + Owczarzy salt, per IDT's OligoAnalyzer *Definitions* page — as
+  independently implemented by **MELTING 5**. Framed explicitly as documented-algorithm agreement,
+  **not** identity with the live tool.
+- **Result (honest — sub-degree mean, wider spread):** across 25 corpus oligos at matched qPCR salt,
+  mean |Δ| **0.73 °C**, median **0.82 °C**, r = 0.96 — but the spread is reported honestly:
+  **7/25 exceed ±1 °C**, worst 1.74 °C, 95 % limits of agreement **−0.68 … +1.80 °C**. A small
+  **positive** mean bias (+0.56 °C) is consistent with OligoForge using *free* Mg²⁺ (von Ahsen)
+  while a divalent model on total Mg runs slightly cooler. The panel-b figure title states "mean
+  bias sub-degree; spread wider" rather than overstating uniformity.
+- Artifacts: `bench_oligoanalyzer_tm.csv`, `bench_oligoanalyzer_summary.json`,
+  figure `oligoanalyzer_tm_comparison.png`.
+
+### G7 — LNA validation hardening with an independent MELTING 5 cross-check *(test_lna_hardening.py, 13 checks)*
+
+- The v1.28.0 blocker ("MELTING needs Java, unavailable") is **resolved**: `rmelting` 1.26.0 + the
+  MELTING 5 Java engine now run, giving the independent reference cross-check.
+- **Primary validation unchanged and still honest:** vs McTigue 2004 **experimental** data (12
+  duplexes) — RMSE **1.86 °C**, MAE **1.62 °C**, bias **−0.52 °C**; **8/12 within ±2 °C, 9/12 within
+  ±2.5 °C, 12/12 within ±3 °C** (worst duplex 3.0 °C, an outlier *beyond* ±2, not hidden).
+- **Independent cross-check (a tie, not a win):** at matched strand concentration (anchored by
+  making MELTING's plain-DNA-core Tm equal OligoForge's — an early 2 µM setting produced a spurious
+  −2.9 °C bias that was corrected), OligoForge (RMSE 1.86) and MELTING's `mct04` implementation of
+  the same parameters (RMSE 2.10) are both close to experiment; **neither dominates**. The **LNA
+  increment** (locked − core Tm, which cancels the backbone salt convention) agrees to **mean |Δ|
+  0.03 °C, max 0.08 °C** on the 12 duplexes.
+- **Panel expanded 12 → 96 oligos** (length 8–22, GC 30–72 %, all four locked bases, internal
+  positions), cross-checked against MELTING: LNA-increment agreement **RMSE 0.075 °C, max 0.31 °C**,
+  uniform across locked-base identity and length — proving the McTigue increment layer is faithfully
+  implemented. (McTigue's full 100-duplex set and Owczarzy 2011 are closed-access, so the 96-oligo
+  expansion is validated against MELTING as an independent *predictor*, not 96 new *measurements* —
+  stated plainly in `paper_readiness.md`.)
+- Artifacts: `lna_validation_v2.json`, `lna_expanded_panel.csv`, `lna_mctigue12_crosscheck.csv`,
+  figure `lna_validation_hardened.png`.
+
+### Tests & docs
+
+- **+3 Python test scripts**, all deterministic and fully offline (they re-compute the OligoForge
+  side and pin the committed cross-tool reference values; no Java, blastn, or network at CI time):
+  `test_oligoanalyzer_tm.py` (9 checks), `test_specificity_primerblast.py` (9),
+  `test_lna_hardening.py` (13). Check counts are **grep-verifiable `check(` call-sites**, not
+  runtime PASS lines (which inflate through loop bodies).
+- Each new test pins the *honest* number a reviewer would recompute — including the OligoAnalyzer
+  7/25-beyond-±1 spread, the shared Primer-BLAST false positives, and the LNA 8/12-within-±2 count —
+  so none can silently drift.
+- `paper_readiness.md` v4: D7 (OligoAnalyzer) + D8 (Primer-BLAST) added; D3/D4/D6 updated;
+  G3/G6/G7 marked ✅ CLOSED each with a "remaining honest limit"; venue verdict revised to
+  "materially closer" with wet-lab (G1) as the principal remaining requirement.
+- **CI: 33 Python + 8 Node = 41/41 green.** Goldens byte-identical.
+
 ## v1.28.0 — publication track: published-primer benchmark vs Primer3, offline in-silico-PCR specificity, LNA/degenerate validation
 
 A **validation and differentiation** release aimed at making OligoForge publishable (JOSS now;

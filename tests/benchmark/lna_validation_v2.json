@@ -1,0 +1,88 @@
+{
+  "schema": "oligoforge-lna-validation/v2",
+  "description": "LNA Tm validation hardened with a real independent MELTING 5 cross-check (rmelting 1.26.0, MELTING Java engine, method.locked=mct04/owc11). v1.28.0 could only validate against 12 embedded McTigue experimental duplexes because Java was unavailable; v1.29.0 adds (a) the MELTING cross-check on those 12 and (b) an expanded 96-oligo panel spanning length 8-22 and GC 30-72% cross-checked against MELTING as an independent reference.",
+  "vs_experiment_mctigue12": {
+    "n": 12,
+    "rmse": 1.86,
+    "mae": 1.62,
+    "bias": -0.52,
+    "max_abs": 3.0,
+    "within_band": "8/12 within \u00b12 \u00b0C, 9/12 within \u00b12.5 \u00b0C, 12/12 within \u00b13 \u00b0C",
+    "note": "Primary validation against real absorbance-melting measurements (McTigue 2004, 5 \u00b5M, 1 M Na+)."
+  },
+  "melting_crosscheck_12": {
+    "matched_concentration_note": "MELTING Ct=5.5uM reproduces OligoForge plain-core Tm (51.15 vs 51.10)",
+    "oligoforge_vs_experiment": {
+      "n": 12,
+      "rmse": 1.86,
+      "mae": 1.62,
+      "bias": -0.52,
+      "max_abs": 3.0
+    },
+    "melting_mct04_vs_experiment": {
+      "n": 12,
+      "rmse": 2.1,
+      "mae": 1.79,
+      "bias": -0.09,
+      "max_abs": 4.18
+    },
+    "increment_agreement": {
+      "n": 12,
+      "rmse": 0.04,
+      "mae": 0.03,
+      "bias": -0.01,
+      "max_abs": 0.08
+    },
+    "interpretation": "At matched concentration, OligoForge (RMSE 1.86, bias \u22120.52) and MELTING's independent implementation of the same McTigue parameters (RMSE 2.10, bias \u22120.09) are both close to experiment \u2014 neither dominates. The LNA INCREMENT (locked \u2212 core Tm) agrees to mean |\u0394| 0.03 \u00b0C, max 0.08 \u00b0C, proving OligoForge correctly implements the McTigue parameter set."
+  },
+  "expanded_panel_96": {
+    "n": 96,
+    "span": "length 8-22, GC 30-72%, all 4 locked bases, internal positions",
+    "full_tm_vs_melting": {
+      "n": 96,
+      "rmse": 1.173,
+      "mae": 0.797,
+      "bias": -0.796,
+      "max_abs": 3.42
+    },
+    "increment_vs_melting": {
+      "n": 96,
+      "rmse": 0.075,
+      "mae": 0.056,
+      "bias": -0.039,
+      "max_abs": 0.31
+    },
+    "by_locked_base": {
+      "A": {
+        "n": 31,
+        "rmse": 0.073,
+        "mae": 0.059,
+        "bias": -0.044,
+        "max_abs": 0.19
+      },
+      "C": {
+        "n": 23,
+        "rmse": 0.096,
+        "mae": 0.069,
+        "bias": -0.05,
+        "max_abs": 0.31
+      },
+      "G": {
+        "n": 20,
+        "rmse": 0.045,
+        "mae": 0.035,
+        "bias": -0.002,
+        "max_abs": 0.09
+      },
+      "T": {
+        "n": 22,
+        "rmse": 0.076,
+        "mae": 0.056,
+        "bias": -0.053,
+        "max_abs": 0.19
+      }
+    },
+    "interpretation": "Across 96 diverse oligos, OligoForge's LNA increment matches MELTING's to RMSE 0.075 \u00b0C (max 0.31 \u00b0C), uniform across locked-base identity (AL/CL/GL/TL) and length. Full-Tm RMSE 1.17 \u00b0C reflects the DNA-backbone salt/concentration convention, not the LNA layer."
+  },
+  "headline": "The LNA layer is now independently validated. Against McTigue's real experimental data the model gives RMSE 1.86 \u00b0C / bias \u22120.52 \u00b0C (8/12 within \u00b12, 12/12 within \u00b13). An independent MELTING 5 engine confirms the implementation: LNA increments agree to 0.03 \u00b0C on the 12 experimental duplexes and 0.075 \u00b0C RMSE across an expanded 96-oligo panel. OligoForge and MELTING are an honest tie against experiment (RMSE 1.86 vs 2.10); OligoForge does not claim superiority."
+}
