@@ -507,7 +507,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <header class="topbar">
   <div class="brand">
     <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2c0 4 12 4 12 8s-12 4-12 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M16 2c0 4-12 4-12 8s12 4 12 8" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/><path d="M5.6 5h8.8M5 10h10M5.6 15h8.8" stroke="rgba(255,255,255,.5)" stroke-width="1" stroke-linecap="round"/></svg></span>
-    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.30.1</span>
+    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.31.0</span>
   </div>
   <div class="spacer"></div>
   <div class="toolset">
@@ -577,6 +577,24 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
     <div id="seqrows"></div>
     <div class="row"><button class="ghost" onclick="addSeqRow()">+ oligo</button><button onclick="doMatrix()">Build matrix</button><span style="flex:1"></span><input id="panelname" placeholder="panel name" style="width:140px"><button class="ghost" onclick="saveOligoPanel()">Save</button><select id="panelsel" style="width:150px"></select><button class="ghost" onclick="loadPanel()">Load</button></div>
     <div id="m_out"><div class="ph">Add oligos to the matrix to see the all-vs-all cross-dimer grid.</div></div>
+  </div></section>
+
+  <!-- ORTHOGONAL PANEL -->
+  <section id="orthopanel"><div class="card">
+    <h2>Certified orthogonal panel</h2>
+    <p class="hint">Pick the largest set of oligos with no strong cross-hybridization, and prove how close it is to the true maximum. The certificate is exact for the pairwise ΔG model, not a wet-lab guarantee.</p>
+    <div class="row">
+      <div style="flex:1"><label>candidate oligos — one per line: a bare sequence, <span class="mono">name,sequence</span>, or FASTA</label>
+        <textarea id="op_in" class="seq" style="width:100%;height:150px" placeholder="probe1,ACGATCAGTTGCATCAGGTA&#10;probe2,TGACCTAGCATGGTACAAGC&#10;probe3,GCATTCAGATCGGATACCTA"></textarea></div>
+    </div>
+    <div class="row">
+      <div><label>cross-react ΔG ≤ (kcal/mol)</label><input id="op_cross" type="number" step="0.5" value="-6" style="width:90px"></div>
+      <div><label>self-structure ΔG ≤</label><input id="op_self" type="number" step="0.5" value="-9" style="width:90px"></div>
+      <div><label>split-pool rounds k</label><input id="op_k" type="number" min="1" max="12" value="1" style="width:70px"></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px"><input type="checkbox" id="op_theta" checked> tighten with Lovász θ</label>
+      <button onclick="doOrthoPanel()">Certify panel</button>
+    </div>
+    <div id="op_out"><div class="ph">Paste candidate oligos and certify the largest mutually non-cross-hybridizing subset.</div></div>
   </div></section>
 
   <!-- DESIGN -->
@@ -984,12 +1002,12 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
 </main>
 </div><!--/shell-->
-<footer>OligoForge v1.30.1</footer>
+<footer>OligoForge v1.31.0</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
  ["auto","Target → assay","Create"],["work","Workbench","Create"],["design","Design","Create"],["viewer","Manual design","Create"],["ncbi","NCBI fetch","Create"],
- ["qc","QC","Check"],["pair","Pair","Check"],["matrix","Panel matrix","Check"],["cons","Conservation","Check"],["epcr","in-silico PCR","Check"],["iso","Isolate panel","Check"],["intron","Intron check","Check"],["blast","BLAST","Check"],
+ ["qc","QC","Check"],["pair","Pair","Check"],["matrix","Panel matrix","Check"],["orthopanel","Orthogonal panel","Check"],["cons","Conservation","Check"],["epcr","in-silico PCR","Check"],["iso","Isolate panel","Check"],["intron","Intron check","Check"],["blast","BLAST","Check"],
  ["quant","Quant","Quantify"],["std","Std curve","Quantify"],["refgenes","Ref genes","Quantify"],["expr","Expression","Quantify"],
  ["order","Order","Finish"],["ref","Reference","Finish"],["help","Help","Finish"]];
 (function buildNav(){
@@ -1069,6 +1087,93 @@ async function api(path,body){let r,j;
  }
  return j;}
 function dgClass(dg){return dg>-6?"PASS":(dg>-9?"WARN":"FAIL");}
+// ---- certified orthogonal panel ----
+function doOrthoPanel(){
+ const out=document.getElementById("op_out");
+ const text=((document.getElementById("op_in")||{}).value||"");
+ if(!text.trim()){out.innerHTML=err("Paste at least one candidate oligo.");return;}
+ const cross=parseFloat((document.getElementById("op_cross")||{}).value||"-6");
+ const self_=parseFloat((document.getElementById("op_self")||{}).value||"-9");
+ const k=parseInt((document.getElementById("op_k")||{}).value||"1",10)||1;
+ const use_theta=!!((document.getElementById("op_theta")||{}).checked);
+ out.innerHTML='<div class="ph">Certifying — computing pairwise ΔG and solving the optimality certificate…</div>';
+ api("/api/orthogonal-panel",{text:text,cross_dg:cross,self_dg:self_,k:k,use_theta:use_theta}).then(d=>{
+  if(!d||d.error){out.innerHTML=err(d?d.error:"no response");return;}
+  out.innerHTML=renderOrthoPanel(d);
+  try{drawConfusabilityGraph(d);}catch(e){}
+ });
+}
+function renderOrthoPanel(d){
+ const lo=d.panel_size,ub=d.upper_bound,gap=d.gap,cert=d.certified;
+ const src=d.bound_source==="lovasz_theta"?"Lovász θ (SDP)":(d.bound_source==="clique_cover"?"clique-cover bound (exact, no SDP)":(d.bound_source||""));
+ const th=(d.theta!=null)?(" · θ="+d.theta):"";
+ let banner;
+ if(cert){
+  banner='<div style="border:1px solid #2ea043;background:rgba(46,160,67,.10);border-radius:10px;padding:13px 15px;margin:2px 0 14px">'
+   +'<div style="font-family:var(--display,inherit);font-weight:700;font-size:15px;color:#1a7f37;letter-spacing:.02em">CERTIFIED MAXIMUM</div>'
+   +'<div style="margin-top:4px;font-size:13.5px">panel of <b>'+lo+'</b> &nbsp;=&nbsp; α &nbsp;≤&nbsp; ⌊bound⌋ = <b>'+ub+'</b> &nbsp;·&nbsp; gap 0</div>'
+   +'<div class="hint" style="margin-top:5px">No larger mutually non-cross-hybridizing panel exists under this pairwise ΔG model. Bound: '+src+th+'.</div>'
+   +'<div class="hint" style="margin-top:3px;font-style:italic">Optimality is with respect to the thermodynamic model — real multiplex cross-priming is not pairwise, so this is not a guarantee of wet-lab performance.</div></div>';
+ }else{
+  const extra=d.theta_unavailable?" Install cvxpy (or reduce the candidate count below the size limit) for the tighter θ bound.":"";
+  banner='<div style="border:1px solid #d29922;background:rgba(210,153,34,.12);border-radius:10px;padding:13px 15px;margin:2px 0 14px">'
+   +'<div style="font-family:var(--display,inherit);font-weight:700;font-size:15px;color:#9a6700;letter-spacing:.02em">PANEL OF '+lo+' · GAP '+gap+'</div>'
+   +'<div style="margin-top:4px;font-size:13.5px"><b>'+lo+'</b> ≤ α ≤ <b>'+ub+'</b> — proven at least '+lo+', at most '+ub+'; '+gap+' short of a proven maximum</div>'
+   +'<div class="hint" style="margin-top:5px">Bound: '+src+th+'.'+extra+'</div></div>';
+ }
+ const panel=(d.panel||[]).map(p=>'<tr><td>'+(p.name||"")+'</td><td class="mono">'+p.seq+'</td><td class="mono">'+(p.hairpin_dg==null?"":p.hairpin_dg)+'</td><td class="mono">'+(p.homodimer_dg==null?"":p.homodimer_dg)+'</td></tr>').join("");
+ let html=banner+'<h3 style="margin:10px 0 4px">Panel — '+lo+' orthogonal oligo'+(lo===1?"":"s")+'</h3>'
+  +'<table><tr><th>name</th><th>sequence</th><th>hairpin ΔG</th><th>homodimer ΔG</th></tr>'+panel+'</table>';
+ if(d.edges&&d.edges.length){
+  html+='<h3 style="margin:14px 0 4px">Cross-reactions ('+d.n_edges+') — at most one of each pair fits in the panel</h3>'
+   +'<table><tr><th>oligo A</th><th>oligo B</th><th>ΔG</th></tr>'
+   +d.edges.map(e=>'<tr><td>'+e.a+'</td><td>'+e.b+'</td><td class="mono">'+e.dg+'</td></tr>').join("")+'</table>';
+ }
+ const excl=(d.nodes||[]).filter(n=>!n.in_panel).map(n=>n.name);
+ if(excl.length)html+='<p class="hint">Excluded (cross-reacts with a chosen oligo): '+excl.join(", ")+'</p>';
+ if(d.dropped_self_structure&&d.dropped_self_structure.length)html+='<p class="hint">Dropped for self-structure: '+d.dropped_self_structure.map(x=>x.name+" ("+x.reason+")").join("; ")+'</p>';
+ if(d.rejects&&d.rejects.length)html+='<p class="hint">Rejected input: '+d.rejects.map(x=>x.name+" — "+x.reason).join("; ")+'</p>';
+ if(d.duplicates&&d.duplicates.length)html+='<p class="hint">Duplicate sequences merged: '+d.duplicates.map(x=>x.names.join("=")+" (×"+x.count+")").join("; ")+'</p>';
+ const s=d.split_pool||{};
+ if(s.theta_pow_k!=null){
+  html+='<h3 style="margin:14px 0 4px">Split-pool capacity (k='+s.k+' rounds)</h3>'
+   +'<p>Certified ceiling: <b>'+s.certified_max_barcodes+'</b> collision-free '+s.k+'-round barcodes (θ^'+s.k+' = '+s.theta_pow_k+'). Naive |panel|^'+s.k+' = '+s.naive_mis_pow_k+'.</p>'
+   +'<p class="hint">'+s.assumption+'</p>';
+ }else if(s.k>1){
+  html+='<h3 style="margin:14px 0 4px">Split-pool capacity (k='+s.k+' rounds)</h3><p class="hint">'+(s.note||"θ unavailable; ceiling not certified.")+' Naive |panel|^'+s.k+' = '+s.naive_mis_pow_k+'.</p>';
+ }
+ html+='<h3 style="margin:14px 0 4px">Confusability graph</h3><p class="hint">Nodes = candidate oligos (green = in panel, grey = excluded); red lines = cross-reactions.</p>'
+  +'<canvas id="op_canvas" width="640" height="380" style="width:100%;max-width:640px;border:1px solid var(--line,#ddd);border-radius:8px;background:var(--panel,#fff)"></canvas>';
+ return html;
+}
+function drawConfusabilityGraph(d){
+ const cv=document.getElementById("op_canvas");if(!cv||!cv.getContext)return;
+ const ctx=cv.getContext("2d"),W=cv.width,H=cv.height,cx=W/2,cy=H/2;
+ const nodes=(d.nodes||[]).map(n=>({id:n.id,name:n.name,inp:!!n.in_panel,x:0,y:0,vx:0,vy:0}));
+ const N=nodes.length;ctx.clearRect(0,0,W,H);if(!N)return;
+ const idx={};nodes.forEach((n,i)=>idx[n.id]=i);
+ const E=(d.edges||[]).map(e=>[idx[e.i],idx[e.j]]).filter(p=>p[0]!=null&&p[1]!=null);
+ const rad=Math.min(W,H)*0.32;
+ nodes.forEach((n,i)=>{const a=2*Math.PI*i/N;n.x=cx+Math.cos(a)*rad;n.y=cy+Math.sin(a)*rad;});
+ for(let it=0;it<240;it++){
+  for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){
+   let dx=nodes[i].x-nodes[j].x,dy=nodes[i].y-nodes[j].y,d2=dx*dx+dy*dy||0.01,dl=Math.sqrt(d2),f=1600/d2,ux=dx/dl,uy=dy/dl;
+   nodes[i].vx+=ux*f;nodes[i].vy+=uy*f;nodes[j].vx-=ux*f;nodes[j].vy-=uy*f;}
+  E.forEach(p=>{let a=nodes[p[0]],b=nodes[p[1]],dx=b.x-a.x,dy=b.y-a.y,dl=Math.sqrt(dx*dx+dy*dy)||0.01,f=(dl-92)*0.02,ux=dx/dl,uy=dy/dl;
+   a.vx+=ux*f;a.vy+=uy*f;b.vx-=ux*f;b.vy-=uy*f;});
+  nodes.forEach(n=>{n.vx+=(cx-n.x)*0.002;n.vy+=(cy-n.y)*0.002;n.x+=n.vx*0.5;n.y+=n.vy*0.5;n.vx*=0.85;n.vy*=0.85;
+   n.x=Math.max(26,Math.min(W-26,n.x));n.y=Math.max(30,Math.min(H-18,n.y));});
+ }
+ ctx.strokeStyle="rgba(200,60,60,.55)";ctx.lineWidth=1.4;
+ E.forEach(p=>{ctx.beginPath();ctx.moveTo(nodes[p[0]].x,nodes[p[0]].y);ctx.lineTo(nodes[p[1]].x,nodes[p[1]].y);ctx.stroke();});
+ let ink="#111";try{ink=(getComputedStyle(document.documentElement).getPropertyValue("--ink")||"#111").trim()||"#111";}catch(e){}
+ ctx.font="11px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
+ nodes.forEach(n=>{
+  ctx.beginPath();ctx.arc(n.x,n.y,10,0,2*Math.PI);
+  ctx.fillStyle=n.inp?"#2ea043":"#9aa0a6";ctx.fill();
+  ctx.lineWidth=1.5;ctx.strokeStyle=n.inp?"#1a7f37":"#6b7075";ctx.stroke();
+  ctx.fillStyle=ink;ctx.fillText(n.name,n.x,n.y-16);});
+}
 function lintTable(rows){if(!rows)return"";return `<table><tr><th>rule</th><th>status</th><th>detail</th></tr>`+
  rows.map(r=>`<tr><td>${r.rule}</td><td><span class="pill b-${r.status}">${r.status}</span></td><td class="mono">${r.detail}</td></tr>`).join("")+`</table>`;}
 function err(m){return `<div class="err">${m}</div>`;}

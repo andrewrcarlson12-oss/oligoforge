@@ -12,7 +12,7 @@ import io
 
 from . import thermo as T
 
-TOOL_VERSION = "OligoForge v1.29.0"
+TOOL_VERSION = "OligoForge v1.31.0"
 
 
 def _oligo_qc(seq):
