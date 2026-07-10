@@ -41,7 +41,7 @@ across isoforms, reference-gene stability, multiplex compatibility, standard cur
 HTML+CSV report. Built on real NCBI data. Differentiator vs Primer-BLAST / QuantPrime / Beacon Designer:
 the assembled offline pipeline for non-model organisms + parasite discrimination + no data hand-off.
 
-**Current version: v1.13.0.** Five places hold the version and MUST stay in sync on every bump:
+**Current version: v1.31.0.** Five places hold the version and MUST stay in sync on every bump:
 footer in `static/index.html`, `TOOL_VERSION` in `oligoforge/report.py`, `APP_VERSION` in `launcher.py`,
 `__version__` in `oligoforge/__init__.py`, and `version=` in `app.py` (`FastAPI(...)`).
 
@@ -269,6 +269,65 @@ _Scope, honestly:_ I built the feature asked for plus did not bulk-add speculati
 ---
 
 ## 12. LATEST CHANGES
+
+### CURRENT STATE — v1.31.0 (read this first; corrects stale facts below)
+
+The entries further down in this section stop around v1.26 and some numbers elsewhere in this file
+(route count, module list) are stale. This block is the authoritative current snapshot. Full
+per-version detail for v1.27.0 → v1.31.0 lives in **CHANGELOG.md** (top of file) and in the session
+transcripts catalogued in `/mnt/transcripts/journal.txt`; SPEC.md documents the orthopanel design.
+
+- **Version:** v1.31.0 at all FIVE sync points (app.py, oligoforge/__init__.py, launcher.py,
+  oligoforge/report.py TOOL_VERSION, static/index.html footer + `#ver` chip). v1.31.0 fixed a drift
+  where report.py was still v1.29.0.
+- **Routes:** 51 total — 50 `/api/*` + `/healthz`. Newest: `POST /api/orthogonal-panel`.
+- **Engine modules (oligoforge/):** __init__, thermo, design, profiles, ncbi, quant, orders,
+  conservation, specificity, autodesign, refgenes, report, multiplex, structure, nn, cq, expression,
+  isolates, markerscan, melt, miqe, rdml, refmarkers, **orthopanel** (v1.31.0, new).
+- **Tests:** `python3 run_tests.py` runs everything and is the gate — **45 total: 37 Python
+  (tests/test_*.py) + 8 Node (tests/ui_*.js)**. All green at v1.31.0. Goldens that must stay
+  byte-identical: `test_locked_panel` (the 15 ordered FSJ oligos), `test_regression` (HMBS anchor
+  `GAGCTATACCCCGACCTCTG`), `test_autodesign_golden` (winners `TTTCCATTTATAGCCTTATGTATTG` /
+  `TTTCTACATTTACAAGGTAGCA`).
+- **Setup in a fresh sandbox:**
+  ```
+  cd /home/claude && unzip -o /mnt/user-data/uploads/oligoforge.zip -d /home/claude
+  cd /home/claude/oligoforge && pip install --break-system-packages -q -r requirements.txt
+  python3 run_tests.py      # expect: CI PASS — all suites green (45)
+  ```
+  (The zip's top folder is `oligoforge/`, so it lands at `/home/claude/oligoforge`.)
+- **Optional dependency (orthopanel only):** the Lovász-θ certificate uses `cvxpy` (+ SCS/CLARABEL).
+  It is import-guarded and NOT in requirements.txt — the module certifies via the pure-Python
+  clique-cover bound without it, and one test asserts that graceful path. Install
+  `pip install --break-system-packages cvxpy` to exercise/verify θ.
+
+**v1.31.0 — Certified Orthogonal Panel (new tool).** New `oligoforge/orthopanel.py`, `POST
+/api/orthogonal-panel`, and an **Orthogonal panel** tab (Check group). From a pool of candidate
+oligos it returns the largest subset with no strong cross-hybridization, plus an OPTIMALITY
+CERTIFICATE — a proof of how close that panel is to the true maximum under a pairwise ΔG confusability
+model. It builds a thermodynamic confusability graph (edge = most-stable heterodimer below a cutoff,
+checking each oligo vs the other AND vs its reverse complement), drops self-structured candidates,
+finds the maximum independent set (lower bound), and bounds it from above — first with a FREE
+pure-Python clique-cover bound, then, only if a gap remains and cvxpy is present, with the tighter
+Lovász-θ SDP. gap 0 ⇒ CERTIFIED MAXIMUM. For split-pool barcoding it reports the θ^k collision-free
+ceiling vs the naive |panel|^k. Honest framing baked into the UI + payload: the certificate is exact
+for the pairwise ΔG MODEL, not a wet-lab guarantee (real multiplex cross-priming is not pairwise);
+and θ is only computable at small n — at the split-pool scale where it would be novel the SDP is
+infeasible, so this is a differentiator for the software paper, not a change to the FSJ 5-plex.
+`python -m oligoforge.orthopanel` prints a demo (a real panel certified by the cheap bound, plus a C5
+case where θ certifies a gap clique-cover cannot). Tests: `tests/test_orthopanel.py` (25, math core:
+θ known values incl. C5=√5 / Petersen=4, the |MIS|≤⌊θ⌋≤clique-cover invariant over random graphs) and
+`tests/test_orthopanel_thermo.py` (40, driver + a golden oligo-C5). θ tests skip cleanly without cvxpy.
+Full gate green (45), goldens byte-identical.
+
+**Open threads / candidate next work** (from CHANGELOG.md + the science context, not commitments):
+pillar-2 empirical-validation loop (upload melt/standard curves, plot predicted-vs-observed against
+the nn/cq engines, MIQE-pinned records — the miqe.py spine exists); MalAvi haemosporidian lineage
+typing (serves the thesis genus-probe coverage question); geNorm/NormFinder reference-gene stability
+for the RPL13/YWHAZ normalisers; a multiplex DESIGNER (the checker exists); and pillar-3 platform work
+(pytest + CI migration, PyPI lib + CLI extraction, DB-backed versioned projects, Render deploy/keep-alive).
+
+---
 
 ### v1.14.0 — Instrument visual refit (2026-06-03)
 Global aesthetic pass on `static/index.html`. **Pure reskin + additive UI; zero structural/logic change.**

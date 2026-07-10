@@ -1,5 +1,65 @@
 # Changelog
 
+## v1.31.0 — new feature: certified orthogonal panel
+
+A new **Orthogonal panel** tab (Check group) and `POST /api/orthogonal-panel` endpoint. Give it a
+pool of candidate oligos; it returns the largest subset with no strong cross-hybridization, plus an
+**optimality certificate** — a proof of how close that panel is to the true maximum. No validated
+design path changed: the locked panel, the HMBS regression anchor, and the parasite autodesign
+winners remain byte-identical, and the pre-existing suite is untouched.
+
+### What it does
+
+It builds a thermodynamic confusability graph over the candidates (an edge between two oligos when
+their most stable heterodimer — checking each oligo against the other and against the other's reverse
+complement — is below a ΔG cutoff, default −6 kcal/mol), after dropping candidates with too much
+self-structure (hairpin/homodimer below −9 kcal/mol default). The largest orthogonal panel is a
+maximum independent set of that graph. The tool then bounds that maximum from above and reports the
+gap. Gap 0 means the panel is provably the largest possible under the model.
+
+For split-pool / combinatorial barcoding it also reports θ^k — the certified collision-free capacity
+over k rounds under the strong-product model — next to the naive |panel|^k count, and states the
+modeling assumption rather than burying it.
+
+### What the certificate means (and doesn't)
+
+The certificate is exact with respect to the **pairwise ΔG model**, not the wet lab. "CERTIFIED
+MAXIMUM" means no larger panel exists in the confusability graph; it is not a guarantee of
+experimental orthogonality, because real multiplex cross-priming is not pairwise (it depends on
+concentrations, competing templates, polymerase, cycling). The UI and the payload say this plainly.
+
+### How the bound is computed (cheap first, no new required dependency)
+
+The upper bound uses the sandwich theorem: α(G) ≤ the number of cliques in a clique cover of G. That
+clique-cover bound is pure Python and frequently already closes the gap on curated panels, so most
+runs certify with no SDP at all. Only when the free bound leaves a gap does the tool compute the
+tighter Lovász θ via a semidefinite program. θ is validated against known values (θ(C5)=√5,
+θ(Petersen)=4). Maximum independent set is an exact pure-Python branch-and-bound for small graphs,
+greedy above a size limit (flagged as a lower bound only).
+
+**cvxpy is an optional dependency, never required.** If it is not installed, the module still runs
+and still certifies whenever the clique-cover bound closes the gap; the payload flags θ as
+unavailable otherwise. Installing it (`pip install cvxpy`) enables the tighter certificate and the
+split-pool θ^k ceiling.
+
+### Positioning
+
+This fills the gap seqwalk (Gowri et al., *Nat. Comput. Sci.* 2024) explicitly leaves — its
+sequence-symmetry heuristic scales to millions of barcodes but "cannot guarantee low off-target
+binding energies." This tool is the complement: a thermodynamic, certified panel at curated scale
+(tens to low hundreds of oligos), not a competitor at 10⁶ scale. Prior thermodynamic multiplex tools
+(SADDLE, Prider) pick panels by annealing/heuristics; the new contribution here is the optimality
+certificate, not the use of a graph.
+
+### Tests
+
+`tests/test_orthopanel.py` (math core: θ known values, the |MIS| ≤ ⌊θ⌋ ≤ clique-cover invariant over
+random graphs, MIS-vs-brute-force, rounding guard, edge cases) and `tests/test_orthopanel_thermo.py`
+(driver: ΔG symmetry, intake dedup/IUPAC/RNA/mod-strip/reject, self-filter, graph build, edge cases,
+size guard, and a golden five-oligo pool whose cross-reactions form a 5-cycle — the case only θ can
+certify: clique-cover = 3, θ = √5 → ⌊θ⌋ = 2). θ tests skip cleanly where cvxpy is absent.
+
+
 ## v1.30.1 — bugfix: autodesign query path crashed with "name 'profile' is not defined"
 
 A one-line bugfix. **No feature added, no validated design changed** — the locked panel, the HMBS

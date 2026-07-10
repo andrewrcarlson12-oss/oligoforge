@@ -20,6 +20,7 @@ Works on **any organism** — you supply the sequence, accession, NCBI query, an
 - **Vendor lint** — IDT PrimeTime / Affinity Plus, Thermo MGB, Bio-Rad, generic SYBR; pass/fail against each chemistry
 - **Primer-pair / amplicon** QC (Tm match, F×R dimer, amplicon size)
 - **Panel cross-dimer matrix** — every oligo against every other
+- **Certified orthogonal panel** — from a pool of candidate oligos, the largest subset with no strong cross-hybridization, plus an optimality certificate: a proof of how close that panel is to the true maximum under the pairwise ΔG model (gap 0 = provably the largest possible). Built on a thermodynamic confusability graph + maximum independent set, bounded first by a free clique-cover bound and, only if a gap remains, by a Lovász-θ semidefinite program (cvxpy optional, never required). Also reports the θ^k collision-free ceiling for split-pool barcoding. The certificate is exact for the model, not a wet-lab guarantee — and it says so
 - **Auto-design** from a template: enumerate -> gate -> pair -> probe -> gBlock, then one click into the Workbench or the Order tab (carrying its gBlock standard). Design and auto-design results draw a to-scale **amplicon map** (forward / probe / reverse in genomic context) so you can eyeball product size and probe placement before ordering
 - **NCBI fetch** by accession or gene+organism, with isoform-common region
 - **Intron / exon-junction check** — flags gDNA-contamination risk

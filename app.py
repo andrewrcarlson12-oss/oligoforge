@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR, nn as NN
 
-app = FastAPI(title="OligoForge", version="1.30.1")
+app = FastAPI(title="OligoForge", version="1.31.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -1047,6 +1047,88 @@ def api_autodesign(r: AutoDesignReq):
                                     nested=r.nested)
     except Exception as e:
         return JSONResponse({"error": f"autodesign failed: {e}"}, status_code=200)
+
+
+# ============ certified orthogonal panel (thermodynamic confusability + Lovász-θ certificate) ============
+from oligoforge import orthopanel as OP
+
+def _parse_ortho_candidates(text):
+    """Parse a pasted block into candidate dicts. Supports FASTA (>name / sequence lines), one
+    'name<comma|tab|space>sequence' per line, or a bare sequence per line."""
+    if not text:
+        return []
+    lines = text.splitlines()
+    if any(l.lstrip().startswith(">") for l in lines):
+        cands, name, seq = [], None, []
+        for raw in lines:
+            l = raw.strip()
+            if not l:
+                continue
+            if l.startswith(">"):
+                if seq:
+                    cands.append({"name": name, "seq": "".join(seq)})
+                name, seq = (l[1:].strip() or None), []
+            else:
+                seq.append(l)
+        if seq:
+            cands.append({"name": name, "seq": "".join(seq)})
+        return cands
+    cands = []
+    for raw in lines:
+        l = raw.strip()
+        if not l:
+            continue
+        parts = None
+        for sep in (",", "\t"):
+            if sep in l:
+                parts = [p.strip() for p in l.split(sep, 1)]
+                break
+        if parts is None:
+            toks = l.split()
+            if len(toks) == 2 and len(toks[1]) >= len(toks[0]):
+                parts = toks
+        if parts and len(parts) == 2 and parts[1]:
+            cands.append({"name": parts[0] or None, "seq": parts[1]})
+        else:
+            cands.append({"seq": l})
+    return cands
+
+class OrthoPanelReq(BaseModel):
+    candidates: Optional[List[Dict]] = None; text: Optional[str] = None
+    cross_dg: float = -6.0; self_dg: float = -9.0; k: int = 1
+    size_limit: int = 600; use_theta: bool = True
+    mv_conc: Optional[float] = None; dv_conc: Optional[float] = None
+    dntp_conc: Optional[float] = None; dna_conc: Optional[float] = None; anneal_c: Optional[float] = None
+
+@app.post("/api/orthogonal-panel")
+def api_orthogonal_panel(r: OrthoPanelReq):
+    try:
+        cands = list(r.candidates or []) + _parse_ortho_candidates(r.text)
+        if not cands:
+            return JSONResponse({"error": "no candidate oligos provided"}, status_code=200)
+        if len(cands) > 1000:
+            return JSONResponse({"error": "too many candidates (%d); this tool caps at 1000"
+                                          % len(cands)}, status_code=200)
+        k = max(1, min(int(r.k or 1), 12))
+        override = any(v is not None for v in (r.mv_conc, r.dv_conc, r.dntp_conc, r.dna_conc, r.anneal_c))
+        snap_cond, snap_anneal = dict(T.COND), T.ANNEAL_C
+        try:
+            if override:
+                res = T.set_conditions(mv_conc=r.mv_conc, dv_conc=r.dv_conc, dntp_conc=r.dntp_conc,
+                                       dna_conc=r.dna_conc, anneal_c=r.anneal_c)
+                if isinstance(res, dict) and res.get("error"):
+                    return JSONResponse({"error": res["error"]}, status_code=200)
+            out = OP.certify_panel(cands, cross_dg=float(r.cross_dg), self_dg=float(r.self_dg),
+                                   k=k, size_limit=int(r.size_limit or 600), use_theta=bool(r.use_theta))
+        finally:
+            if override:
+                T.set_conditions(mv_conc=snap_cond["mv_conc"], dv_conc=snap_cond["dv_conc"],
+                                 dntp_conc=snap_cond["dntp_conc"], dna_conc=snap_cond["dna_conc"],
+                                 anneal_c=snap_anneal)
+        out["conditions"] = dict(T.COND, anneal_c=T.ANNEAL_C)
+        return out
+    except Exception as e:
+        return JSONResponse({"error": f"orthogonal panel failed: {e}"}, status_code=200)
 
 
 # ============ isolate panel validation (inclusivity / exclusivity in-silico PCR) ============
