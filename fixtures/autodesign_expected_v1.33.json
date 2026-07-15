@@ -1,0 +1,61 @@
+{
+  "version": "1.33.0",
+  "ranker_version": "2.2.0",
+  "profile": "parasite_mtdna",
+  "note": "Versioned computational regression winners for ranker 2.2.0. Ranking winners are unchanged; this release adds explicit uncertainty, deterministic provenance, feedback-dataset audits, and benchmark leakage checks.",
+  "discrimination_ids": [
+    [
+      "TTTCCATTTATAGCCTTATGTATTG",
+      "TCAAGACTTAATAGATTTGGATAGA",
+      "TCATACCCTAAAGGATTTGTGCTACCTT"
+    ],
+    [
+      "TTTCTACATTTACAAGGTAGCA",
+      "TCAAGACTTAATAGATTTGGATAGA",
+      "AAAGCTGTATCATACCCTAAAGGATTTG"
+    ],
+    [
+      "GATATCTTGTAAGTGACCCAA",
+      "TTTTAAAGCTGTATCATACCCT",
+      "TCTACATTTACAAGGTAGCACAAATCCT"
+    ],
+    [
+      "AATAGTTACTGCTTTTATGGGA",
+      "ATGTTGGGTCACTTACAAG",
+      "CCAGAAACTCATTTGACCCCAAGGTA"
+    ],
+    [
+      "TTACTGCTTTTATGGGATATGT",
+      "TTAATGTTGGGTCACTTACAA",
+      "ACAGATCCATGAAACAAGACCAGGTA"
+    ]
+  ],
+  "broad_inclusivity_ids": [
+    [
+      "TTTCTACATTTACAAGGTAGCA",
+      "TCAAGACTTAATAGATTTGGATAGA",
+      "AAAGCTGTATCATACCCTAAAGGATTTG"
+    ],
+    [
+      "TTTCTACATTTACAAGGTAGCA",
+      "TCAAGACTTAATAGATTTGGATAGA",
+      "CAAATCCTTTAGGGTATGATACAGCTTT"
+    ],
+    [
+      "TTTCTACATTTACAAGGTAGCA",
+      "TCAAGACTTAATAGATTTGGATAGA",
+      "CAAATCCTTTAGGGTATGATACAGCTT"
+    ],
+    [
+      "TGACCCAACATTAAAAAGATTTT",
+      "GGATAGAAGGGTATTTTTAAAGC",
+      "TACCCTAAAGGATTTGTGCTACCTTGTA"
+    ],
+    [
+      "TGACCCAACATTAAAAAGATTTT",
+      "GGATAGAAGGGTATTTTTAAAGC",
+      "TCATACCCTAAAGGATTTGTGCTACCTT"
+    ]
+  ],
+  "fixture_sha256": "75b2e5eae1a93465381c2e172a43ede226009716c556e0309b07d7cd5226adc8"
+}

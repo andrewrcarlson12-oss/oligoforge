@@ -1,0 +1,76 @@
+{
+  "schema": "oligoforge-ranking-benchmark-manifest/v2",
+  "frozen": "2026-07-15",
+  "ranker_version": "2.2.0",
+  "profile_version": "2026-07-ranking-truth-3",
+  "random_seed": null,
+  "deterministic": true,
+  "dataset_note": "Synthetic/adversarial preference fixtures plus a biological pipeline trace; not wet-lab optimality labels.",
+  "corpus_validation": {
+    "schema_version": "1.2.0",
+    "valid": true,
+    "errors": [],
+    "warnings": [
+      "target_group leakage check not applicable: no cases declare target_group",
+      "non-synthetic cases without target_group: confirmatory_product, regional_diversity, near_equivalent, objective_switch"
+    ],
+    "n_cases": 11,
+    "n_splits": 4,
+    "n_target_groups": 0,
+    "target_group_leakage": false,
+    "corpus_sha256": "1faf5415a15aa24538cf09e46cd125e66c114d1645ae6c90752f3fddf4863eac"
+  },
+  "splits": {
+    "development": [
+      "hard_gate",
+      "greedy_probe"
+    ],
+    "tuning": [
+      "specificity_reversal",
+      "coverage_reversal",
+      "robustness_reversal"
+    ],
+    "held_out": [
+      "junction_requirement",
+      "multiplex_conflict",
+      "confirmatory_product",
+      "regional_diversity"
+    ],
+    "final_test": [
+      "near_equivalent",
+      "objective_switch"
+    ]
+  },
+  "files": [
+    {
+      "path": "ranking_truth_corpus.json",
+      "bytes": 20069,
+      "sha256": "95f946a088d7f6d2ad75ef2c249388005ff5ca1dc9cb687c8a90e741216cd77b"
+    },
+    {
+      "path": "ranking_truth_results.json",
+      "bytes": 98486,
+      "sha256": "4e7b585f42c76b677e105911f9cece0072441bc49298db81884a36492ab9f192"
+    },
+    {
+      "path": "ranking_truth_results.csv",
+      "bytes": 1025,
+      "sha256": "0346cc60e053b184780867e7a4eecf6fe9c8aa3282b382dcc382d046ab0b6a4f"
+    },
+    {
+      "path": "ranking_truth_topk.png",
+      "bytes": 49127,
+      "sha256": "bf4871a0072fc930814172083bdfc6894ad2f0bc3ee76e4db6ae21d5e3443e02"
+    },
+    {
+      "path": "ranking_truth_topk.svg",
+      "bytes": 35450,
+      "sha256": "b3cdc1980de50074585d84350bcf84a0752359db9e9f9a0ff0963f435606967a"
+    },
+    {
+      "path": "plasmodium_ranking_trace.json",
+      "bytes": 7343462,
+      "sha256": "253ea53d35bf4dd41a709b8196df0d4654d06642ea0ae6590e27446e002aa60a"
+    }
+  ]
+}

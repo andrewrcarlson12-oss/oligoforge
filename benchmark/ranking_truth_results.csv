@@ -1,0 +1,12 @@
+case,split,legacy_top1,new_top1,expected,legacy_correct,new_correct,new_target_coverage,new_signal_offtargets,new_robustness
+hard_gate,development,invalid_pretty,valid_clean,valid_clean,False,True,1.0,0,1.0
+greedy_probe,development,probe_a,probe_b,probe_b,False,True,1.0,0,1.0
+specificity_reversal,tuning,similar_offtarget,exclusive,exclusive,False,True,1.0,0,0.667
+coverage_reversal,tuning,narrow,inclusive,inclusive,False,True,1.0,0,0.667
+robustness_reversal,tuning,knife_edge,robust,robust,False,True,1.0,0,1.0
+junction_requirement,held_out,genomic_like,junction,junction,False,True,1.0,0,0.667
+multiplex_conflict,held_out,panel_dimer,panel_clean,panel_clean,False,True,1.0,0,1.0
+confirmatory_product,held_out,probe_suppressed,no_product,no_product,False,True,1.0,0,0.667
+regional_diversity,held_out,region_0a,region_4,region_4,False,True,1.0,0,1.0
+near_equivalent,final_test,alt_a,alt_a,alt_a|alt_b,True,True,1.0,0,1.0
+objective_switch,final_test,balanced_pick,balanced_pick,balanced_pick,True,True,1.0,0,1.0
