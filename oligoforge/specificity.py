@@ -9,6 +9,7 @@ blast_local  : subprocess to a local blastn DB (fast/offline; needs BLAST+ + gen
 import re, shutil, subprocess
 from Bio import Entrez
 from .ncbi import fetch_accessions
+from . import thermo as T
 try:
     from Bio.Blast import NCBIWWW, NCBIXML
 except Exception:                       # pragma: no cover
@@ -76,26 +77,45 @@ def parse_fasta(text_or_path):
     return recs
 
 
-def _match_at(primer_sets, window, three_prime_at="end"):
-    """Count mismatches of a primer (as list of IUPAC sets) against an equal-length
-    window; returns (n_mismatch, ok_3prime) where ok_3prime = the primer's 3'-terminal
-    3 bases all match (the physical requirement for polymerase extension).
+def _subject_set(base):
+    """Possible concrete DNA bases represented by one subject character.
 
-    `three_prime_at` says WHERE in primer_sets the primer's 3' terminus sits:
-      'end'   -> primer_sets is the primer as written (a '+'-strand hit): 3' end is the last base.
-      'start' -> primer_sets is the reverse-complement of the primer (a '-'-strand hit): after
-                 reverse-complementing, the 3' terminus maps to index 0, so the anchor is the
-                 FIRST 3 bases. (Checking the last 3 here would wrongly enforce a 5' anchor.)"""
-    mm = 0
+    Subject ambiguity must be handled conservatively in an off-target screen: an ``N``
+    opposite primer ``A`` is not proof of a mismatch; it is an unresolved possible match.
+    Unknown non-IUPAC symbols return an empty set and are rejected before scanning.
+    """
+    return _IUPAC_SET.get((base or "").upper(), set())
+
+
+def _possible_match(allowed, subject_base):
+    return bool(allowed & _subject_set(subject_base))
+
+
+def _definite_match(allowed, subject_base):
+    represented = _subject_set(subject_base)
+    return bool(represented) and represented.issubset(allowed)
+
+
+def _match_at(primer_sets, window, three_prime_at="end"):
+    """Return ``(minimum_mismatches, possible_3prime, definite_3prime)``.
+
+    Both primer and subject may contain IUPAC ambiguity.  A position is counted as a
+    mismatch only when their represented base sets are disjoint.  This is intentionally
+    conservative for exclusivity screening: unresolved subject bases cannot make an
+    off-target look safer than the underlying sequence supports.  ``possible_3prime``
+    gates product formation; ``definite_3prime`` distinguishes a fully resolved anchor
+    from one that depends on ambiguous subject bases.
+
+    ``three_prime_at`` says where the primer's 3' terminus maps in ``primer_sets``.
+    """
     n = len(primer_sets)
-    for i, allowed in enumerate(primer_sets):
-        if window[i] not in allowed:
-            mm += 1
-    if three_prime_at == "start":
-        ok3 = all(window[k] in primer_sets[k] for k in range(min(3, n)))
-    else:
-        ok3 = all(window[n - 1 - k] in primer_sets[n - 1 - k] for k in range(min(3, n)))
-    return mm, ok3
+    mm = sum(1 for allowed, base in zip(primer_sets, window)
+             if not _possible_match(allowed, base))
+    idx = range(min(3, n)) if three_prime_at == "start" else (n - 1 - k for k in range(min(3, n)))
+    idx = list(idx)
+    possible3 = all(_possible_match(primer_sets[k], window[k]) for k in idx)
+    definite3 = all(_definite_match(primer_sets[k], window[k]) for k in idx)
+    return mm, possible3, definite3
 
 
 def scan_primer_sites(primer, subjects, max_mm=2, anchor3=True, label="F"):
@@ -108,7 +128,10 @@ def scan_primer_sites(primer, subjects, max_mm=2, anchor3=True, label="F"):
     the minus strand and extends rightward (primer sequence == plus strand here); a
     '-' hit means it anneals to the plus strand and extends leftward (primer == RC of
     the plus-strand window). This matches epcr()'s convergent-orientation convention."""
-    p = "".join(c for c in (primer or "").upper() if c.isalpha()).replace("U", "T")
+    bare = T.strip_mods(primer or "")
+    p, _notes, err = T.clean_seq(bare)
+    if err:
+        raise ValueError("invalid %s oligo: %s" % (label, err))
     if len(p) < 6:
         return []
     fwd_sets = [_IUPAC_SET.get(b, set()) for b in p]
@@ -122,16 +145,20 @@ def scan_primer_sites(primer, subjects, max_mm=2, anchor3=True, label="F"):
             win = s[i:i + L]
             # '+' strand product end: primer matches plus strand as-is (extends right).
             # primer_sets == primer, so its 3' terminus is the LAST base of the window.
-            mm, ok3 = _match_at(fwd_sets, win, three_prime_at="end")
+            mm, ok3, q3_def = _match_at(fwd_sets, win, three_prime_at="end")
             if mm <= max_mm and (ok3 or not anchor3):
+                amb = sum(1 for b in win if len(_subject_set(b)) > 1)
                 hits.append(dict(primer=label, subject=sid, lo=i, hi=i + L - 1,
-                                 strand="+", q3=bool(ok3), mm=mm, site=win))
+                                 strand="+", q3=bool(ok3), q3_definite=bool(q3_def),
+                                 ambiguous_subject_bases=amb, uncertain=bool(amb), mm=mm, site=win))
             # '-' strand: primer matches the reverse complement of the window (extends left).
             # rc_sets == RC(primer), so the primer's 3' terminus maps to index 0 (FIRST base).
-            mm2, ok32 = _match_at(rc_sets, win, three_prime_at="start")
+            mm2, ok32, q3_def2 = _match_at(rc_sets, win, three_prime_at="start")
             if mm2 <= max_mm and (ok32 or not anchor3):
+                amb = sum(1 for b in win if len(_subject_set(b)) > 1)
                 hits.append(dict(primer=label, subject=sid, lo=i, hi=i + L - 1,
-                                 strand="-", q3=bool(ok32), mm=mm2, site=win))
+                                 strand="-", q3=bool(ok32), q3_definite=bool(q3_def2),
+                                 ambiguous_subject_bases=amb, uncertain=bool(amb), mm=mm2, site=win))
     return hits
 
 
@@ -149,19 +176,36 @@ def in_silico_pcr_offline(forward, reverse, fasta, probe=None, max_mm=2,
     subjects = parse_fasta(fasta)
     if not subjects:
         return dict(error="no FASTA records parsed")
-    fh = scan_primer_sites(forward, subjects, max_mm=max_mm, anchor3=require_3prime, label="F")
-    rh = scan_primer_sites(reverse, subjects, max_mm=max_mm, anchor3=require_3prime, label="R")
+    invalid = [(sid, sorted(set(seq) - set(_IUPAC_SET))) for sid, seq in subjects
+               if set(seq) - set(_IUPAC_SET)]
+    if invalid:
+        sid, chars = invalid[0]
+        return dict(error="FASTA record %s contains invalid nucleotide symbol(s): %s"
+                          % (sid, " ".join(chars)))
+    try:
+        fh = scan_primer_sites(forward, subjects, max_mm=max_mm, anchor3=require_3prime, label="F")
+        rh = scan_primer_sites(reverse, subjects, max_mm=max_mm, anchor3=require_3prime, label="R")
+    except ValueError as e:
+        return dict(error=str(e))
     hits = ([dict(primer="F", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in fh] +
             [dict(primer="R", **{k: h[k] for k in ("subject", "lo", "hi", "strand", "q3")}) for h in rh])
     products = epcr(hits, min_product, max_product, require_3prime=require_3prime)
     phits = []
     if probe:
         # a probe binds on either strand; record its span so assay_verdict can test containment
-        ph = scan_primer_sites(probe, subjects, max_mm=max_mm, anchor3=False, label="P")
+        try:
+            ph = scan_primer_sites(probe, subjects, max_mm=max_mm, anchor3=False, label="P")
+        except ValueError as e:
+            return dict(error=str(e))
         phits = [dict(subject=h["subject"], lo=h["lo"], hi=h["hi"], strand=h["strand"]) for h in ph]
     v = assay_verdict(products, phits, size_tol_frac=(max(10, int(0.10 * 100)) / 100.0))
+    uncertain_hits = sum(1 for h in fh + rh if h.get("uncertain"))
+    uncertain_3prime = sum(1 for h in fh + rh if h.get("q3") and not h.get("q3_definite", True))
     v.update(forward_hits=len(fh), reverse_hits=len(rh), probe_hit_count=len(phits),
-             probe_used=bool(probe), n_subjects_scanned=len(subjects), mode="offline", max_mm=max_mm)
+             probe_used=bool(probe), n_subjects_scanned=len(subjects), mode="offline", max_mm=max_mm,
+             uncertain_primer_hits=uncertain_hits, uncertain_3prime_hits=uncertain_3prime,
+             uncertainty_note=("Ambiguous subject bases are treated as possible matches so exclusivity "
+                               "risk is not understated." if uncertain_hits else None))
     v["products"] = v["products"][:50]
     return v
 

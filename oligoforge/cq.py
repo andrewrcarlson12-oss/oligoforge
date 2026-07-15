@@ -1,75 +1,104 @@
-"""Cq (quantification cycle) determination from raw per-cycle amplification data.
+"""Cq determination from raw amplification traces.
 
-Most cyclers export per-well fluorescence by cycle; the Cq itself is usually called
-on the instrument. This module makes OligoForge able to call it too, so a raw run can
-flow straight into the standard-curve / efficiency tools without leaving the app. Two
-independent methods are provided:
-
-  threshold     -- baseline-subtract, place a threshold at sd_mult x baseline-noise SD
-                   (or an explicit value), and interpolate the fractional crossing cycle
-                   on a log10(fluorescence) scale (the exponential phase is linear there).
-  SDM           -- threshold-free second-derivative maximum (the cycle where d2F/dn2 peaks),
-                   the method LightCycler-style instruments use; refined by parabolic
-                   interpolation of the discrete second derivative.
-
-Pure Python (no numpy/scipy) to match the rest of the local-first engine. Reference:
-Bustin SA et al. 2009, Clin Chem 55:611-622 (MIQE).
+The caller provides threshold-crossing and second-derivative estimates, but only
+reports them when the trace passes a conservative amplification-shape gate.  The
+baseline is linearly detrended, crossings must persist, and malformed/non-monotonic
+cycle axes are rejected.  These are screening calculations; instrument-specific
+algorithms and run-level QC remain authoritative for validated workflows.
 """
 import math
 import statistics
 
 
 def _coerce(cycles, fluor):
-    f = [float(v) for v in fluor]
-    if cycles is None:
-        c = [float(i + 1) for i in range(len(f))]      # default 1..N
-    else:
-        c = [float(v) for v in cycles]
+    try:
+        f = [float(v) for v in fluor]
+        c = [float(i + 1) for i in range(len(f))] if cycles is None else [float(v) for v in cycles]
+    except (TypeError, ValueError):
+        raise ValueError("cycles and fluorescence must be numeric")
     if len(c) != len(f):
         raise ValueError("cycles and fluor must have equal length")
     if len(f) < 6:
         raise ValueError("need >= 6 cycles of fluorescence")
+    if any(not math.isfinite(v) for v in c + f):
+        raise ValueError("cycles and fluorescence must be finite")
+    if any(c[i] <= c[i - 1] for i in range(1, len(c))):
+        raise ValueError("cycle values must be strictly increasing")
     return c, f
 
 
-def _baseline_subtract(c, f, baseline):
-    lo, hi = baseline
+def _baseline_model(c, f, baseline):
+    lo, hi = float(baseline[0]), float(baseline[1])
     idx = [i for i, x in enumerate(c) if lo <= x <= hi]
-    if len(idx) >= 2:
-        base = statistics.mean(f[i] for i in idx)
-    else:
-        k = max(1, len(f) // 5)
-        base = statistics.mean(f[:k])
+    fallback = False
+    if len(idx) < 3:
+        k = min(len(f), max(3, len(f) // 5))
         idx = list(range(k))
-    return [v - base for v in f], float(base), idx
+        fallback = True
+    xs = [c[i] for i in idx]
+    ys = [f[i] for i in idx]
+    xb = statistics.mean(xs); yb = statistics.mean(ys)
+    sxx = sum((x - xb) ** 2 for x in xs)
+    slope = (sum((x - xb) * (y - yb) for x, y in zip(xs, ys)) / sxx) if sxx > 0 else 0.0
+    intercept = yb - slope * xb
+    residual = [v - (intercept + slope * x) for x, v in zip(c, f)]
+    return residual, dict(indices=idx, intercept=intercept, slope=slope,
+                          mean=yb, fallback=fallback,
+                          used=[c[idx[0]], c[idx[-1]]])
 
 
-def cq_threshold(cycles, fluor, threshold=None, baseline=(3, 15), sd_mult=10.0):
-    """(Cq, threshold_used). Cq is NaN if the curve never crosses the threshold."""
+def _baseline_subtract(c, f, baseline):
+    """Compatibility wrapper returning detrended values, baseline mean and indices."""
+    fb, info = _baseline_model(c, f, baseline)
+    return fb, float(info["mean"]), info["indices"]
+
+
+def _noise(fb, idx):
+    vals = [fb[i] for i in idx]
+    return statistics.stdev(vals) if len(vals) > 2 else 0.0
+
+
+def _sustained_crossing(fb, threshold, start, sustain=3):
+    sustain = max(2, int(sustain))
+    for k in range(max(1, start), len(fb) - sustain + 1):
+        if all(fb[j] >= threshold for j in range(k, k + sustain)):
+            return k
+    return None
+
+
+def _interpolate_crossing(c, fb, k, threshold):
+    f1, f2 = fb[k - 1], fb[k]
+    c1, c2 = c[k - 1], c[k]
+    if f2 == f1:
+        return c[k]
+    if f1 > 0 and f2 > 0 and threshold > 0:
+        den = math.log10(f2) - math.log10(f1)
+        if den != 0:
+            return c1 + (math.log10(threshold) - math.log10(f1)) / den * (c2 - c1)
+    return c1 + (threshold - f1) / (f2 - f1) * (c2 - c1)
+
+
+def cq_threshold(cycles, fluor, threshold=None, baseline=(3, 15), sd_mult=10.0,
+                 sustain=3):
+    """Return ``(Cq, threshold_used)``; Cq is NaN without a sustained crossing."""
     c, f = _coerce(cycles, fluor)
-    fb, _base, bidx = _baseline_subtract(c, f, baseline)
-    base_vals = [fb[i] for i in bidx]
-    if len(base_vals) > 2:
-        noise = statistics.stdev(base_vals)
-    else:
-        pos = [v for v in fb if v > 0]
-        noise = statistics.stdev(pos) if len(pos) > 2 else 0.0
-    thr = float(threshold) if threshold is not None else max(sd_mult * noise, 1e-12)
-
-    cross = next((k for k in range(len(fb)) if fb[k] >= thr), None)
-    if cross is None or cross == 0:
+    fb, info = _baseline_model(c, f, baseline)
+    noise = _noise(fb, info["indices"])
+    try:
+        thr = float(threshold) if threshold is not None else max(float(sd_mult) * noise, 1e-12)
+    except (TypeError, ValueError):
+        raise ValueError("threshold and sd_mult must be numeric")
+    if not math.isfinite(thr) or thr <= 0:
+        raise ValueError("threshold must be finite and greater than zero")
+    cross = _sustained_crossing(fb, thr, max(info["indices"]) + 1, sustain=sustain)
+    if cross is None:
         return float("nan"), thr
-    f1, f2 = fb[cross - 1], fb[cross]
-    c1, c2 = c[cross - 1], c[cross]
-    if f1 <= 0:                                  # linear bridge across the baseline
-        cq = c1 + (thr - f1) / (f2 - f1) * (c2 - c1)
-    else:                                        # log-linear within the exponential phase
-        cq = c1 + (math.log10(thr) - math.log10(f1)) / (math.log10(f2) - math.log10(f1)) * (c2 - c1)
-    return float(cq), thr
+    return float(_interpolate_crossing(c, fb, cross, thr)), thr
 
 
 def _smooth3(y, passes=1):
-    for _ in range(passes):
+    y = list(y)
+    for _ in range(max(0, int(passes))):
         out = y[:]
         for i in range(1, len(y) - 1):
             out[i] = (y[i - 1] + y[i] + y[i + 1]) / 3.0
@@ -78,57 +107,91 @@ def _smooth3(y, passes=1):
 
 
 def cq_second_derivative(cycles, fluor, baseline=(3, 15), smooth=True):
-    """Threshold-free Cq = cycle at the maximum of the second derivative (SDM),
-    refined by parabolic interpolation. Light 3-point smoothing optional. NaN if
-    the curve is flat (no amplification)."""
+    """Threshold-free second-derivative maximum with uneven-cycle support."""
     c, f = _coerce(cycles, fluor)
-    fb, _base, _bidx = _baseline_subtract(c, f, baseline)
+    fb, _info = _baseline_model(c, f, baseline)
     y = _smooth3(fb, passes=2) if (smooth and len(fb) >= 7) else fb
-    if max(y) - min(y) <= 0:
+    if max(y) - min(y) <= 1e-15:
         return float("nan")
-    d1 = [0.0] * len(y)
+    d2 = [float("-inf")] * len(y)
     for i in range(1, len(y) - 1):
-        d1[i] = (y[i + 1] - y[i - 1]) / 2.0
-    d2 = [0.0] * len(y)
-    for i in range(1, len(y) - 1):
-        d2[i] = y[i + 1] - 2.0 * y[i] + y[i - 1]
-    k = max(range(len(d2)), key=lambda i: d2[i])
-    if 1 <= k < len(d2) - 1:
+        dxl = c[i] - c[i - 1]
+        dxr = c[i + 1] - c[i]
+        left = (y[i] - y[i - 1]) / dxl
+        right = (y[i + 1] - y[i]) / dxr
+        d2[i] = 2.0 * (right - left) / (dxl + dxr)
+    valid = range(1, len(y) - 1)
+    k = max(valid, key=lambda i: d2[i])
+    if not math.isfinite(d2[k]) or d2[k] <= 0:
+        return float("nan")
+    # Local parabola in index space; then scale by neighbouring cycle spacing.
+    if 1 <= k < len(d2) - 1 and all(math.isfinite(d2[j]) for j in (k - 1, k, k + 1)):
         y0, y1, y2 = d2[k - 1], d2[k], d2[k + 1]
-        denom = (y0 - 2 * y1 + y2)
-        delta = 0.5 * (y0 - y2) / denom if denom != 0 else 0.0
-        # keep the refinement within the neighbouring cycle spacing
+        denom = y0 - 2.0 * y1 + y2
+        delta = 0.5 * (y0 - y2) / denom if denom else 0.0
         if -1.0 <= delta <= 1.0:
-            return float(c[k] + delta * (c[k] - c[k - 1]))
+            step = (c[k + 1] - c[k - 1]) / 2.0
+            return float(c[k] + delta * step)
     return float(c[k])
 
 
-def analyze(fluor, cycles=None, threshold=None, baseline=(3, 15), sd_mult=10.0):
-    """Both Cq methods plus diagnostics, for one amplification trace.
+def _amplification_gate(c, fb, info, threshold):
+    idx = info["indices"]
+    noise = _noise(fb, idx)
+    start = max(idx) + 1
+    cross = _sustained_crossing(fb, threshold, start, sustain=3)
+    tail_n = min(5, max(3, len(fb) // 10))
+    tail = statistics.mean(fb[-tail_n:])
+    amplitude = max(fb[start:] or fb) - min(fb[start:] or fb)
+    post = fb[start:]
+    rises = sum(1 for i in range(1, len(post)) if post[i] > post[i - 1])
+    rise_fraction = rises / max(1, len(post) - 1)
+    signal_floor = max(10.0 * noise, 3.0 * threshold, 1e-12)
+    amplified = bool(cross is not None and amplitude >= signal_floor and
+                     tail >= max(1.5 * threshold, 5.0 * noise) and rise_fraction >= 0.45)
+    return amplified, dict(noise=noise, tail=tail, amplitude=amplitude,
+                           rise_fraction=rise_fraction, crossing_index=cross)
 
-    Returns threshold/SDM Cq, the threshold used, baseline window, and a simple
-    amplified flag (final signal rises clearly above baseline noise)."""
+
+def analyze(fluor, cycles=None, threshold=None, baseline=(3, 15), sd_mult=10.0):
+    """Return two Cq estimates plus trace-shape diagnostics for one well."""
     try:
         c, f = _coerce(cycles, fluor)
+        fb, info = _baseline_model(c, f, baseline)
+        cq_t, thr = cq_threshold(c, f, threshold=threshold, baseline=baseline,
+                                 sd_mult=sd_mult, sustain=3)
+        cq_s = cq_second_derivative(c, f, baseline=baseline)
     except ValueError as e:
         return dict(error=str(e))
-    cq_t, thr = cq_threshold(c, f, threshold=threshold, baseline=baseline, sd_mult=sd_mult)
-    cq_s = cq_second_derivative(c, f, baseline=baseline)
-    fb, base, bidx = _baseline_subtract(c, f, baseline)
-    base_vals = [fb[i] for i in bidx]
-    noise = statistics.stdev(base_vals) if len(base_vals) > 2 else 0.0
-    amplified = (max(fb) > 10.0 * noise) if noise > 0 else (max(fb) > 0)
-    out = dict(n_cycles=len(c),
-               cq_threshold=round(cq_t, 2) if cq_t == cq_t else None,
-               cq_sdm=round(cq_s, 2) if cq_s == cq_s else None,
-               threshold=round(thr, 4),
-               baseline=[baseline[0], baseline[1]], baseline_fluor=round(base, 4),
-               amplified=bool(amplified))
-    if not out["amplified"]:
-        out["note"] = "no clear amplification above baseline noise; Cq may be unreliable"
+
+    amplified, gate = _amplification_gate(c, fb, info, thr)
+    if not amplified:
+        cq_t = cq_s = float("nan")
+
+    out = dict(
+        n_cycles=len(c),
+        cq_threshold=round(cq_t, 2) if math.isfinite(cq_t) else None,
+        cq_sdm=round(cq_s, 2) if math.isfinite(cq_s) else None,
+        threshold=round(thr, 6),
+        baseline=[baseline[0], baseline[1]],
+        baseline_used=[round(info["used"][0], 3), round(info["used"][1], 3)],
+        baseline_fluor=round(info["mean"], 6),
+        baseline_slope=round(info["slope"], 8),
+        baseline_fallback=bool(info["fallback"]),
+        baseline_noise=round(gate["noise"], 6),
+        amplitude=round(gate["amplitude"], 6),
+        rise_fraction=round(gate["rise_fraction"], 3),
+        amplified=amplified,
+    )
+    notes = []
+    if info["fallback"]:
+        notes.append("requested baseline contained fewer than 3 cycles; used the first fifth of the trace")
+    if not amplified:
+        notes.append("trace failed the sustained-crossing/plateau amplification gate; Cq values suppressed")
     elif out["cq_threshold"] is not None and out["cq_sdm"] is not None:
-        d = abs(out["cq_threshold"] - out["cq_sdm"])
-        if d > 1.5:
-            out["note"] = ("threshold and SDM Cq differ by %.1f cycles; check baseline window "
-                           "and curve shape" % d)
+        delta = abs(out["cq_threshold"] - out["cq_sdm"])
+        if delta > 1.5:
+            notes.append("threshold and SDM Cq differ by %.1f cycles; inspect baseline and curve shape" % delta)
+    if notes:
+        out["note"] = " · ".join(notes)
     return out

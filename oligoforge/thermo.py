@@ -1,9 +1,10 @@
 """Thermodynamics for oligo QC at qPCR salt conditions.
 
-Wraps primer3-py (SantaLucia 1998 nearest-neighbor + Owczarzy salt correction)
-so every value matches what IDT OligoAnalyzer reports to within ~1-2 C absolute,
-and tracks it exactly for relative comparisons. Running locally means these are
-the REAL primer3 numbers, not a browser approximation.
+Wraps primer3-py and Biopython implementations of published nearest-neighbour
+models under configurable qPCR salt conditions.  The values are reproducible
+computational estimates, not vendor-certified measurements; vendor calculators can
+differ through concentration conventions, parameter tables, and proprietary handling
+of modifications.
 """
 import primer3
 from Bio.SeqUtils import MeltingTemp as _mt
@@ -156,19 +157,16 @@ def amplicon_tm(seq):
 #  * tm()      -> primer3 SantaLucia + Owczarzy-2004. The DESIGN/SELECTION Tm that every candidate
 #                 ranking, acceptance window, and golden test is calibrated to. Kept stable so the
 #                 validated designs (locked panel, autodesign winners) never silently drift.
-#  * tm_acc()  -> SantaLucia 1998 NN + Owczarzy 2008 (free Mg2+ via a Mg:dNTP dissociation constant,
-#                 R=[Mg2+]/[Na+] regime switch) + Ct/4 -- i.e. exactly IDT OligoAnalyzer's method
-#                 (Biopython Tm_NN, nn_table=DNA_NN3, saltcorr=7; dnac1==dnac2 gives Ct/4). This is
-#                 the ACCURATE Tm shown to the user in QC / pair / viewer / report. It reads ~1.6 C
-#                 above the primer3 path, which was the systematic gap users saw vs OligoAnalyzer
-#                 (benchmarks put this method within ~0.5 C of OligoAnalyzer). DNA_NN3 = Allawi &
-#                 SantaLucia 1997, the set underlying the 1998 unified parameters.
+#  * tm_acc()  -> Biopython SantaLucia/Allawi NN parameters + Owczarzy-2008 mixed-salt
+#                 correction (saltcorr=7). This is the reporting Tm shown in QC / pair / viewer /
+#                 report. It is a transparent published-model implementation, not an exact clone
+#                 of any vendor calculator. DNA_NN3 is the Allawi/SantaLucia parameter set.
 # Selection and display are separated deliberately: improving the displayed accuracy must never
 # change which primers the tool designs.
 #
 # SALT-MODEL AUDIT (v1.27.0): the qPCR-Mg2+ salt-correction question was reviewed and the model
 # left unchanged, because it is already the correct one where it matters. Every Tm the user READS
-# and REPORTS (QC / pair / viewer / report / MIQE, all via tm_acc + nn.params) uses the
+# and REPORTS (QC / pair / viewer / report / MIQE, all via tm_acc + nn.params) uses a
 # divalent-aware Owczarzy-2008 correction with free Mg2+ = [Mg2+] - [dNTP] (von Ahsen 1:1
 # chelation) -- the quantity that actually sets duplex stability in a PCR master mix. This was
 # verified to within 0.03 C against an independent from-scratch Owczarzy-2008 reimplementation
@@ -226,9 +224,10 @@ def _tm_acc_at(seq, snap):
 
 
 def tm_acc(seq):
-    """Accurate, IDT-method Tm (deg C): SantaLucia 1998 NN + Owczarzy 2008 + Ct/4. Shown to the
-    user wherever a Tm is displayed. Tracks IDT OligoAnalyzer to ~0.5 C for plain DNA. Keyed on the
-    current conditions snapshot (race-free under concurrent /api/conditions)."""
+    """Reporting Tm (deg C) from Biopython's SantaLucia/Allawi NN parameters and
+    Owczarzy-2008 mixed-salt correction.  This is a model estimate and may differ
+    from vendor calculators, especially for modified oligos.  The cache key includes
+    the current reaction-condition snapshot."""
     return _tm_acc_at(seq, _snapshot())
 
 

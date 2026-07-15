@@ -1,21 +1,9 @@
-"""RDML 1.2 export for a qPCR assay panel.
+"""RDML 1.3 assay-definition export for a qPCR panel.
 
-RDML (Real-time PCR Data Markup Language, https://www.rdml.org) is the standard XML interchange
-format that qPCR analysis software (LinRegPCR, RDML-Ninja, Bio-Rad CFX, Roche LightCycler, ...)
-imports. OligoForge's report is human-readable HTML + a flat CSV; RDML is the machine-readable
-sibling, so a designed panel can be loaded straight into instrument/analysis software as predefined
-targets instead of being retyped.
-
-This emits an ASSAY-DEFINITION RDML: one <target> per assay carrying its forward/reverse primers,
-probe, detection dye, and (when known) amplification efficiency. That is a valid RDML document
-(samples/experiments/run data are all optional in the schema) and is exactly the part a user wants
-to pre-populate before a run. A proper .rdml file is a ZIP containing the XML, so build() returns
-both the raw XML (for inspection) and a base64 .rdml zip (for download).
-
-HONEST SCOPE: the XML is built to the published RDML 1.2 element model and is verified well-formed
-and structurally checked by tests/test_rdml.py. Full XSD-schema validation against rdml.org's XSD
-is not performed in this build environment (no bundled schema / validator); confirm in your target
-software on first import. Targets at this stage carry no Cq/run data -- add those after the run.
+The exporter creates a well-formed RDML ZIP containing target, dye, primer, probe and optional
+amplification-efficiency metadata. It does not invent reference-gene roles or reporter dyes:
+``target_type`` and ``dye`` should be supplied explicitly when known. Modified order notation is
+reduced to the nucleotide backbone because RDML sequence fields do not encode vendor order syntax.
 """
 import base64
 import datetime
@@ -24,41 +12,50 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 
+from . import thermo as T
+
 RDML_NS = "http://www.rdml.org"
 XSI = "http://www.w3.org/2001/XMLSchema-instance"
-SCHEMA = "http://www.rdml.org http://www.rdml.org/files/rdml/RDML_v1_2_REC.xsd"
-
-# common reference-gene symbols -> RDML target type "ref"; everything else is "toi"
-_REF_GENES = {"RPL13", "YWHAZ", "GAPDH", "ACTB", "B2M", "HMBS", "SDHA", "TBP", "HPRT1",
-              "RPL4", "RPL19", "EEF1A1", "UBC", "PGK1", "18S", "28S", "RPS18", "TUBB"}
-# fluorophore tokens we recognise in a dye/chemistry string
-_DYES = ["FAM", "SYBR", "VIC", "HEX", "JOE", "TET", "Cy5", "Cy5.5", "Cy3", "ROX", "TAMRA",
-         "TEX615", "TEX 615", "ABY", "NED", "Quasar 670", "Quasar670", "MAX", "TYE665", "TYE 665"]
+SCHEMA = "http://www.rdml.org http://www.rdml.org/files/rdml/RDML_v1_3_REC.xsd"
+_DYES = ["FAM", "SYBR", "VIC", "HEX", "JOE", "TET", "CY5", "CY5.5", "CY3", "ROX", "TAMRA",
+         "TEX615", "ABY", "NED", "QUASAR670", "MAX", "TYE665"]
 
 
 def _id_clean(s, fallback):
-    """RDML ids are free strings but must be unique and non-empty; keep them tidy."""
-    s = re.sub(r"\s+", "_", (s or "").strip())
+    s = re.sub(r"\s+", "_", str(s or "").strip())
     s = re.sub(r"[^A-Za-z0-9_.+-]", "", s)
     return s or fallback
 
 
 def _dye_of(assay):
-    blob = " ".join(str(assay.get(k, "")) for k in ("dye", "chemistry", "fluorophore")).upper()
-    for d in _DYES:
-        if d.upper() in blob:
-            return d.replace(" ", "")
+    explicit = str(assay.get("dye") or assay.get("fluorophore") or "").strip()
+    if explicit:
+        return _id_clean(explicit, "UNSPECIFIED")
+    blob = str(assay.get("chemistry") or "").upper().replace(" ", "")
+    for dye in _DYES:
+        if dye.replace(".", "") in blob.replace(".", ""):
+            return dye
+    if not assay.get("probe") and any(x in blob for x in ("SYBR", "EVAGREEN", "INTERCALAT")):
+        return "SYBR"
+    return "UNSPECIFIED"
+
+
+def _dye_chemistry(assay):
+    blob = str(assay.get("chemistry") or "").upper()
     if assay.get("probe"):
-        return "FAM"                 # probe assay, dye unstated -> FAM is the OligoForge default
-    return "SYBR"                    # no probe -> intercalating dye
+        if "BEACON" in blob:
+            return "hybridization probe"
+        return "hydrolysis probe"
+    if "EVA" in blob or "SATURATING" in blob:
+        return "saturating DNA binding dye"
+    if "SYBR" in blob or "INTERCALAT" in blob:
+        return "non-saturating DNA binding dye"
+    return None
 
 
 def _ttype(assay):
-    t = (assay.get("target_type") or "").strip().lower()
-    if t in ("ref", "toi"):
-        return t
-    g = (assay.get("gene") or "").upper().strip()
-    return "ref" if g in _REF_GENES else "toi"
+    t = str(assay.get("target_type") or "").strip().lower()
+    return t if t in ("ref", "toi") else "toi"
 
 
 def _sub(parent, tag, text=None):
@@ -68,70 +65,93 @@ def _sub(parent, tag, text=None):
     return e
 
 
-def _oligo(seqparent, tag, seq):
+def _plain_sequence(seq, field):
+    if not seq:
+        return ""
+    bare, _notes, err = T.clean_seq(T.strip_mods(str(seq)))
+    if err:
+        raise ValueError("%s: %s" % (field, err))
+    if not bare:
+        raise ValueError("%s is empty after removing modification notation" % field)
+    return bare.upper()
+
+
+def _oligo(seqparent, tag, seq, field):
     if not seq:
         return
     o = _sub(seqparent, tag)
-    _sub(o, "sequence", str(seq).upper())
+    _sub(o, "sequence", _plain_sequence(seq, field))
 
 
 def build(panel, meta=None):
     meta = meta or {}
-    panel = panel or []
-    now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    panel = list(panel or [])
+    if len(panel) > 500:
+        raise ValueError("RDML export is capped at 500 assays")
+    now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     ET.register_namespace("", RDML_NS)
     ET.register_namespace("xsi", XSI)
-    root = ET.Element("{%s}rdml" % RDML_NS, {"version": "1.2", "{%s}schemaLocation" % XSI: SCHEMA})
+    root = ET.Element("{%s}rdml" % RDML_NS,
+                      {"version": "1.3", "{%s}schemaLocation" % XSI: SCHEMA})
     _sub(root, "dateMade", now)
     _sub(root, "dateUpdated", now)
 
-    # element ORDER matters in RDML: all <dye> before all <target>
-    dyes_used, seen_ids = [], set()
-    parsed = []
-    for i, a in enumerate(panel):
-        tid = _id_clean(a.get("name") or a.get("gene") or "assay_%d" % (i + 1), "assay_%d" % (i + 1))
-        base, n = tid, 2
-        while tid in seen_ids:                       # guarantee unique target ids
-            tid = "%s_%d" % (base, n); n += 1
+    dyes, seen_ids, parsed = {}, set(), []
+    for i, assay in enumerate(panel, 1):
+        tid = _id_clean(assay.get("name") or assay.get("gene") or "assay_%d" % i, "assay_%d" % i)
+        base, suffix = tid, 2
+        while tid in seen_ids:
+            tid = "%s_%d" % (base, suffix); suffix += 1
         seen_ids.add(tid)
-        dye = _dye_of(a)
-        if dye not in dyes_used:
-            dyes_used.append(dye)
-        parsed.append((tid, dye, a))
+        dye = _dye_of(assay)
+        dyes.setdefault(dye, _dye_chemistry(assay))
+        # Validate all sequence values before generating a partial document.
+        for key in ("forward", "reverse", "probe"):
+            if assay.get(key):
+                _plain_sequence(assay[key], "%s %s" % (tid, key))
+        parsed.append((tid, dye, assay))
 
-    for d in dyes_used:
-        ET.SubElement(root, "{%s}dye" % RDML_NS, {"id": d})
+    # RDML element order matters: all dye declarations precede all targets.
+    for dye, chemistry in dyes.items():
+        node = ET.SubElement(root, "{%s}dye" % RDML_NS, {"id": dye})
+        if chemistry:
+            _sub(node, "dyeChemistry", chemistry)
 
-    for tid, dye, a in parsed:
+    for tid, dye, assay in parsed:
         tgt = ET.SubElement(root, "{%s}target" % RDML_NS, {"id": tid})
-        desc = " / ".join(x for x in (a.get("gene"), a.get("organism")) if x)
+        desc = " / ".join(str(x) for x in (assay.get("gene"), assay.get("organism")) if x)
         if desc:
             _sub(tgt, "description", desc)
-        _sub(tgt, "type", _ttype(a))                  # ref | toi
-        val = a.get("validation") or {}
+        _sub(tgt, "type", _ttype(assay))
+        val = assay.get("validation") or {}
         eff = val.get("efficiency_pct")
         if eff is not None:
             try:
-                _sub(tgt, "amplificationEfficiency", round(1.0 + float(eff) / 100.0, 4))  # RDML: E=2 is 100%
+                e = 1.0 + float(eff) / 100.0
+                if 1.0 <= e <= 3.0:
+                    _sub(tgt, "amplificationEfficiency", round(e, 4))
+            except (TypeError, ValueError):
+                pass
+        amp_tm = assay.get("observed_amplicon_tm", val.get("observed_amplicon_tm"))
+        if amp_tm is not None:
+            try:
+                tm = float(amp_tm)
+                if 0 < tm < 120:
+                    _sub(tgt, "meltingTemperature", round(tm, 2))
             except (TypeError, ValueError):
                 pass
         ET.SubElement(tgt, "{%s}dyeId" % RDML_NS, {"id": dye})
-        if a.get("forward") or a.get("reverse") or a.get("probe"):
+        if assay.get("forward") or assay.get("reverse") or assay.get("probe"):
             seqs = _sub(tgt, "sequences")
-            _oligo(seqs, "forwardPrimer", a.get("forward"))
-            _oligo(seqs, "reversePrimer", a.get("reverse"))
-            _oligo(seqs, "probe1", a.get("probe"))
+            _oligo(seqs, "forwardPrimer", assay.get("forward"), "%s forward" % tid)
+            _oligo(seqs, "reversePrimer", assay.get("reverse"), "%s reverse" % tid)
+            _oligo(seqs, "probe1", assay.get("probe"), "%s probe" % tid)
 
     xml_bytes = b'<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="utf-8")
-    xml_text = xml_bytes.decode("utf-8")
-
-    # .rdml is a zip containing the XML
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("rdml_data.xml", xml_bytes)
-    rdml_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-
-    return dict(xml=xml_text, rdml_b64=rdml_b64, n_assays=len(panel),
-                n_dyes=len(dyes_used), dyes=dyes_used, version="RDML 1.2",
+    return dict(xml=xml_bytes.decode("utf-8"), rdml_b64=base64.b64encode(buf.getvalue()).decode("ascii"),
+                n_assays=len(panel), n_dyes=len(dyes), dyes=list(dyes), version="RDML 1.3",
                 filename=_id_clean(meta.get("title", "oligoforge_panel"), "oligoforge_panel") + ".rdml")

@@ -507,7 +507,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <header class="topbar">
   <div class="brand">
     <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2c0 4 12 4 12 8s-12 4-12 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M16 2c0 4-12 4-12 8s12 4 12 8" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/><path d="M5.6 5h8.8M5 10h10M5.6 15h8.8" stroke="rgba(255,255,255,.5)" stroke-width="1" stroke-linecap="round"/></svg></span>
-    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.31.0</span>
+    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.31.1</span>
   </div>
   <div class="spacer"></div>
   <div class="toolset">
@@ -581,7 +581,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 
   <!-- ORTHOGONAL PANEL -->
   <section id="orthopanel"><div class="card">
-    <h2>Certified orthogonal panel</h2>
+    <h2>Orthogonal-panel model audit</h2>
     <p class="hint">Pick the largest set of oligos with no strong cross-hybridization, and prove how close it is to the true maximum. The certificate is exact for the pairwise ΔG model, not a wet-lab guarantee.</p>
     <div class="row">
       <div style="flex:1"><label>candidate oligos — one per line: a bare sequence, <span class="mono">name,sequence</span>, or FASTA</label>
@@ -591,7 +591,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
       <div><label>cross-react ΔG ≤ (kcal/mol)</label><input id="op_cross" type="number" step="0.5" value="-6" style="width:90px"></div>
       <div><label>self-structure ΔG ≤</label><input id="op_self" type="number" step="0.5" value="-9" style="width:90px"></div>
       <div><label>split-pool rounds k</label><input id="op_k" type="number" min="1" max="12" value="1" style="width:70px"></div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px"><input type="checkbox" id="op_theta" checked> tighten with Lovász θ</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px"><input type="checkbox" id="op_theta" checked> compute Lovász θ diagnostic</label>
       <button onclick="doOrthoPanel()">Certify panel</button>
     </div>
     <div id="op_out"><div class="ph">Paste candidate oligos and certify the largest mutually non-cross-hybridizing subset.</div></div>
@@ -616,7 +616,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   <!-- NCBI -->
   <section id="viewer"><div class="card">
     <h2>Manual design &amp; sequence viewer</h2>
-    <p class="hint">Load a sequence, pick the exact record, set strict rules, and design — the candidate primers and probe are drawn on the actual bases. Every Tm / GC / structure value is real engine output at your reaction salt — Tm uses IDT OligoAnalyzer’s SantaLucia 1998 + Owczarzy 2008 method.</p>
+    <p class="hint">Load a sequence, pick the exact record, set strict rules, and design — the candidate primers and probe are drawn on the actual bases. Every Tm / GC / structure value is real engine output at your reaction salt — Tm uses a published SantaLucia/Allawi nearest-neighbor model with an Owczarzy mixed-salt correction.</p>
     <div class="row" style="gap:18px;flex-wrap:wrap;align-items:flex-end">
       <div style="flex:2;min-width:260px"><label>gene + organism</label>
         <div class="row"><input id="vw_gene" placeholder="gene, e.g. RPL13" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();vwFetch('gene');}"><input id="vw_org" placeholder="organism, e.g. Aphelocoma coerulescens" style="flex:2" onkeydown="if(event.key==='Enter'){event.preventDefault();vwFetch('gene');}"><button class="ghost" onclick="vwFetch('gene')">search</button></div></div>
@@ -867,7 +867,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
   <section id="refgenes"><div class="card">
     <h3 style="margin:0 0 6px">Reference-gene stability</h3>
-    <small class="note">geNorm M + pairwise V (Vandesompele 2002) and BestKeeper Cq SD/CV. Paste your SYBR-screen Cq table: one gene per line — name then one Cq per sample, space or comma separated. Needs &ge;2 genes and &ge;3 samples. MIQE wants &ge;2 validated reference genes.</small>
+    <small class="note">geNorm-style M + pairwise V and a simple Cq-SD/CV screen (not full BestKeeper). Paste your SYBR-screen Cq table: one gene per line — name then one Cq per sample, space or comma separated. Needs &ge;2 genes and &ge;3 samples. MIQE wants &ge;2 validated reference genes.</small>
     <textarea id="rg_text" class="seq" rows="6" style="width:100%;text-transform:none;margin-top:8px" placeholder="RPL13 22.1 22.3 21.9 22.0 22.2&#10;YWHAZ 24.5 24.6 24.4 24.7 24.5&#10;HMBS 23.0 23.2 22.9 23.1 23.0&#10;SDHA 25.1 25.9 24.2 26.0 24.8"></textarea>
     <div class="row" style="margin-top:8px"><button onclick="doRefGenes()">Rank stability</button></div>
     <div id="rg_out"><div class="ph">Paste a Cq matrix to rank reference genes (geNorm M, pairwise V, BestKeeper).</div></div>
@@ -949,14 +949,14 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
    <h3 style="margin:16px 0 6px;font-size:13px;color:var(--ink)">Validating an assay (so the report's boxes tick)</h3>
    <p><b>Specificity.</b> Run in-silico PCR (and/or BLAST). One predicted product of the expected size is the goal; confirm it empirically by gel, melt, or sequencing.</p>
    <p><b>gDNA / intron.</b> Design across an exon-exon junction, or DNase-treat and run a no-RT control. The automated intron check needs NCBI exon annotation, which many non-model organisms simply do not have — when it can't resolve, verify empirically and use "mark handled" on the assay card, which the report records as user-asserted rather than computed.</p>
-   <p><b>Efficiency, R², LOD.</b> Run a standard curve over a dilution series (Std curve tab) and click "attach to current assay." MIQE acceptance: efficiency 90–110% (slope between −3.1 and −3.58), R² ≥ 0.98. A formal limit of detection needs roughly 60 replicates near the low end.</p>
+   <p><b>Efficiency, R², LOD.</b> Run a standard curve over a dilution series (Std curve tab) and click "attach to current assay." Common screening ranges are efficiency 90–110% (slope approximately −3.58 to −3.10) and R² ≥ 0.98, but acceptance must be defined for the study. A formal LOD requires a dedicated replicate-rich experiment around the detection transition.</p>
    <p><b>Always.</b> Include a no-template control; for RT-qPCR, a no-RT control and a note on RNA integrity.</p>
 
    <h3 style="margin:16px 0 6px;font-size:13px;color:var(--ink)">A worked pass (the loaded FSJ panel)</h3>
-   <p>Use "load example (FSJ)" in the Workbench to get a TaqMan panel. For each assay: QC primers → Specificity (in-silico PCR) → set the gene and organism and try the intron check → run a standard curve from your Cq data and attach it → generate the gBlock as your quantification standard → export the IDT order → generate the MIQE report.</p>
+   <p>Use "load example (FSJ)" in the Workbench to get a TaqMan panel. For each assay: QC primers → Specificity (in-silico PCR) → set the gene and organism and try the intron check → run a standard curve from your Cq data and attach it → generate the gBlock as your quantification standard → export the IDT order → generate the assay-readiness report.</p>
 
    <h3 style="margin:16px 0 6px;font-size:13px;color:var(--ink)">Honest limits</h3>
-   <p class="hint">Tm and secondary-structure numbers are real engine values at your reaction salt; displayed Tm uses IDT OligoAnalyzer’s SantaLucia 1998 + Owczarzy 2008 nearest-neighbor method, and LNA Tm is a McTigue-informed point estimate (~±2 °C) — confirm it in OligoAnalyzer Affinity Plus. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
+   <p class="hint">Tm and secondary-structure numbers are real engine values at your reaction salt; displayed Tm uses a published SantaLucia/Allawi nearest-neighbor model with an Owczarzy mixed-salt correction, and LNA Tm is a context-dependent McTigue-model estimate from explicit +N positions; confirm the final modified order with the selected vendor. In-silico PCR is a screen, not a guarantee; NCBI Primer-BLAST is the more authoritative specificity check. Nothing here is wet-lab validated. Treat OligoForge as a fast first pass and a record-keeper, not a substitute for validation.</p>
 
     <h3 style="margin:20px 0 6px;font-size:13px;color:#ffb4ad">Reset to factory settings</h3>
     <p class="hint">Returns OligoForge to a clean install. This wipes the current Workbench, every saved panel and project (on the server), your saved reaction conditions, your remembered NCBI email and key, and the intro-screen flag, then reloads. It cannot be undone, so export anything you want to keep first (Export panel on the Workbench, or save a project elsewhere).</p>
@@ -964,14 +964,14 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
   <section id="ref"><div class="card">
     <h2>Reference</h2>
-    <div class="hint">Quick reference for reading results and setting up runs. Displayed Tm uses IDT OligoAnalyzer's method; always confirm an LNA Tm in OligoAnalyzer Affinity Plus.</div>
+    <div class="hint">Quick reference for reading results and setting up runs. Displayed Tm is a published-model estimate; confirm final LNA designs with the selected vendor's modified-oligo calculator.</div>
     <div class="refgrid">
       <div>
         <span class="overline">Reading the QC</span>
         <div class="keyrow" style="margin-top:8px"><span class="pill b-PASS">PASS</span><span>&Delta;G &gt; &minus;6 kcal/mol &mdash; no meaningful structure</span></div>
         <div class="keyrow"><span class="pill b-WARN">WARN</span><span>&minus;9 to &minus;6 &mdash; watch, usually tolerable</span></div>
         <div class="keyrow"><span class="pill b-FAIL">FAIL</span><span>&Delta;G &le; &minus;9 &mdash; likely dimer / hairpin</span></div>
-        <p class="hint" style="margin-top:10px">Tm uses the SantaLucia 1998 + Owczarzy 2008 nearest-neighbor model (IDT's method) at your reaction salt. LNA Tm is a McTigue-informed point estimate (~&plusmn;2&nbsp;&deg;C) &mdash; confirm in OligoAnalyzer Affinity Plus.</p>
+        <p class="hint" style="margin-top:10px">Tm uses a SantaLucia/Allawi nearest-neighbor model with an Owczarzy mixed-salt correction at your reaction conditions. LNA Tm is a McTigue-informed point estimate (~&plusmn;2&nbsp;&deg;C) &mdash; confirm in OligoAnalyzer Affinity Plus.</p>
       </div>
       <div>
         <span class="overline">TaqMan protocol</span>
@@ -1002,7 +1002,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
 </main>
 </div><!--/shell-->
-<footer>OligoForge v1.31.0</footer>
+<footer>OligoForge v1.31.1</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -1087,7 +1087,7 @@ async function api(path,body){let r,j;
  }
  return j;}
 function dgClass(dg){return dg>-6?"PASS":(dg>-9?"WARN":"FAIL");}
-// ---- certified orthogonal panel ----
+// ---- orthogonal-panel model bounds ----
 function doOrthoPanel(){
  const out=document.getElementById("op_out");
  const text=((document.getElementById("op_in")||{}).value||"");
@@ -1105,42 +1105,42 @@ function doOrthoPanel(){
 }
 function renderOrthoPanel(d){
  const lo=d.panel_size,ub=d.upper_bound,gap=d.gap,cert=d.certified;
- const src=d.bound_source==="lovasz_theta"?"Lovász θ (SDP)":(d.bound_source==="clique_cover"?"clique-cover bound (exact, no SDP)":(d.bound_source||""));
+ const src=d.bound_source==="exact_bnb"?"exact branch-and-bound":(d.bound_source==="clique_cover"?"rigorous clique-cover bound":(d.bound_source||""));
  const th=(d.theta!=null)?(" · θ="+d.theta):"";
  let banner;
  if(cert){
   banner='<div style="border:1px solid #2ea043;background:rgba(46,160,67,.10);border-radius:10px;padding:13px 15px;margin:2px 0 14px">'
-   +'<div style="font-family:var(--display,inherit);font-weight:700;font-size:15px;color:#1a7f37;letter-spacing:.02em">CERTIFIED MAXIMUM</div>'
+   +'<div style="font-family:var(--display,inherit);font-weight:700;font-size:15px;color:#1a7f37;letter-spacing:.02em">MODEL MAXIMUM PROVEN</div>'
    +'<div style="margin-top:4px;font-size:13.5px">panel of <b>'+lo+'</b> &nbsp;=&nbsp; α &nbsp;≤&nbsp; ⌊bound⌋ = <b>'+ub+'</b> &nbsp;·&nbsp; gap 0</div>'
    +'<div class="hint" style="margin-top:5px">No larger mutually non-cross-hybridizing panel exists under this pairwise ΔG model. Bound: '+src+th+'.</div>'
    +'<div class="hint" style="margin-top:3px;font-style:italic">Optimality is with respect to the thermodynamic model — real multiplex cross-priming is not pairwise, so this is not a guarantee of wet-lab performance.</div></div>';
  }else{
-  const extra=d.theta_unavailable?" Install cvxpy (or reduce the candidate count below the size limit) for the tighter θ bound.":"";
+  const extra=d.theta_unavailable?" Install cvxpy (or reduce the candidate count) to display the optional θ diagnostic.":"";
   banner='<div style="border:1px solid #d29922;background:rgba(210,153,34,.12);border-radius:10px;padding:13px 15px;margin:2px 0 14px">'
    +'<div style="font-family:var(--display,inherit);font-weight:700;font-size:15px;color:#9a6700;letter-spacing:.02em">PANEL OF '+lo+' · GAP '+gap+'</div>'
    +'<div style="margin-top:4px;font-size:13.5px"><b>'+lo+'</b> ≤ α ≤ <b>'+ub+'</b> — proven at least '+lo+', at most '+ub+'; '+gap+' short of a proven maximum</div>'
    +'<div class="hint" style="margin-top:5px">Bound: '+src+th+'.'+extra+'</div></div>';
  }
- const panel=(d.panel||[]).map(p=>'<tr><td>'+(p.name||"")+'</td><td class="mono">'+p.seq+'</td><td class="mono">'+(p.hairpin_dg==null?"":p.hairpin_dg)+'</td><td class="mono">'+(p.homodimer_dg==null?"":p.homodimer_dg)+'</td></tr>').join("");
+ const panel=(d.panel||[]).map(p=>'<tr><td>'+esc(p.name||"")+'</td><td class="mono">'+esc(p.seq||"")+'</td><td class="mono">'+(p.hairpin_dg==null?"":p.hairpin_dg)+'</td><td class="mono">'+(p.homodimer_dg==null?"":p.homodimer_dg)+'</td></tr>').join("");
  let html=banner+'<h3 style="margin:10px 0 4px">Panel — '+lo+' orthogonal oligo'+(lo===1?"":"s")+'</h3>'
   +'<table><tr><th>name</th><th>sequence</th><th>hairpin ΔG</th><th>homodimer ΔG</th></tr>'+panel+'</table>';
  if(d.edges&&d.edges.length){
   html+='<h3 style="margin:14px 0 4px">Cross-reactions ('+d.n_edges+') — at most one of each pair fits in the panel</h3>'
    +'<table><tr><th>oligo A</th><th>oligo B</th><th>ΔG</th></tr>'
-   +d.edges.map(e=>'<tr><td>'+e.a+'</td><td>'+e.b+'</td><td class="mono">'+e.dg+'</td></tr>').join("")+'</table>';
+   +d.edges.map(e=>'<tr><td>'+esc(e.a||"")+'</td><td>'+esc(e.b||"")+'</td><td class="mono">'+e.dg+'</td></tr>').join("")+'</table>';
  }
  const excl=(d.nodes||[]).filter(n=>!n.in_panel).map(n=>n.name);
- if(excl.length)html+='<p class="hint">Excluded (cross-reacts with a chosen oligo): '+excl.join(", ")+'</p>';
- if(d.dropped_self_structure&&d.dropped_self_structure.length)html+='<p class="hint">Dropped for self-structure: '+d.dropped_self_structure.map(x=>x.name+" ("+x.reason+")").join("; ")+'</p>';
- if(d.rejects&&d.rejects.length)html+='<p class="hint">Rejected input: '+d.rejects.map(x=>x.name+" — "+x.reason).join("; ")+'</p>';
- if(d.duplicates&&d.duplicates.length)html+='<p class="hint">Duplicate sequences merged: '+d.duplicates.map(x=>x.names.join("=")+" (×"+x.count+")").join("; ")+'</p>';
+ if(excl.length)html+='<p class="hint">Excluded (cross-reacts with a chosen oligo): '+excl.map(esc).join(", ")+'</p>';
+ if(d.dropped_self_structure&&d.dropped_self_structure.length)html+='<p class="hint">Dropped for self-structure: '+d.dropped_self_structure.map(x=>esc(x.name||"")+" ("+esc(x.reason||"")+")").join("; ")+'</p>';
+ if(d.rejects&&d.rejects.length)html+='<p class="hint">Rejected input: '+d.rejects.map(x=>esc(x.name||"")+" — "+esc(x.reason||"")).join("; ")+'</p>';
+ if(d.duplicates&&d.duplicates.length)html+='<p class="hint">Duplicate sequences merged: '+d.duplicates.map(x=>(x.names||[]).map(esc).join("=")+" (×"+x.count+")").join("; ")+'</p>';
  const s=d.split_pool||{};
  if(s.theta_pow_k!=null){
   html+='<h3 style="margin:14px 0 4px">Split-pool capacity (k='+s.k+' rounds)</h3>'
-   +'<p>Certified ceiling: <b>'+s.certified_max_barcodes+'</b> collision-free '+s.k+'-round barcodes (θ^'+s.k+' = '+s.theta_pow_k+'). Naive |panel|^'+s.k+' = '+s.naive_mis_pow_k+'.</p>'
-   +'<p class="hint">'+s.assumption+'</p>';
+   +'<p>θ^'+s.k+' diagnostic: <b>'+s.theta_pow_k+'</b>. Constructed |panel|^'+s.k+' = '+s.naive_mis_pow_k+'. Neither is a wet-lab capacity guarantee.</p>'
+   +'<p class="hint">'+esc(s.note||"Numerical graph diagnostic only.")+'</p>';
  }else if(s.k>1){
-  html+='<h3 style="margin:14px 0 4px">Split-pool capacity (k='+s.k+' rounds)</h3><p class="hint">'+(s.note||"θ unavailable; ceiling not certified.")+' Naive |panel|^'+s.k+' = '+s.naive_mis_pow_k+'.</p>';
+  html+='<h3 style="margin:14px 0 4px">Split-pool capacity (k='+s.k+' rounds)</h3><p class="hint">'+(s.note||"θ diagnostic unavailable.")+' Naive |panel|^'+s.k+' = '+s.naive_mis_pow_k+'.</p>';
  }
  html+='<h3 style="margin:14px 0 4px">Confusability graph</h3><p class="hint">Nodes = candidate oligos (green = in panel, grey = excluded); red lines = cross-reactions.</p>'
   +'<canvas id="op_canvas" width="640" height="380" style="width:100%;max-width:640px;border:1px solid var(--line,#ddd);border-radius:8px;background:var(--panel,#fff)"></canvas>';
@@ -1196,7 +1196,7 @@ async function doQC(){const o=document.getElementById("qc_out");o.innerHTML="…
    ${d.hairpin_dg_anneal!=null?`<div><span>hairpin ΔG @${d.anneal_c}°C</span><b>${d.hairpin_dg_anneal}</b></div><div><span>self-dimer ΔG @${d.anneal_c}°C</span><b>${d.self_dimer_dg_anneal}</b></div><div><span>self-dimer melts</span><b>${d.self_dimer_tm}°C</b></div><div><span>hairpin melts</span><b>${d.hairpin_tm}°C</b></div>`:""}
    <div><span>length</span><b>${d.length}</b></div><div><span>max run</span><b>${d.max_run}</b></div>
    <div><span>3' clamp (G/C in 5)</span><b>${d.last5_gc}</b></div></div>${d.nn?`<div class="kv" style="margin-top:6px"><div><span title="Gibbs free energy of duplex formation at 37 °C (SantaLucia 1998 nearest-neighbor). More negative = more stable.">ΔG°37</span><b>${d.nn.dg37}</b></div><div><span title="Nearest-neighbor Tm at your reaction salt with free Mg²⁺ = Mg − dNTP (Owczarzy). Same parameters as the Tm above.">NN Tm</span><b>${d.nn.tm} °C</b></div><div><span title="Fraction of this oligo hybridised to its target at the annealing temperature — the physically meaningful quantity for priming / probe binding.">bound @${d.nn.anneal_c}°C</span><b>${Math.round(d.nn.frac_bound*100)}%</b></div><div><span title="Duplex enthalpy / entropy (kcal·mol⁻¹, cal·mol⁻¹·K⁻¹)">ΔH / ΔS</span><b>${d.nn.dh}/${d.nn.ds}</b></div></div><small class="note">nearest-neighbor (SantaLucia 1998); free Mg²⁺ ${d.nn.mg_free_mM} mM = Mg − dNTP; ΔG°37 kcal/mol.</small>`:""}
-   <small class="note mono">revcomp: ${d.revcomp}</small> <button class="ghost" style="padding:1px 7px;font-size:11px" onclick='copyText("${d.revcomp}")'>copy</button>${d.note?`<br><small class="note">${d.note}</small>`:""}${d.nn_lna?`<br><small class="note"><b>+${d.nn_lna.lna_n} LNA → computed Tm ${d.nn_lna.tm} °C</b> (McTigue 2004; ${(d.nn_lna.tm-(d.nn?d.nn.tm:d.nn_lna.tm)>=0?"+":"")}${(d.nn_lna.tm-(d.nn?d.nn.tm:d.nn_lna.tm)).toFixed(1)} °C vs DNA backbone), ${Math.round(d.nn_lna.frac_bound*100)}% bound @${d.nn_lna.anneal_c}°C. ${d.nn_lna.beyond_param?d.nn_lna.note:"Confirm in IDT OligoAnalyzer for the gold standard."}</small>`:(d.lna_note?`<br><small class="note">${d.lna_note}</small>`:"")}${_degFold((document.getElementById("qc_seq").value||"").replace(/\s+/g,""))>1?`<br><small class="note">degenerate: encodes <b>${_degFold((document.getElementById("qc_seq").value||"").replace(/\s+/g,""))}</b> distinct sequences</small>`:""}`+lintTable(d.lint);}
+   <small class="note mono">revcomp: ${d.revcomp}</small> <button class="ghost" style="padding:1px 7px;font-size:11px" onclick='copyText("${d.revcomp}")'>copy</button>${d.note?`<br><small class="note">${d.note}</small>`:""}${d.nn_lna?`<br><small class="note"><b>+${d.nn_lna.lna_n} LNA → computed Tm ${d.nn_lna.tm} °C</b> (McTigue 2004; ${(d.nn_lna.tm-(d.nn?d.nn.tm:d.nn_lna.tm)>=0?"+":"")}${(d.nn_lna.tm-(d.nn?d.nn.tm:d.nn_lna.tm)).toFixed(1)} °C vs DNA backbone), ${Math.round(d.nn_lna.frac_bound*100)}% bound @${d.nn_lna.anneal_c}°C. ${d.nn_lna.beyond_param?d.nn_lna.note:"Confirm the final modified oligo with the selected vendor."}</small>`:(d.lna_note?`<br><small class="note">${d.lna_note}</small>`:"")}${_degFold((document.getElementById("qc_seq").value||"").replace(/\s+/g,""))>1?`<br><small class="note">degenerate: encodes <b>${_degFold((document.getElementById("qc_seq").value||"").replace(/\s+/g,""))}</b> distinct sequences</small>`:""}`+lintTable(d.lint);}
 
 async function doPair(){const o=document.getElementById("p_out");o.innerHTML="…";
  const d=await api("/api/pair",{forward:document.getElementById("p_f").value,reverse:document.getElementById("p_r").value,
@@ -1581,12 +1581,12 @@ async function doStd(){const o=document.getElementById("std_out");o.innerHTML="�
  if(d.error){o.innerHTML=err(d.error);return;}
  LAST_STD=d;
  const _all=d.efficiency_ok&&d.r2_ok&&d.slope_ok,_some=d.efficiency_ok||d.r2_ok;
- const _bdg=`<span class="${_all?'b-PASS':(_some?'b-WARN':'b-FAIL')}" style="display:inline-block;padding:3px 11px;font-size:11px;font-weight:600;margin-bottom:9px">${_all?'meets MIQE':(_some?'review':'fails MIQE')}</span>`;
+ const _bdg=`<span class="${_all?'b-PASS':(_some?'b-WARN':'b-FAIL')}" style="display:inline-block;padding:3px 11px;font-size:11px;font-weight:600;margin-bottom:9px">${_all?'curve metrics in range':(_some?'review curve':'curve metrics outside range')}</span>`;
  o.innerHTML=_bdg+`<div class="kv"><div><span>efficiency</span><b class="${d.efficiency_ok?'PASS':'FAIL'}">${d.efficiency_pct}%</b></div>`+
   `<div><span>slope</span><b class="${d.slope_ok?'PASS':'WARN'}">${d.slope}</b></div>`+
   `<div><span>R&sup2;</span><b class="${d.r2_ok?'PASS':'FAIL'}">${d.r2}</b></div>`+
   `<div><span>amp factor</span><b>${d.amp_factor}</b></div>`+
-  `<div><span>practical LOD</span><b>${d.lod_practical!=null?d.lod_practical:'—'}</b></div>`+`${d.lod95!=null?`<div><span>LOD (95% detect)</span><b>${d.lod95}</b></div>`:""}`+`${d.efficiency_ci_pct?`<div><span>efficiency 95% CI</span><b>${d.efficiency_ci_pct[0]}–${d.efficiency_ci_pct[1]}%</b></div>`:""}`+`${d.slope_ci95?`<div><span>slope 95% CI</span><b>${d.slope_ci95[0]} to ${d.slope_ci95[1]}</b></div>`:""}</div>`+
+  `<div><span>lowest fully detected standard</span><b>${d.lod_practical!=null?d.lod_practical:'—'}</b></div>`+`${d.lod95!=null?`<div><span>exploratory 95% detection estimate</span><b>${d.lod95}</b></div>`:""}`+`${d.efficiency_ci_pct?`<div><span>efficiency 95% CI</span><b>${d.efficiency_ci_pct[0]}–${d.efficiency_ci_pct[1]}%</b></div>`:""}`+`${d.slope_ci95?`<div><span>slope 95% CI</span><b>${d.slope_ci95[0]} to ${d.slope_ci95[1]}</b></div>`:""}</div>`+
   `<table><tr><th>quantity</th><th>n</th><th>detected</th><th>mean Cq</th><th>SD</th><th>detect %</th></tr>`+
   d.levels.map(l=>`<tr><td class="mono">${l.quantity}</td><td>${l.n}</td><td>${l.detected}</td><td>${l.mean_cq!=null?l.mean_cq:'—'}</td><td>${l.sd_cq!=null?l.sd_cq:'—'}</td><td class="${l.detection_rate<100?'WARN':'PASS'}">${l.detection_rate}</td></tr>`).join("")+`</table>`+
   `<small class="note">${d.notes}</small><div style="margin-top:8px"><button class="ghost" onclick="attachStdToCurrent()">attach to current assay</button></div>`;}
@@ -1701,13 +1701,13 @@ async function doRefGenes(){const o=document.getElementById("rg_out");o.innerHTM
  const d=await api("/api/refgenes",{text:document.getElementById("rg_text").value});
  if(d.error){o.innerHTML=err(d.error);return;}
  let h=`<small class="note">${d.n_genes} genes \u00d7 ${d.n_samples} samples; ranked most \u2192 least stable.</small>
-   <table><tr><th>rank</th><th>gene</th><th>geNorm M</th><th>Cq mean</th><th>Cq SD</th><th>CV%</th><th>BestKeeper</th></tr>`+
-  d.ranking.map((g,i)=>`<tr><td>${i+1}</td><td>${g.gene}</td><td class="${g.M<1.5?'PASS':'WARN'}">${g.M}</td><td>${g.cq_mean}</td><td class="${g.cq_sd>1?'WARN':''}">${g.cq_sd}</td><td>${g.cq_cv}</td><td><span class="pill b-${g.bestkeeper==='ok'?'PASS':'WARN'}">${g.bestkeeper}</span></td></tr>`).join("")+`</table>`;
+   <table><tr><th>rank</th><th>gene</th><th>geNorm M</th><th>Cq mean</th><th>Cq SD</th><th>CV%</th><th>Cq-SD screen</th></tr>`+
+  d.ranking.map((g,i)=>`<tr><td>${i+1}</td><td>${esc(g.gene)}</td><td class="${g.M<1.5?'PASS':'WARN'}">${g.M}</td><td>${g.cq_mean}</td><td class="${g.cq_sd>1?'WARN':''}">${g.cq_sd}</td><td>${g.cq_cv}</td><td><span class="pill b-${g.bestkeeper==='ok'?'PASS':'WARN'}">${esc(g.cq_sd_screen||g.bestkeeper)}</span></td></tr>`).join("")+`</table>`;
  if(d.pairwise_V&&d.pairwise_V.length){
   h+=`<div style="margin-top:10px"><b>How many reference genes?</b> <small class="note">(pairwise variation V; &lt;0.15 = adding another gene barely changes normalization)</small><table><tr><th>step</th><th>V</th></tr>`+
      d.pairwise_V.map(v=>`<tr><td>${v.step}</td><td class="${v.v<0.15?'PASS':'WARN'}">${v.v}</td></tr>`).join("")+`</table></div>`;
  }
- h+=`<div class="card" style="margin-top:8px;border-color:var(--acc)">Recommended: the top <b>${d.recommended_n}</b> gene(s) \u2014 ${d.ranking.slice(0,d.recommended_n).map(g=>g.gene).join(" + ")}.</div><small class="note">${d.note}</small>`;
+ if(d.recommended_n!=null){h+=`<div class="card" style="margin-top:8px;border-color:var(--acc)">geNorm guideline result: top <b>${d.recommended_n}</b> gene(s) — ${d.ranking.slice(0,d.recommended_n).map(g=>esc(g.gene)).join(" + ")}.</div>`;}else{h+=`<div class="card" style="margin-top:8px;border-color:var(--warn)">${esc(d.recommendation||"No reference-gene count recommendation could be supported.")}</div>`;}h+=`<small class="note">${esc(d.note||"")}</small>`;
  o.innerHTML=h;}
 
 /* ---- workbench: assays carry across tabs + panel + report + multiplex ---- */
@@ -1719,7 +1719,7 @@ function savePanel(){try{localStorage.setItem("of_panel",JSON.stringify(PANEL));
 function curAssay(){return PANEL.find(a=>a.id===CURRENT_ID)||null;}
 function gotab(id){if(window.goTab){window.goTab(id);return;}const i=TABS.findIndex(t=>t[0]===id);const a=document.querySelectorAll("nav a")[i];if(a)a.click();}
 function fld(id,v){const e=document.getElementById(id);if(e){e.value=(v==null?"":v);flash(e);}}
-function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/'/g,"&#39;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function exprExample(){
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
   set("ex_refs","RPL13, YWHAZ"); set("ex_ctrl","control"); set("ex_eff","IFNG:98, IL4:101, RPL13:99, YWHAZ:100");
@@ -1969,7 +1969,7 @@ async function checkAssay(id){const a=PANEL.find(x=>x.id===id);if(!a)return;cons
  const md=document.getElementById("ep_mode")?document.getElementById("ep_mode").value:"remote";
  const d=await api("/api/epcr",{forward:a.forward,reverse:a.reverse,mode:md,db:"nt",organism:a.organism||null,email:email.value});
  a.checks=a.checks||{};if(d.error){a.checks.specificity={error:d.error};}else{a.checks.specificity=d;if(a.status==="designed")a.status="checked";}savePanel();renderPanel();}
-function attachStdToCurrent(){const a=curAssay();if(!a){toast("Pick an assay in the Workbench (tick its radio), then attach.","warn");return;}if(!LAST_STD){toast("Run a standard curve first (Std curve tab).","warn");return;}const d=LAST_STD;a.validation={efficiency_pct:d.efficiency_pct,r2:d.r2,slope:d.slope,lod:(d.lod_practical!=null?d.lod_practical:null)};a.status="validated";savePanel();renderPanel();toast("Attached efficiency "+d.efficiency_pct+"% to "+(a.name||"current assay")+".","ok");}
+function attachStdToCurrent(){const a=curAssay();if(!a){toast("Pick an assay in the Workbench (tick its radio), then attach.","warn");return;}if(!LAST_STD){toast("Run a standard curve first (Std curve tab).","warn");return;}const d=LAST_STD;a.validation=a.validation||{};Object.assign(a.validation,{efficiency_pct:d.efficiency_pct,r2:d.r2,slope:d.slope,lowest_fully_detected_standard:(d.lod_practical!=null?d.lod_practical:null),lod_screening:(d.lod95!=null?d.lod95:null)});if(a.status==="designed")a.status="bench data attached";savePanel();renderPanel();toast("Attached standard-curve metrics to "+(a.name||"current assay")+"; this does not by itself validate the assay.","ok");}
 async function genReport(){if(!PANEL.length){toast("Add some assays to the workbench first.","warn");return;}const d=await api("/api/report",{panel:PANEL,meta:{title:"OligoForge panel"}});if(d.error){toast(d.error,"err");return;}download("oligoforge_panel_report.html",d.html);setTimeout(()=>download("oligoforge_panel_miqe.csv",d.csv),350);toast("Report downloaded — HTML + CSV.","ok");}
 async function genRdml(){if(!PANEL.length){toast("Add some assays to the workbench first.","warn");return;}const d=await api("/api/rdml",{panel:PANEL,meta:{title:"oligoforge_panel"}});if(d.error){toast(d.error,"err");return;}downloadB64(d.filename||"oligoforge_panel.rdml",d.rdml_b64,"application/xml");toast("RDML exported — "+d.n_assays+" assay(s), "+(d.dyes||[]).join("/")+" · "+d.version+".","ok");}
 async function checkMultiplex(){if(PANEL.length<2){toast("Add at least 2 assays to check multiplexing.","warn");return;}
@@ -1992,19 +1992,19 @@ async function miqeValidate(){
  const d=await api("/api/validate",body);
  if(d.error){o.innerHTML=err(d.error);return;}
  LAST_MIQE=d;
- const sw={pass:["b-PASS","meets MIQE"],review:["b-WARN","review"],fail:["b-FAIL","fails MIQE"]}[d.miqe_status];
+ const sw={pass:["b-PASS","readiness checks pass"],review:["b-WARN","review"],incomplete:["b-WARN","incomplete"],fail:["b-FAIL","failed checks"]}[d.miqe_status]||["b-WARN","review"];
  const cl={pass:"PASS",fail:"FAIL",warn:"WARN",na:"hint"};
  const po=d.predicted.oligos;
  const prows=["forward","reverse","probe"].filter(k=>po[k]).map(k=>{const x=po[k];const fc=x.frac_bound!=null?(x.frac_bound>=0.5?'PASS':(x.frac_bound>=0.2?'WARN':'FAIL')):'hint';
   return `<tr><td>${k}</td><td class="mono">${x.tm}\u00b0C</td><td>${x.dg37}</td><td class="${fc}">${x.frac_bound!=null?Math.round(x.frac_bound*100)+'%':'\u2014'}</td><td class="hint">${esc(x.basis)}</td></tr>`;}).join("");
- let h=`<div class="subbox"><div class="sub-h">MIQE validation \u00b7 ${esc(d.assay.name)}</div>`;
+ let h=`<div class="subbox"><div class="sub-h">MIQE-aligned assay readiness · ${esc(d.assay.name)}</div>`;
  h+=`<span class="${sw[0]}" style="display:inline-block;padding:3px 11px;font-size:11px;font-weight:600;margin-bottom:9px">${sw[1]}</span>`+(d.n_missing?` <span class="hint">${d.n_missing} item(s) not yet assessed \u2014 attach a standard curve / melt</span>`:"");
  h+=`<table><tr><th>oligo</th><th>NN Tm</th><th>\u0394G\u00b037</th><th>bound@anneal</th><th>basis</th></tr>${prows}${d.predicted.amplicon_tm!=null?`<tr><td>amplicon</td><td class="mono">${d.predicted.amplicon_tm}\u00b0C</td><td>\u2014</td><td>\u2014</td><td class="hint">predicted</td></tr>`:""}</table>`;
  h+=`<table><tr><th>MIQE check</th><th>status</th><th>detail</th></tr>`+d.checks.map(c=>`<tr><td>${esc(c.label)}</td><td class="${cl[c.status]}">${c.status==='na'?'n/a':c.status.toUpperCase()}</td><td class="hint">${esc(c.detail||"")}</td></tr>`).join("")+`</table>`;
  h+=`<div style="margin-top:8px"><button class="ghost" onclick="downloadMiqe()">Download MIQE report (Markdown)</button></div></div>`;
  o.innerHTML=h;}
 function downloadMiqe(){if(!LAST_MIQE)return;download((LAST_MIQE.assay.name||"assay").replace(/[^A-Za-z0-9_-]+/g,"_")+"_miqe.md",LAST_MIQE.markdown);toast("MIQE report downloaded.","ok");}
-function attachMeltToCurrent(tm,peaks){const a=curAssay();if(!a){toast("Pick an assay in the Workbench first.","warn");return;}a.validation=a.validation||{};a.validation.observed_amplicon_tm=tm;a.validation.observed_peaks=peaks;a.status="validated";savePanel();renderPanel();toast("Attached observed melt Tm "+tm+"\u00b0C to "+(a.name||"current assay")+".","ok");}
+function attachMeltToCurrent(tm,peaks){const a=curAssay();if(!a){toast("Pick an assay in the Workbench first.","warn");return;}a.validation=a.validation||{};a.validation.observed_amplicon_tm=tm;a.validation.observed_peaks=peaks;if(a.status==="designed")a.status="bench data attached";savePanel();renderPanel();toast("Attached melt data to "+(a.name||"current assay")+"; a single peak is not sequence-level product confirmation.","ok");}
 async function applyConditions(){const b={mv_conc:parseFloat(cond_mv.value)||50,dv_conc:parseFloat(cond_dv.value)||3,dntp_conc:parseFloat(cond_dntp.value)||0.8,dna_conc:parseFloat(cond_dna.value)||200};
  await api("/api/conditions",b);try{localStorage.setItem("of_cond",JSON.stringify(b));}catch(e){}
  const n=document.getElementById("cond_note");if(n){n.textContent="applied — Tm now uses your mix";setTimeout(()=>{n.textContent="";},2200);}}

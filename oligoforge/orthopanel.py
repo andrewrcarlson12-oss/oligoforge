@@ -1,28 +1,12 @@
-"""Certified Orthogonal Panel — pick a maximum mutually non-cross-hybridizing oligo set from a
-candidate pool under a nearest-neighbor ΔG confusability model, and CERTIFY how close the chosen
-panel is to the true maximum *under that model*.
+"""Orthogonal-panel selection under a pairwise thermodynamic confusability model.
 
-Two layers, kept separate so the graph/certificate math is testable with zero thermodynamics:
+The thermodynamic layer builds a graph whose edges represent candidate cross-hybridization. A
+valid panel is an independent set. Exact branch-and-bound results are reported as proven maxima;
+otherwise a greedy independent set is a constructive lower bound and a clique cover supplies a
+rigorous upper bound. An optional Lovász-theta SDP is retained only as a numerical diagnostic: an
+approximate solver value is never rounded into a formal certificate.
 
-  math core (no `thermo`):  max_independent_set, greedy_clique_cover, clique_cover_bound,
-                            lovasz_theta (optional cvxpy), integer_upper_bound,
-                            strong_product_capacity
-  thermo driver (uses T):   intake, self_structure_filter, build_confusability_graph, certify_panel
-
-WHAT THE CERTIFICATE MEANS
-θ(G) and the clique-cover number are UPPER bounds on the independence number α(G); a maximum
-independent set is a LOWER bound. When lower == upper, the panel is the provable maximum *of the
-ΔG-threshold graph*. That graph is a pairwise proxy for a non-pairwise phenomenon (real multiplex
-cross-priming depends on concentrations, competing templates, polymerase, cycling), so a certified
-maximum is optimal for the model, not guaranteed optimal at the bench. That distinction is reported,
-not hidden. See SPEC.md.
-
-CERTIFICATE STRATEGY (cheap first)
-The sandwich theorem gives a FREE upper bound — α(G) ≤ number of cliques in a clique cover of G —
-computable in pure Python. On curated panels it often already equals the exact MIS (gap 0, certified,
-no SDP). The Lovász-θ SDP (tighter) is attempted only when the free bound doesn't close the gap, and
-only if cvxpy is installed; otherwise the module still certifies via the clique-cover bound. cvxpy is
-never a hard requirement.
+All guarantees are guarantees about the thresholded pairwise model, not wet-lab multiplex behavior.
 """
 import math
 
@@ -128,10 +112,12 @@ def clique_cover_bound(n, edges):
 
 
 def lovasz_theta(n, edges):
-    """Lovász θ(G) via the primal SDP  θ = max ⟨J,X⟩  s.t. X⪰0, tr(X)=1, X_ij=0 ∀{i,j}∈E.
-    An UPPER bound on α(G), tighter than the clique-cover bound. Requires cvxpy (+ a conic solver);
-    returns None if cvxpy is not installed or the solve fails, so the caller degrades to the
-    clique-cover certificate. ⟨J,X⟩ is the sum of all entries of X."""
+    """Numerically estimate Lovász θ(G) from the primal SDP.
+
+    The mathematical optimum is an upper bound on α(G), but ordinary floating-point conic-solver
+    output is treated here as a diagnostic only. Formal model bounds come from completed exact
+    branch-and-bound or a valid clique cover. Returns None when cvxpy/solver support is unavailable.
+    """
     try:
         import cvxpy as cp  # optional dependency — imported lazily on purpose
     except Exception:
@@ -162,11 +148,13 @@ def lovasz_theta(n, edges):
 
 
 def integer_upper_bound(theta, snap_tol=2e-2, eps=1e-6):
-    """Integer upper bound on α(G) from a (noisy) θ. CRITICAL: do not naive-floor — a solver can
-    return 3.9999 for a true 4, and floor()=3 would understate the bound and could violate the
-    α ≤ ⌊θ⌋ invariant. If θ is within snap_tol of an integer, snap to it; otherwise floor(θ+eps).
-    Snapping never understates: θ ≥ α, and round(θ) for θ within snap_tol (<0.5) of an integer is
-    ≥ α."""
+    """Return a display-only integerization of a numerical theta estimate.
+
+    This helper is retained for backwards compatibility and tests. The returned number is NOT used
+    as a rigorous upper bound or certificate because ordinary SDP solver output is approximate. If
+    theta is within snap_tol of an integer, snap to it; otherwise floor(θ+eps).
+    Because the input is a numerical solver estimate, this display value must not be used as a
+    formal graph bound."""
     if theta is None:
         return None
     r = round(theta)
@@ -176,10 +164,13 @@ def integer_upper_bound(theta, snap_tol=2e-2, eps=1e-6):
 
 
 def strong_product_capacity(value, k):
-    """θ(G⊠H)=θ(G)·θ(H); for k identical rounds, θ(G)^k — the certified collision-free k-round
-    combinatorial-barcode capacity UNDER the strong-product confusability model (two k-round
-    barcodes collide iff they cross-hybridize in ≥1 round). Also used with |MIS| to compute the
-    naive product-of-independent-sets count for comparison. Returns None for value None."""
+    """Raise a graph quantity to k for split-pool diagnostics.
+
+    With an exact mathematical theta value, multiplicativity applies to the strong graph product;
+    this implementation receives approximate numerical values and therefore reports theta^k only
+    as a diagnostic. The same helper computes the constructive |panel|^k count. Returns None for
+    value None.
+    """
     if value is None:
         return None
     return float(value) ** k
@@ -232,16 +223,17 @@ def intake(candidates):
     return records, rejects
 
 
-def self_structure_filter(records, self_dg=-9.0):
+def self_structure_filter(records, self_dg=-9.0, thermo_snapshot=None):
     """Drop candidates whose worst self-structure (hairpin or homodimer) ΔG is below (more stable
     than) self_dg, under the current thermo conditions. Records why each was dropped. Returns
     (survivors, dropped). Each survivor gains hairpin_dg / homodimer_dg."""
+    snap = thermo_snapshot or T._snapshot()
     survivors = []
     dropped = []
     for r in records:
         s = r["seq"]
-        hp = T.hairpin(s)[0]          # hairpin() returns (dG, Tm); we gate on dG
-        hd = T.self_dimer(s)
+        hp = T._hairpin_at(s, snap)[0]
+        hd = T._self_dimer_at(s, snap)
         worst = min(hp, hd)
         if worst < self_dg:
             which = "hairpin" if hp <= hd else "homodimer"
@@ -253,20 +245,22 @@ def self_structure_filter(records, self_dg=-9.0):
     return survivors, dropped
 
 
-def build_confusability_graph(seqs, cross_dg=-6.0):
+def build_confusability_graph(seqs, cross_dg=-6.0, thermo_snapshot=None):
     """Confusability graph over surviving candidate sequences. Edge {i,j} iff the most stable
     heterodimer between i and j — the more negative of ΔG(i,j) and ΔG(i, revcomp(j)), covering both
     the direct duplex and i binding j's complement — is below (more stable than) cross_dg. Returns
     (edges, edge_dg) with edge_dg[(i,j)] = the ΔG that formed the edge. O(n²) NN calls; serial (the
     primer3 engine is lock-guarded, so threads would not parallelize it anyway) — fine at curated
     scale."""
+    snap = thermo_snapshot or T._snapshot()
     n = len(seqs)
     rc = [T.revcomp(s) for s in seqs]
     edges = []
     edge_dg = {}
     for i in range(n):
         for j in range(i + 1, n):
-            dg = min(T.hetero_dimer(seqs[i], seqs[j]), T.hetero_dimer(seqs[i], rc[j]))
+            dg = min(T._hetero_dimer_at(seqs[i], seqs[j], snap),
+                     T._hetero_dimer_at(seqs[i], rc[j], snap))
             if dg < cross_dg:
                 edges.append((i, j))
                 edge_dg[(i, j)] = round(dg, 2)
@@ -274,93 +268,83 @@ def build_confusability_graph(seqs, cross_dg=-6.0):
 
 
 def certify_panel(candidates, cross_dg=-6.0, self_dg=-9.0, k=1,
-                  size_limit=600, use_theta=True):
-    """Full pipeline: intake -> self-structure filter -> confusability graph -> maximum independent
-    set (lower bound) -> clique-cover bound (free upper) -> optional θ (tighter upper) -> gap /
-    certified flag -> split-pool θ^k ceiling. Pure w.r.t. thermo conditions except that callers set
-    conditions before calling. Returns a JSON-able dict."""
+                  size_limit=600, use_theta=True, thermo_snapshot=None):
+    """Select a mutually non-confusable panel and report rigorous model bounds.
+
+    Exact branch-and-bound proves optimality when it completes. Otherwise the selected independent
+    set is a lower bound and a clique cover is a rigorous upper bound. Lovász theta is calculated,
+    when requested and feasible, as a diagnostic only and never changes the certificate.
+    """
+    snap = thermo_snapshot or T._snapshot()
     records, rejects = intake(candidates)
-    survivors, dropped = self_structure_filter(records, self_dg=self_dg)
+    survivors, dropped = self_structure_filter(records, self_dg=self_dg, thermo_snapshot=snap)
     seqs = [r["seq"] for r in survivors]
     n = len(seqs)
 
     result = {
         "params": {"cross_dg": cross_dg, "self_dg": self_dg, "k": k, "size_limit": size_limit},
-        "n_input": len(candidates or []),
-        "n_unique": len(records),
-        "n_after_self_filter": n,
+        "n_input": len(candidates or []), "n_unique": len(records), "n_after_self_filter": n,
         "rejects": rejects,
         "dropped_self_structure": [{"name": d["name"], "seq": d["seq"], "reason": d["reason"]}
                                    for d in dropped],
         "duplicates": [{"seq": r["seq"], "names": r["names"], "count": r["dup_count"]}
                        for r in records if r["dup_count"] > 1],
     }
-
     if n == 0:
         result.update({"panel": [], "panel_size": 0, "edges": [], "theta": None,
                        "upper_bound": 0, "gap": 0, "certified": True,
-                       "note": "no candidates survived the self-structure filter"})
+                       "bound_source": "trivial", "note": "no candidates survived the self-structure filter",
+                       "split_pool": _split_pool(0, None, k)})
         return result
     if n == 1:
         result.update({"panel": _panel_out(survivors, [0]), "panel_size": 1, "edges": [],
                        "theta": None, "upper_bound": 1, "gap": 0, "certified": True,
-                       "bound_source": "trivial",
-                       "split_pool": _split_pool(1, None, k)})
+                       "bound_source": "trivial", "split_pool": _split_pool(1, None, k)})
         return result
 
-    edges, edge_dg = build_confusability_graph(seqs, cross_dg=cross_dg)
-
+    edges, edge_dg = build_confusability_graph(seqs, cross_dg=cross_dg, thermo_snapshot=snap)
     mis, mis_method, mis_exact = max_independent_set(n, edges)
     lower = len(mis)
-
-    # free upper bound first (pure Python, always available)
     cc_bound = clique_cover_bound(n, edges)
-    upper = cc_bound
-    bound_source = "clique_cover"
-    theta_raw = None
-    theta_int = None
 
-    # tighten with θ only if the free bound hasn't already closed the gap, θ is wanted,
-    # cvxpy is available, and the graph is within the SDP size guard
-    if use_theta and (cc_bound - lower) > 0 and n <= size_limit:
-        theta_raw = lovasz_theta(n, edges)
-        theta_int = integer_upper_bound(theta_raw)
-        if theta_int is not None and theta_int < upper:
-            upper = theta_int
-            bound_source = "lovasz_theta"
-
-    theta_unavailable = use_theta and (cc_bound - lower) > 0 and (
-        n > size_limit or (theta_raw is None))
-
+    # A completed exact search is its own proof. Otherwise only the clique cover is used as a
+    # rigorous upper bound; approximate SDP values remain diagnostics.
+    if mis_exact:
+        upper, bound_source, certified = lower, "exact_bnb", True
+    else:
+        upper, bound_source = cc_bound, "clique_cover"
+        certified = (upper == lower)
     gap = upper - lower
-    certified = (gap == 0)  # a valid MIS whose size equals a valid upper bound IS maximum
+
+    theta_raw = None
+    theta_display_int = None
+    if use_theta and n <= size_limit:
+        theta_raw = lovasz_theta(n, edges)
+        theta_display_int = integer_upper_bound(theta_raw)
+    theta_unavailable = bool(use_theta and (n > size_limit or theta_raw is None))
 
     result.update({
-        "panel": _panel_out(survivors, mis),
-        "panel_size": lower,
-        "mis_method": mis_method,
-        "mis_exact": mis_exact,
+        "panel": _panel_out(survivors, mis), "panel_size": lower,
+        "mis_method": mis_method, "mis_exact": mis_exact,
         "edges": [{"i": i, "j": j, "dg": edge_dg[(i, j)],
                    "a": survivors[i]["name"], "b": survivors[j]["name"]} for (i, j) in edges],
-        "n_edges": len(edges),
-        "clique_cover_bound": cc_bound,
+        "n_edges": len(edges), "clique_cover_bound": cc_bound,
         "theta": (round(theta_raw, 4) if theta_raw is not None else None),
-        "theta_int": theta_int,
-        "upper_bound": upper,
-        "bound_source": bound_source,
-        "theta_unavailable": theta_unavailable,
-        "gap": gap,
-        "certified": certified,
-        "split_pool": _split_pool(lower, (theta_raw if bound_source == "lovasz_theta" else None), k),
+        "theta_display_int": theta_display_int,
+        "theta_certifying": False,
+        "upper_bound": upper, "bound_source": bound_source,
+        "theta_unavailable": theta_unavailable, "gap": gap, "certified": certified,
+        "split_pool": _split_pool(lower, theta_raw, k),
         "nodes": [{"id": i, "name": survivors[i]["name"], "seq": survivors[i]["seq"],
                    "role": survivors[i].get("role"), "target": survivors[i].get("target"),
                    "in_panel": i in set(mis)} for i in range(n)],
     })
     if not certified:
-        result["note"] = ("gap %d: the panel is at least %d and at most %d oligos; not proven "
-                          "maximum under this model" % (gap, lower, upper))
+        result["note"] = ("model optimum not proven: constructed panel has %d oligos and the "
+                          "rigorous clique-cover upper bound is %d" % (lower, upper))
+    elif bound_source == "exact_bnb":
+        result["note"] = "exact branch-and-bound proved this panel is maximum for the graph model"
     return result
-
 
 def _panel_out(survivors, idxs):
     out = []
@@ -373,20 +357,19 @@ def _panel_out(survivors, idxs):
 
 
 def _split_pool(mis_size, theta_raw, k):
-    """Split-pool capacity: certified θ^k ceiling (when θ is available) vs the naive
-    product-of-independent-sets count |MIS|^k, to show where distance reasoning overcounts."""
+    """Report constructive and diagnostic k-round quantities without claiming achieved capacity."""
     naive = strong_product_capacity(mis_size, k)
-    certified_ceiling = strong_product_capacity(theta_raw, k) if theta_raw is not None else None
-    out = {"k": k, "naive_mis_pow_k": (round(naive, 4) if naive is not None else None)}
-    if certified_ceiling is not None:
-        out["theta_pow_k"] = round(certified_ceiling, 4)
-        out["certified_max_barcodes"] = int(math.floor(certified_ceiling + 1e-6))
-        out["assumption"] = ("θ^k is the certified collision-free k-round barcode capacity under the "
-                             "strong-product model: two barcodes collide iff they cross-hybridize in "
-                             "at least one round. A modeling assumption, not a wet-lab guarantee.")
+    out = {"k": k, "constructed_panel_pow_k": (round(naive, 4) if naive is not None else None),
+           "naive_mis_pow_k": (round(naive, 4) if naive is not None else None)}
+    if theta_raw is not None:
+        theta_power = strong_product_capacity(theta_raw, k)
+        out["theta_pow_k"] = round(theta_power, 4)
+        out["theta_diagnostic_only"] = True
+        out["note"] = ("theta^k is shown as a numerical graph diagnostic. It is not an achieved "
+                       "barcode count and is not used as a formal certificate in this implementation.")
     else:
-        out["note"] = ("θ unavailable (cvxpy not installed or graph too large); split-pool ceiling "
-                       "not certified. Naive |MIS|^k shown for reference only.")
+        out["note"] = ("No theta diagnostic was computed. The constructed |panel|^k count assumes "
+                       "independent use of the selected panel in each round; it is not a wet-lab capacity claim.")
     return out
 
 
@@ -395,7 +378,7 @@ def _split_pool(mis_size, theta_raw, k):
 # ------------------------------------------------------------------------------------------------
 
 def _demo():
-    print("=== Certified Orthogonal Panel — demo ===\n")
+    print("=== Orthogonal Panel — model audit demo ===\n")
 
     # Part 1 — a real oligo pool. Five candidates, all passing the self-structure filter, where one
     # is the reverse complement of another (they cross-hybridize and cannot both be in the panel).
@@ -414,31 +397,28 @@ def _demo():
     for e in res.get("edges", []):
         print("    edge %s–%s  ΔG %.1f kcal/mol" % (e["a"], e["b"], e["dg"]))
     print("    panel (size %d): %s" % (res["panel_size"], ", ".join(p["name"] for p in res["panel"])))
-    verdict = "CERTIFIED MAXIMUM" if res["certified"] else ("gap %d" % res["gap"])
+    verdict = "MODEL MAXIMUM PROVEN" if res["certified"] else ("gap %d" % res["gap"])
     print("    certificate: %d ≤ α ≤ %d  (bound: %s)  ->  %s"
           % (res["panel_size"], res["upper_bound"], res.get("bound_source"), verdict))
     print("    (θ not needed here — the free clique-cover bound already closed the gap)\n")
 
     # Part 2 — a confusability graph that is a 5-cycle (each oligo cross-reacts with two neighbours).
-    # This is the case the free bound CANNOT certify: clique-cover of C5 = 3, but α(C5) = 2. Only the
-    # Lovász-θ SDP (θ = √5 ≈ 2.236, ⌊θ⌋ = 2) closes the gap and proves the panel of 2 is maximum.
+    # This is the case the free bound CANNOT certify: clique-cover of C5 = 3, but α(C5) = 2. The exact branch-and-bound search proves the panel of 2 is maximum; theta is shown only as a diagnostic.
     C5 = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]
     mis, _, _ = max_independent_set(5, C5)
     cc = clique_cover_bound(5, C5)
     th = lovasz_theta(5, C5)
-    print("[2] a 5-way cross-reaction cycle (C5) — where θ earns its keep")
-    print("    max independent set (panel): %d oligos" % len(mis))
-    print("    free clique-cover bound: %d  (too loose — cannot certify)" % cc)
+    print("[2] a 5-way cross-reaction cycle (C5)")
+    print("    exact branch-and-bound panel: %d oligos (model maximum proven)" % len(mis))
+    print("    greedy clique-cover upper bound: %d  (valid but loose)" % cc)
     if th is not None:
-        print("    Lovász θ: %.4f  ->  ⌊θ⌋ = %d  (CERTIFIES the panel of %d is maximum)"
-              % (th, integer_upper_bound(th), len(mis)))
+        print("    numerical Lovász θ diagnostic: %.4f  (not used as a formal certificate)" % th)
         for kk in (2, 3):
             cap = strong_product_capacity(th, kk)
-            print("    split-pool k=%d: certified ≤ %d collision-free barcodes (θ^%d=%.3f) vs "
-                  "naive |MIS|^%d=%d" % (kk, math.floor(cap + 1e-6), kk, cap, kk, len(mis) ** kk))
+            print("    split-pool k=%d: θ^%d diagnostic %.3f; constructed |MIS|^%d=%d"
+                  % (kk, kk, cap, kk, len(mis) ** kk))
     else:
-        print("    Lovász θ: unavailable (cvxpy not installed) — install cvxpy for the tight "
-              "certificate; the free bound above still applies")
+        print("    numerical Lovász θ diagnostic unavailable (optional cvxpy dependency)")
 
 
 if __name__ == "__main__":

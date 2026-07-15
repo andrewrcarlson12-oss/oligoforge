@@ -78,74 +78,120 @@ def _lod95_logistic(points, target=0.95, iters=60):
 
 
 def standard_curve(points):
-    """Fit Cq = slope*log10(quantity) + intercept over a standard dilution series.
+    """Fit Cq against log10(quantity) using one mean Cq per dilution level.
 
-    points: list of (quantity, Cq). Cq may be None for a non-detect. Repeat a
-    quantity for replicates. Reports efficiency E = 10^(-1/slope) - 1, R2, dynamic
-    range, per-level replicate stats, and a practical LOD (lowest standard detected
-    in every replicate). A formal MIQE LOD needs ~60 replicates near the limit."""
+    Technical replicates characterize precision and detection probability; they are
+    not independent x-axis levels.  Regressing every replicate separately allows an
+    unbalanced replicate count to overweight one concentration and produces an
+    artificially large residual degree of freedom.  This implementation therefore
+    aggregates detected Cq values by quantity for slope/R2/CI, while retaining all
+    replicate calls for level statistics and the exploratory detection model.
+    """
     import math, statistics
-    det = [(q, c) for q, c in points if c is not None and q and q > 0]
-    if len(det) < 2:
-        return dict(error="need >=2 detected points with positive quantity")
-    xs = [math.log10(q) for q, _ in det]
-    ys = [c for _, c in det]
-    n = len(xs)
-    xbar = sum(xs) / n; ybar = sum(ys) / n
-    Sxx = sum((x - xbar) ** 2 for x in xs)
-    Syy = sum((y - ybar) ** 2 for y in ys)
-    Sxy = sum((x - xbar) * (y - ybar) for x, y in zip(xs, ys))
-    if Sxx == 0:
-        return dict(error="all standards at one quantity; need a range")
-    slope = Sxy / Sxx
-    intercept = ybar - slope * xbar
-    r2 = (Sxy * Sxy) / (Sxx * Syy) if Syy else 0.0
-    eff = 10 ** (-1 / slope) - 1 if slope else 0.0
 
-    # Slope standard error, 95% CI, and propagated efficiency CI (MIQE reporting).
-    # SS_resid = Syy - slope*Sxy; MSE = SS_resid/(n-2); SE_slope = sqrt(MSE/Sxx).
-    # Efficiency is monotonic increasing in slope, so the slope-CI endpoints map
-    # directly to the efficiency CI. Needs n>=3 (>=1 residual degree of freedom).
-    slope_se = None; slope_ci = None; eff_ci_pct = None
-    if n >= 3 and Sxx > 0:
-        ss_resid = max(Syy - slope * Sxy, 0.0)
-        mse = ss_resid / (n - 2)
-        slope_se = (mse / Sxx) ** 0.5
-        tcrit = _T975.get(n - 2, 1.96)
-        s_lo = slope - tcrit * slope_se      # more negative slope bound
-        s_hi = slope + tcrit * slope_se      # less negative slope bound
-        slope_ci = [round(s_lo, 4), round(s_hi, 4)]
-        if s_lo < 0 and s_hi < 0:
-            e_lo = 10 ** (-1 / s_lo) - 1
-            e_hi = 10 ** (-1 / s_hi) - 1
-            eff_ci_pct = [round(e_lo * 100, 1), round(e_hi * 100, 1)]
+    cleaned = []
+    for q, c in points:
+        try:
+            qv = float(q)
+            cv = None if c is None else float(c)
+        except (TypeError, ValueError):
+            return dict(error="quantity and Cq values must be numeric (or Cq blank for non-detect)")
+        if not math.isfinite(qv) or qv <= 0:
+            return dict(error="every standard quantity must be finite and greater than zero")
+        if cv is not None and (not math.isfinite(cv) or cv <= 0 or cv > 80):
+            return dict(error="detected Cq values must be finite and in (0, 80]")
+        cleaned.append((qv, cv))
 
     groups = {}
-    for q, c in points:
+    for q, c in cleaned:
         groups.setdefault(q, []).append(c)
+
     levels = []
+    regression = []
     for q in sorted(groups, reverse=True):
-        cs = [c for c in groups[q] if c is not None]
-        nrep = len(groups[q]); ndet = len(cs)
-        levels.append(dict(quantity=q, n=nrep, detected=ndet,
-                           mean_cq=round(statistics.mean(cs), 2) if cs else None,
-                           sd_cq=round(statistics.pstdev(cs), 3) if len(cs) > 1 else None,
-                           detection_rate=round(100 * ndet / nrep, 0) if nrep else 0))
-    full = [l["quantity"] for l in levels if l["n"] and l["detected"] == l["n"]]
-    eff_pct = round(eff * 100, 1)
-    lod95 = _lod95_logistic(points)
-    return dict(slope=round(slope, 4), intercept=round(intercept, 3),
-                efficiency=round(eff, 4), efficiency_pct=eff_pct, r2=round(r2, 5),
-                slope_se=round(slope_se, 4) if slope_se is not None else None,
-                slope_ci95=slope_ci, efficiency_ci_pct=eff_ci_pct,
-                amp_factor=round(10 ** (-1 / slope), 4) if slope else None,
-                n_points=n, dynamic_range=[min(q for q, _ in det), max(q for q, _ in det)],
-                lod_practical=min(full) if full else None,
-                lod95=round(lod95, 4) if lod95 is not None else None,
-                efficiency_ok=90.0 <= eff_pct <= 110.0, r2_ok=r2 >= 0.98,
-                slope_ok=-3.58 <= slope <= -3.10, levels=levels,
-                notes="MIQE-aligned acceptance: efficiency 90-110% (slope -3.58 to -3.10), R2>=0.98. "
-                      "slope_ci95 / efficiency_ci_pct are 95% CIs (t, n-2 df); they need n>=3 points. "
-                      "lod95 is the 95%-detection LOD from a logistic fit of detect/non-detect vs "
-                      "log10(quantity) (needs a detection transition across levels; null otherwise). "
-                      "lod_practical is the lowest standard detected in all replicates (Forootan 2017).")
+        all_calls = groups[q]
+        detected = [c for c in all_calls if c is not None]
+        nrep, ndet = len(all_calls), len(detected)
+        mean_cq = statistics.mean(detected) if detected else None
+        levels.append(dict(
+            quantity=q, n=nrep, detected=ndet,
+            mean_cq=round(mean_cq, 2) if mean_cq is not None else None,
+            sd_cq=round(statistics.stdev(detected), 3) if len(detected) > 1 else None,
+            detection_rate=round(100.0 * ndet / nrep, 1) if nrep else 0.0,
+        ))
+        if mean_cq is not None:
+            regression.append((math.log10(q), mean_cq))
+
+    if len(regression) < 2:
+        return dict(error="need detected amplification at two or more distinct standard quantities",
+                    levels=levels)
+
+    xs = [x for x, _ in regression]
+    ys = [y for _, y in regression]
+    n_levels = len(xs)
+    xbar = statistics.mean(xs); ybar = statistics.mean(ys)
+    Sxx = sum((x - xbar) ** 2 for x in xs)
+    Syy = sum((y - ybar) ** 2 for y in ys)
+    Sxy = sum((x - xbar) * (y - ybar) for x, y in regression)
+    if Sxx <= 0:
+        return dict(error="all detected standards are at one quantity; need a dilution range",
+                    levels=levels)
+
+    slope = Sxy / Sxx
+    intercept = ybar - slope * xbar
+    ss_resid = sum((y - (slope * x + intercept)) ** 2 for x, y in regression)
+    r2 = 1.0 - ss_resid / Syy if Syy > 0 else (1.0 if ss_resid <= 1e-15 else 0.0)
+    r2 = min(1.0, max(0.0, r2))
+
+    def _efficiency(s):
+        if not math.isfinite(s) or s >= -0.25:
+            return None
+        exponent = -1.0 / s
+        if exponent > 4.0:                 # prevents overflow / physically meaningless output
+            return None
+        return 10.0 ** exponent - 1.0
+
+    eff = _efficiency(slope)
+    slope_se = None; slope_ci = None; eff_ci_pct = None
+    if n_levels >= 3:
+        mse = ss_resid / (n_levels - 2)
+        slope_se = math.sqrt(max(mse / Sxx, 0.0))
+        tcrit = _T975.get(n_levels - 2, 1.96)
+        s_lo = slope - tcrit * slope_se
+        s_hi = slope + tcrit * slope_se
+        slope_ci = [round(s_lo, 4), round(s_hi, 4)]
+        e_lo, e_hi = _efficiency(s_lo), _efficiency(s_hi)
+        if e_lo is not None and e_hi is not None:
+            eff_ci_pct = [round(min(e_lo, e_hi) * 100.0, 1),
+                          round(max(e_lo, e_hi) * 100.0, 1)]
+
+    fully_detected = [l["quantity"] for l in levels if l["n"] and l["detected"] == l["n"]]
+    lod_screen = _lod95_logistic(cleaned)
+    eff_pct = round(eff * 100.0, 1) if eff is not None else None
+    amp_factor = round(eff + 1.0, 4) if eff is not None else None
+    detected_observations = sum(l["detected"] for l in levels)
+
+    return dict(
+        slope=round(slope, 4), intercept=round(intercept, 3),
+        efficiency=round(eff, 4) if eff is not None else None,
+        efficiency_pct=eff_pct, r2=round(r2, 5),
+        slope_se=round(slope_se, 4) if slope_se is not None else None,
+        slope_ci95=slope_ci, efficiency_ci_pct=eff_ci_pct,
+        amp_factor=amp_factor,
+        n_points=n_levels, n_levels=n_levels,
+        n_observations=len(cleaned), n_detected_observations=detected_observations,
+        dynamic_range=[min(10.0 ** x for x in xs), max(10.0 ** x for x in xs)],
+        lod_practical=min(fully_detected) if fully_detected else None,
+        lowest_fully_detected_standard=min(fully_detected) if fully_detected else None,
+        lod95=round(lod_screen, 4) if lod_screen is not None else None,
+        lod95_status=("exploratory logistic estimate" if lod_screen is not None else "not estimable"),
+        efficiency_ok=(eff_pct is not None and 90.0 <= eff_pct <= 110.0),
+        r2_ok=r2 >= 0.98,
+        slope_ok=-3.58 <= slope <= -3.10,
+        levels=levels,
+        notes=("Regression uses the mean detected Cq at each distinct quantity; technical replicates "
+               "contribute to SD and detection rate, not independent slope degrees of freedom. "
+               "The lowest fully detected standard is a screening descriptor, not a validated LOD. "
+               "lod95 is an exploratory logistic estimate and requires dedicated replicate-rich "
+               "experiments near the detection boundary before publication or clinical claims."),
+    )

@@ -1,10 +1,10 @@
 """Consolidate an assay's identity, engine-predicted thermodynamics, and (optional) empirical run data
-into a single MIQE-aligned, provenance-pinned validation record.
+into a MIQE-aligned, provenance-pinned assay-readiness record.
 
 This is the join between the physical-chemistry engine (oligoforge/nn.py — predicted Tm, ΔG, fraction
 bound) and the empirical analyses (oligoforge/quant.standard_curve, melt) that the rest of the app
-already produces. It does not re-derive any thermodynamics or statistics; it calls the validated
-primitives, applies MIQE acceptance criteria (Bustin et al. 2009), and stamps a reproducible provenance
+already produces. It does not re-derive any thermodynamics or statistics; it records computational
+and empirical evidence separately, applies transparent screening thresholds, and stamps a reproducible provenance
 block (sequence checksums, tool version, UTC timestamp, reaction conditions) so a record can be cited.
 """
 import hashlib
@@ -40,11 +40,11 @@ def _chk(cid, label, status, detail=""):
 
 
 def validate_assay(assay, cond=None, anneal_c=None, observed_amplicon_tm=None, observed_peaks=None):
-    """Build a MIQE validation record for one assay dict (forward, reverse, probe, amplicon[/_tm],
-    name, chemistry, dye, validation={efficiency_pct,r2,slope,lod}). Optional observed_amplicon_tm and
-    observed_peaks (e.g. from a melt run) drive the predicted-vs-observed and specificity checks.
-    Conditions default to the live reaction conditions. Returns the record (also carries a Markdown
-    rendering under 'markdown')."""
+    """Build a MIQE-aligned assay-readiness record.
+
+    Computational predictions and attached empirical observations are reported separately. The
+    result is not a certification of MIQE compliance and cannot replace bench validation.
+    """
     a = assay or {}
     F, Rv, P = a.get("forward", ""), a.get("reverse", ""), a.get("probe", "")
     cond = dict(T.COND, **(cond or {}))
@@ -82,18 +82,25 @@ def validate_assay(assay, cond=None, anneal_c=None, observed_amplicon_tm=None, o
     if slope is not None:
         st = "pass" if -3.58 <= slope <= -3.10 else "warn"
         checks.append(_chk("slope", "Calibration slope −3.58 to −3.10", st, "%.3f" % slope))
-    lod = val.get("lod")
-    if lod is not None:
-        checks.append(_chk("lod", "Limit of detection reported", "pass", "lowest fully-detected standard: %s" % lod))
+    validated_lod95 = val.get("validated_lod95")
+    lod_screen = val.get("lowest_fully_detected_standard", val.get("lod"))
+    if validated_lod95 is not None:
+        checks.append(_chk("lod", "Detection-limit experiment", "pass",
+                           "validated 95% LOD reported: %s" % validated_lod95))
+    elif lod_screen is not None:
+        checks.append(_chk("lod", "Detection-limit experiment", "warn",
+                           "lowest fully-detected standard recorded: %s; this is not a validated 95%% LOD" % lod_screen))
     else:
-        checks.append(_chk("lod", "Limit of detection reported", "na", "no LOD on file"))
+        checks.append(_chk("lod", "Detection-limit experiment", "na", "no replicated detection-limit study attached"))
 
     # --- specificity (observed melt) ---
     if observed_peaks is not None:
-        st = "pass" if observed_peaks == 1 else "fail"
-        checks.append(_chk("single_product", "Single specific product (one melt peak)", st, "%d peak(s) observed" % observed_peaks))
+        st = "review" if observed_peaks == 1 else "fail"
+        checks.append(_chk("single_product", "Product-specificity evidence", st,
+                           ("one melt peak observed; confirm identity with an orthogonal method" if observed_peaks == 1
+                            else "%d melt peaks observed" % observed_peaks)))
     else:
-        checks.append(_chk("single_product", "Single specific product (one melt peak)", "na", "no melt curve provided"))
+        checks.append(_chk("single_product", "Product-specificity evidence", "na", "no empirical product-identity evidence attached"))
 
     # --- predicted vs observed amplicon Tm (closes the loop on the Tm engine) ---
     if observed_amplicon_tm is not None and pred_amp_tm is not None:
@@ -124,7 +131,16 @@ def validate_assay(assay, cond=None, anneal_c=None, observed_amplicon_tm=None, o
 
     statuses = [c["status"] for c in checks if c["status"] != "na"]
     n_na = sum(1 for c in checks if c["status"] == "na")
-    miqe_status = "fail" if "fail" in statuses else ("review" if "warn" in statuses else "pass")
+    required_empirical = {"efficiency", "linearity", "slope", "lod", "single_product"}
+    missing_required = [c["id"] for c in checks if c["id"] in required_empirical and c["status"] == "na"]
+    if "fail" in statuses:
+        miqe_status = "fail"
+    elif missing_required:
+        miqe_status = "incomplete"
+    elif "warn" in statuses or "review" in statuses:
+        miqe_status = "review"
+    else:
+        miqe_status = "pass"
 
     record = dict(
         assay=dict(name=a.get("name", "assay"), gene=a.get("gene", ""), organism=a.get("organism", ""),
@@ -136,21 +152,26 @@ def validate_assay(assay, cond=None, anneal_c=None, observed_amplicon_tm=None, o
                                         dntp_conc_mM=cond.get("dntp_conc"), oligo_nM=cond.get("dna_conc"), anneal_c=ac),
                         checksums=dict(forward=_csum(F), reverse=_csum(Rv), probe=_csum(P))),
         predicted=dict(oligos=pred, amplicon_tm=pred_amp_tm),
-        empirical=dict(efficiency_pct=eff, r2=r2, slope=slope, lod=lod, observed_amplicon_tm=observed_amplicon_tm,
+        empirical=dict(efficiency_pct=eff, r2=r2, slope=slope, validated_lod95=validated_lod95,
+                       lowest_fully_detected_standard=lod_screen, observed_amplicon_tm=observed_amplicon_tm,
                        observed_peaks=observed_peaks),
-        checks=checks, n_missing=n_na, miqe_status=miqe_status,
+        checks=checks, n_missing=n_na, missing_required=missing_required,
+        miqe_status=miqe_status,
     )
     record["markdown"] = to_markdown(record)
     return record
 
 
 def to_markdown(rec):
-    """Render a validation record as a self-contained MIQE Markdown report."""
+    """Render a self-contained MIQE-aligned assay-readiness report."""
     a, pv, pr = rec["assay"], rec["provenance"], rec["predicted"]
-    sym = {"pass": "PASS", "fail": "FAIL", "warn": "REVIEW", "na": "n/a"}
+    sym = {"pass": "PASS", "fail": "FAIL", "warn": "REVIEW", "review": "REVIEW", "na": "n/a"}
     L = []
-    L.append("# MIQE validation — %s" % a["name"])
-    status_word = {"pass": "MEETS MIQE acceptance criteria", "review": "REVIEW (warnings present)", "fail": "FAILS one or more criteria"}[rec["miqe_status"]]
+    L.append("# MIQE-aligned assay readiness — %s" % a["name"])
+    status_word = {"pass": "all recorded readiness checks pass",
+                   "review": "REVIEW (limitations or warnings present)",
+                   "incomplete": "INCOMPLETE (required empirical evidence missing)",
+                   "fail": "FAILS one or more recorded checks"}[rec["miqe_status"]]
     L.append("**Overall: %s**%s\n" % (status_word, ("  ·  %d item(s) not yet assessed" % rec["n_missing"]) if rec["n_missing"] else ""))
     L.append("## Assay")
     if a["gene"] or a["organism"]:
@@ -171,7 +192,7 @@ def to_markdown(rec):
             L.append("- %s: Tm %.1f °C, ΔG°37 %.1f kcal/mol, %s (%s)" % (k.capitalize(), o["tm"], o["dg37"], fb, o["basis"]))
     if pr["amplicon_tm"] is not None:
         L.append("- Amplicon Tm: %.1f °C" % pr["amplicon_tm"])
-    L.append("\n## MIQE checklist")
+    L.append("\n## Assay-readiness checklist")
     for c in rec["checks"]:
         L.append("- [%s] %s%s" % (sym[c["status"]], c["label"], ("  —  %s" % c["detail"]) if c["detail"] else ""))
     L.append("\n## Provenance")
@@ -181,6 +202,5 @@ def to_markdown(rec):
              (co["mv_conc_mM"], co["dv_conc_mM"], co["dntp_conc_mM"], co["oligo_nM"], co["anneal_c"]))
     cs = pv["checksums"]
     L.append("- Checksums: F %s · R %s%s" % (cs["forward"], cs["reverse"], (" · P %s" % cs["probe"]) if cs["probe"] else ""))
-    L.append("\n*MIQE acceptance per Bustin et al. 2009. Predicted thermodynamics are from nearest-neighbor "
-             "models (SantaLucia 1998; McTigue 2004 for LNA) and are guidance, not a substitute for empirical validation.*")
+    L.append("\n*This is a MIQE-aligned readiness record, not a certification of MIQE compliance. Predicted thermodynamics use nearest-neighbor models (SantaLucia 1998; McTigue 2004 for LNA) and require vendor-specific and empirical confirmation under the intended assay conditions.*")
     return "\n".join(L)

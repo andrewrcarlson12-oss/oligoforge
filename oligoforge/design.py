@@ -149,7 +149,8 @@ def design_assay(template, c):
         gb, gs, ge = build_gblock(template, p["fstart"], p["rend"])
         return dict(forward=p["f"], reverse=p["r"], probe=None, amplicon=p["amp"],
                     amplicon_tm=round(T.amplicon_tm(template.upper()[p["fstart"]:p["rend"]]), 1),
-                    pair_tm_gap=p["gap"], f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]),
+                    pair_tm_gap=p["gap"], pair_dimer=p.get("dimer"),
+                    f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]),
                     probe_info=None, gblock=gb, gblock_span=(gs, ge),
                     f_xy=(p["fstart"], p["fend"]), r_xy=(p["rstart"], p["rend"]))
     for p in pairs[:10]:
@@ -157,7 +158,7 @@ def design_assay(template, c):
         if probe:
             gb, gs, ge = build_gblock(template, p["fstart"], p["rend"])
             return dict(forward=p["f"], reverse=p["r"], probe=probe["probe"],
-                        amplicon=p["amp"], pair_tm_gap=p["gap"],
+                        amplicon=p["amp"], pair_tm_gap=p["gap"], pair_dimer=p.get("dimer"),
                         amplicon_tm=round(T.amplicon_tm(template.upper()[p["fstart"]:p["rend"]]), 1),
                         f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]), probe_info=probe,
                         gblock=gb, gblock_span=(gs, ge),
@@ -253,40 +254,105 @@ def probe_span(template, assay):
     return [j, j + len(needle)] if j >= 0 else None
 
 
-def design_candidates(template, c, n=5, window=400, step=120, budget=9.0):
-    """Up to n distinct assays across the template, each with base coordinates mapped to the FULL
-    template: f_xy, r_xy, probe_xy, amplicon_xy. Slides a design window (so a transcript with a bad
-    5' end still yields interior candidates) and de-dups by forward primer. Window count is capped so
-    even a multi-kb sequence runs a bounded number of design passes. Coordinate invariants hold:
-    template[f_xy[0]:f_xy[1]] == forward, template[r_xy[0]:r_xy[1]] == revcomp(reverse)."""
+def _spread_starts(starts):
+    """Return coordinates in an endpoint/midpoint order so a time budget samples the
+    whole template before filling local gaps."""
+    starts = sorted(set(int(x) for x in starts))
+    out, seen = [], set()
+
+    def visit(lo, hi):
+        if lo > hi:
+            return
+        mid = (lo + hi) // 2
+        for idx in (lo, hi, mid):
+            if idx not in seen:
+                seen.add(idx)
+                out.append(starts[idx])
+        visit(lo + 1, mid - 1)
+        visit(mid + 1, hi - 1)
+
+    if starts:
+        visit(0, len(starts) - 1)
+    return out
+
+
+def _candidate_rank(a, c):
+    """Lower is better. Rank complete assays globally rather than returning the
+    first acceptable design window."""
+    ft = float(a.get("f_tm", 0.0)); rt = float(a.get("r_tm", 0.0))
+    score = abs((ft + rt) / 2.0 - float(c.get("tm_opt", (ft + rt) / 2.0)))
+    score += 1.5 * abs(ft - rt)
+    amp = int(a.get("amplicon") or 0)
+    if amp > 150:
+        score += 0.20 * (amp - 150)
+    pair_dimer = a.get("pair_dimer")
+    if isinstance(pair_dimer, (int, float)):
+        score += 2.0 * max(0.0, -5.5 - float(pair_dimer))
+    pi = a.get("probe_info")
+    if pi:
+        target = min(max(float(c.get("probe_offset_min", 0.0)), 9.0),
+                     float(c.get("probe_offset_max", 10.0)))
+        score += 0.35 * abs(float(pi.get("offset", target)) - target)
+        score += 1.5 * max(0.0, -3.0 - float(pi.get("hairpin_dg", 0.0)))
+    return score
+
+
+def design_candidates(template, c, n=5, window=400, step=120, budget=12.0):
+    """Return globally ranked, coordinate-exact assays across the full template.
+
+    The old implementation stopped after the first ``n`` successful 5'-to-3'
+    windows.  This created positional bias and could hide stronger downstream
+    assays.  The revised search samples the entire target in a spread order,
+    collects a bounded pool, remaps every coordinate to the full template, then
+    ranks complete assays before trimming to ``n``.
+    """
     import time
     template = template.upper()
     L = len(template)
-    window = max(window, min(int(c.get("amp_max", 150)) + 120, 2200))   # honor a larger amp_max, still bounded
+    n = max(1, int(n))
+    window = max(int(window), min(int(c.get("amp_max", 150)) + 120, 2200))
     if L <= window:
         starts = [0]
     else:
-        step_eff = max(step, (L - window) // 29 + 1)   # <= ~30 design windows on a long sequence
-        starts = list(range(0, L - window + 1, step_eff))
+        span = L - window
+        max_windows = 30
+        even = [round(i * span / (max_windows - 1)) for i in range(max_windows)]
+        grid = list(range(0, span + 1, max(1, int(step)))) + [span]
+        merged = sorted(set(even + grid))
+        if len(merged) > max_windows:
+            merged = [merged[round(i * (len(merged) - 1) / (max_windows - 1))]
+                      for i in range(max_windows)]
+        starts = _spread_starts(merged)
+
     out, seen = [], set()
-    t0 = time.time()
-    for s in starts:
-        if time.time() - t0 > budget:                  # hard wall: a pathological template can't stall a worker
+    t0 = time.monotonic()
+    for idx, start in enumerate(starts):
+        if idx and time.monotonic() - t0 >= float(budget):
             break
-        sub = template[s:s + window]
+        sub = template[start:start + window]
         try:
             a = design_assay(sub, c)
         except Exception:
             a = None
-        if not a or a["forward"] in seen:
+        if not a:
             continue
-        seen.add(a["forward"])
-        pxy = probe_span(sub, a)                        # window-relative; remap below
-        a["f_xy"] = [a["f_xy"][0] + s, a["f_xy"][1] + s]
-        a["r_xy"] = [a["r_xy"][0] + s, a["r_xy"][1] + s]
-        a["probe_xy"] = [pxy[0] + s, pxy[1] + s] if pxy else None
+        key = (a.get("forward"), a.get("reverse"), a.get("probe"))
+        if key in seen:
+            continue
+        seen.add(key)
+        pxy = probe_span(sub, a)
+        a["search_window_start"] = start
+        a["f_xy"] = [a["f_xy"][0] + start, a["f_xy"][1] + start]
+        a["r_xy"] = [a["r_xy"][0] + start, a["r_xy"][1] + start]
+        a["probe_xy"] = [pxy[0] + start, pxy[1] + start] if pxy else None
         a["amplicon_xy"] = [a["f_xy"][0], a["r_xy"][1]]
+        if a.get("gblock_span"):
+            a["gblock_span"] = [a["gblock_span"][0] + start,
+                                  a["gblock_span"][1] + start]
+        a["candidate_rank"] = round(_candidate_rank(a, c), 4)
         out.append(a)
-        if len(out) >= n:
-            break
-    return out
+
+    out.sort(key=lambda a: (a.get("candidate_rank", float("inf")),
+                            a.get("amplicon", 10**9),
+                            a.get("search_window_start", 0)))
+    return out[:n]

@@ -105,15 +105,15 @@ PARASITE_LNA = dict(
     hairpin_min=-2.0, self_dimer_min=-6.0, pair_dimer_min=-6.0, pair_tm_gap_max=2.5,
     amp_min=60, amp_max=150, min_probe_gap=10,
     probe_len_min=12, probe_len_max=22,            # short LNA core
-    # The probe's ALL-DNA Tm legitimately sits at or below the primer Tm here: on an AT-rich target a short
-    # core can't reach a +8 C offset as plain DNA, and it doesn't need to -- the LNA bases supply the
-    # binding strength (~+2-8 C). So accept a DNA Tm from ~12 C below to ~4 C above the primers.
+    # The plain-DNA backbone can sit below the final modified-probe Tm. LNA increments are
+    # sequence- and position-dependent, so this window is only a candidate-generation heuristic;
+    # explicit +N placement is recalculated with the McTigue model and must be vendor-confirmed.
     probe_offset_min=-12.0, probe_offset_max=4.0,
     probe_hairpin_min=-1.5,
-    notes="AT-rich apicomplexan cytb where the probe is ordered as IDT Affinity Plus (LNA). Primers are low-Tm "
-          "(~55C); the reported probe Tm is the ALL-DNA value and will read at/below the primer Tm because the LNA "
-          "bases raise the effective Tm (~+2-8 C). Add <=6 LNA / <=4 sequential and confirm the final probe Tm in "
-          "OligoAnalyzer Affinity Plus.",
+    notes="AT-rich apicomplexan cytb profile for an Affinity Plus/LNA probe. Primers are intentionally lower-Tm. "
+          "The initial probe screen uses its DNA backbone; explicit +N positions are evaluated with the McTigue "
+          "nearest-neighbour model. LNA effects are context-dependent, so confirm the final modified order with "
+          "the vendor and validate it experimentally.",
 )
 
 GC_RICH = dict(
@@ -186,7 +186,7 @@ def lint_oligo(seq, role, profile):
         chk("more C than G", seq.count("C") >= seq.count("G"),
             f"C/G = {seq.count('C')}/{seq.count('G')}")
         _ptm = T.tm(seq)            # decision stays on the selection scale (windows are tuned to it)
-        _ptm_disp = T.tm_acc(seq)   # show the user the accurate, IDT-method Tm
+        _ptm_disp = T.tm_acc(seq)   # show the user the reporting nearest-neighbour Tm
         _lna_mgb = any(x in profile.get("name", "") for x in ("LNA", "Affinity", "MGB"))
         if _lna_mgb:
             out.append(("probe Tm (as DNA)", "PASS",

@@ -7,14 +7,14 @@ from Bio import Entrez, SeqIO
 # Bound every NCBI HTTP call so a genuinely stalled connection eventually fails
 # instead of hanging forever — but generously, because a remote blastn against
 # nt is queued server-side at NCBI and a single poll can legitimately take
-# several minutes (and a large efetch can too). 600 s is the default so BLAST
-# from the Target->assay tab completes instead of being killed mid-poll.
-# Override with the env var OLIGOFORGE_NCBI_TIMEOUT (seconds); raise it higher
-# if your network is slow. Async server sockets are non-blocking and ignore this.
+# several minutes overall, but no single HTTP operation should monopolize a worker.
+# The default is 30 seconds per network operation; retry logic provides bounded recovery.
+# Override OLIGOFORGE_NCBI_TIMEOUT for a known slow private deployment.
 try:
-    NCBI_TIMEOUT = float(os.environ.get("OLIGOFORGE_NCBI_TIMEOUT", "600"))
+    NCBI_TIMEOUT = float(os.environ.get("OLIGOFORGE_NCBI_TIMEOUT", "30"))
 except ValueError:
-    NCBI_TIMEOUT = 600.0
+    NCBI_TIMEOUT = 30.0
+NCBI_TIMEOUT = min(max(NCBI_TIMEOUT, 3.0), 300.0)
 socket.setdefaulttimeout(NCBI_TIMEOUT)
 from io import StringIO
 
@@ -41,7 +41,7 @@ def _int_env(name, default):
 
 _CACHE_ON = os.environ.get("OLIGOFORGE_NCBI_CACHE", "1") not in ("0", "false", "False", "")
 _CACHE_TTL = _int_env("OLIGOFORGE_NCBI_CACHE_TTL", 7 * 24 * 3600)
-_RETRIES = max(1, _int_env("OLIGOFORGE_NCBI_RETRIES", 3))
+_RETRIES = min(5, max(1, _int_env("OLIGOFORGE_NCBI_RETRIES", 3)))
 _CACHE_DIR = os.path.join(os.environ.get("OLIGOFORGE_DATA_PATH") or tempfile.gettempdir(),
                           "oligoforge_ncbi_cache")
 _TRANSIENT = (socket.timeout, urllib.error.URLError, http.client.HTTPException,
@@ -58,7 +58,7 @@ _TRANSIENT_MSGS = ("search backend failed", "error reading from backend", "backe
 # esearch+read is retried more aggressively than _net's default: each attempt is cheap and the
 # backend error is intermittent (~half the time on the worst queries), so a few extra tries take
 # the residual failure rate to near zero.
-_SEARCH_RETRIES = max(_RETRIES, 5)
+_SEARCH_RETRIES = max(_RETRIES, 3)
 
 
 def _is_transient(e):

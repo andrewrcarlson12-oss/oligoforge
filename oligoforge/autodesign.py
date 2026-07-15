@@ -69,24 +69,88 @@ def _design_one(template, profile):
     return D.design_assay(template, profile)
 
 
-def _candidates(reference, profile, n=3, window=350, step=100):
-    """Slide a design window across the WHOLE reference until n distinct candidates
-    are found. Previously only two static windows (5' end + exact middle) were tried,
-    so a transcript with a bad 5' end and a bad middle could falsely report
-    NO ASSAY FOUND while hundreds of valid interior bases went unexamined."""
+def _spread_order(starts):
+    """Visit a sorted coordinate list in a target-spanning order.
+
+    The sequence 5' -> 3' is a poor order when a runtime budget may expire: it
+    recreates the exact 5'-bias the sliding-window search is intended to remove.
+    Recursive endpoint/midpoint sampling touches the full target early, then fills
+    the gaps.
+    """
+    starts = sorted(set(starts))
+    out, seen = [], set()
+    def add(lo, hi):
+        if lo > hi:
+            return
+        for idx in (lo, hi, (lo + hi) // 2):
+            if idx not in seen:
+                seen.add(idx); out.append(starts[idx])
+        mid = (lo + hi) // 2
+        add(lo + 1, mid - 1)
+        add(mid + 1, hi - 1)
+    if starts:
+        add(0, len(starts) - 1)
+    return out
+
+
+def _candidates(reference, profile, n=3, window=350, step=100, budget_s=30.0):
+    """Collect assay candidates across the full reference before global ranking.
+
+    Earlier releases stopped as soon as ``n`` early windows happened to succeed.
+    That made acceptable 5' assays crowd out stronger downstream assays.  This
+    version samples the full target in a spread order, deduplicates complete assay
+    identities, and returns the full bounded pool. ``design_from_sequences`` then
+    applies conservation, discrimination and quality scoring globally and trims to
+    the requested count.
+    """
+    import time
     L = len(reference)
+    window = max(int(window), min(int(profile.get("amp_max", 150)) + 120, 2200))
     if L <= window:
         starts = [0]
     else:
-        step_eff = max(step, (L - window) // 29 + 1)   # <= ~30 design windows even on a ~6 kb mitogenome
-        starts = list(range(0, L - window + 1, step_eff))
+        max_windows = 30
+        span = L - window
+        # Evenly spaced coordinates guarantee the 3' end is represented.  Add the
+        # legacy step grid for local resolution, then cap deterministically.
+        even = [round(i * span / (max_windows - 1)) for i in range(max_windows)]
+        grid = list(range(0, span + 1, max(step, 1))) + [span]
+        starts = sorted(set(even + grid))
+        if len(starts) > max_windows:
+            starts = [starts[round(i * (len(starts) - 1) / (max_windows - 1))]
+                      for i in range(max_windows)]
+    starts = _spread_order(starts)
     cands, seen = [], set()
-    for s in starts:
-        a = _design_one(reference[s:s + window], profile)
-        if a and a["forward"] not in seen:
-            seen.add(a["forward"]); cands.append(a)
-        if len(cands) >= n:
+    t0 = time.monotonic()
+    for start in starts:
+        if cands and time.monotonic() - t0 >= budget_s:
             break
+        try:
+            assay = _design_one(reference[start:start + window], profile)
+        except Exception:
+            assay = None
+        if not assay:
+            continue
+        key = (assay.get("forward"), assay.get("reverse"), assay.get("probe"))
+        if key in seen:
+            continue
+        seen.add(key)
+        # Preserve the exact selected site on the full reference.  Sequence-only
+        # ``str.find`` is ambiguous in repeat-rich targets and can map a valid assay
+        # to the wrong copy of a motif.
+        pxy = D.probe_span(reference[start:start + window], assay)
+        assay["search_window_start"] = start
+        if assay.get("f_xy"):
+            assay["f_xy"] = [assay["f_xy"][0] + start, assay["f_xy"][1] + start]
+        if assay.get("r_xy"):
+            assay["r_xy"] = [assay["r_xy"][0] + start, assay["r_xy"][1] + start]
+        assay["probe_xy"] = ([pxy[0] + start, pxy[1] + start] if pxy else None)
+        if assay.get("f_xy") and assay.get("r_xy"):
+            assay["amplicon_xy"] = [assay["f_xy"][0], assay["r_xy"][1]]
+        if assay.get("gblock_span"):
+            assay["gblock_span"] = [assay["gblock_span"][0] + start,
+                                      assay["gblock_span"][1] + start]
+        cands.append(assay)
     return cands
 
 
@@ -288,6 +352,15 @@ def _disc_candidates(reference, profile, offs, want=6, window=350, screen=300):
                          pair_tm_gap=p.get("gap"), amplicon_tm=round(T.amplicon_tm(win[p["fstart"]:p["rend"]]), 1),
                          f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]), probe_info=probe,
                          gblock=gb, gblock_span=(gs, ge), f_xy=(p["fstart"], p["fend"]), r_xy=(p["rstart"], p["rend"]))
+        pxy = D.probe_span(win, assay)
+        assay["search_window_start"] = s
+        assay["f_xy"] = [assay["f_xy"][0] + s, assay["f_xy"][1] + s]
+        assay["r_xy"] = [assay["r_xy"][0] + s, assay["r_xy"][1] + s]
+        assay["probe_xy"] = ([pxy[0] + s, pxy[1] + s] if pxy else None)
+        assay["amplicon_xy"] = [assay["f_xy"][0], assay["r_xy"][1]]
+        if assay.get("gblock_span"):
+            assay["gblock_span"] = [assay["gblock_span"][0] + s,
+                                      assay["gblock_span"][1] + s]
         seen.add(p["f"]); out.append(assay)
         if len(out) >= want:
             break
@@ -391,8 +464,10 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
                            amplicon_penalty=round(amp_pen, 1),
                            assay=a, conservation=cons, discrimination=disc))
     scored.sort(key=lambda x: -x["score"])
+    n_found = len(scored)
+    scored = scored[:max(1, int(n_candidates))]
     out = dict(n_targets=len(targets), n_offs=len(offs) if offs else 0,
-               reference_len=len(ref), n_candidates=len(scored),
+               reference_len=len(ref), n_candidates=len(scored), n_candidates_screened=n_found,
                n_requested=n_candidates, candidates=scored)
     if len(scored) < n_candidates:
         out["constraint_note"] = ("only %d clean set(s) met the %s constraints on this target — "
