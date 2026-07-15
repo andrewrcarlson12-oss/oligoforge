@@ -1,14 +1,19 @@
-# One-click deploy on Render (render.com): New + -> Blueprint -> pick this repo.
-# autoDeploy: every git push redeploys, so the live URL is always your latest commit.
+# Render Blueprint: connect this repository, then provide the secret values in the dashboard.
 services:
   - type: web
     name: oligoforge
     runtime: docker
-    plan: free            # free tier sleeps when idle; upgrade for always-on
+    plan: free
     autoDeploy: true
-    healthCheckPath: /healthz   # readiness probe added in v1.13.0
+    healthCheckPath: /healthz
     envVars:
+      - key: OLIGOFORGE_HOSTED
+        value: "1"
+      - key: OLIGOFORGE_ALLOW_SERVER_STORAGE
+        value: "0"
+      - key: OLIGOFORGE_ALLOW_SHARED_CONDITIONS
+        value: "0"
       - key: OLIGOFORGE_EMAIL
-        value: arcarl27@colby.edu
+        sync: false
       - key: OLIGOFORGE_NCBI_KEY
-        sync: false      # paste your NCBI API key in the Render dashboard; never stored in git
+        sync: false

@@ -20,6 +20,7 @@ import sys
 import glob
 import shutil
 import subprocess
+import time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 ENV = dict(os.environ)
@@ -29,9 +30,19 @@ ENV["PYTHONPATH"] = ROOT + os.pathsep + ENV.get("PYTHONPATH", "")
 GREEN, RED, DIM, RESET = "\033[32m", "\033[31m", "\033[2m", "\033[0m"
 
 
-def _run(cmd):
-    p = subprocess.run(cmd, cwd=ROOT, env=ENV, capture_output=True, text=True)
-    return p.returncode, (p.stdout or "") + (p.stderr or "")
+PY_TEST_TIMEOUT = int(os.environ.get("OLIGOFORGE_TEST_TIMEOUT", "300"))
+NODE_TEST_TIMEOUT = int(os.environ.get("OLIGOFORGE_NODE_TEST_TIMEOUT", "120"))
+
+
+def _run(cmd, timeout):
+    try:
+        p = subprocess.run(cmd, cwd=ROOT, env=ENV, capture_output=True, text=True, timeout=timeout)
+        return p.returncode, (p.stdout or "") + (p.stderr or "")
+    except subprocess.TimeoutExpired as exc:
+        out = (exc.stdout or "") + (exc.stderr or "")
+        if isinstance(out, bytes):
+            out = out.decode(errors="replace")
+        return 124, out + "\nTIMEOUT after %d seconds" % timeout
 
 
 def run_python():
@@ -40,7 +51,7 @@ def run_python():
     failed = []
     for t in tests:
         name = os.path.basename(t)
-        rc, out = _run([sys.executable, t])
+        rc, out = _run([sys.executable, t], PY_TEST_TIMEOUT)
         if rc == 0:
             npass += 1
             print("  %sPASS%s %s" % (GREEN, RESET, name))
@@ -64,7 +75,7 @@ def run_node():
     failed = []
     for h in harnesses:
         name = os.path.basename(h)
-        rc, out = _run([node, h])
+        rc, out = _run([node, h], NODE_TEST_TIMEOUT)
         if rc == 0:
             npass += 1
             print("  %sPASS%s %s" % (GREEN, RESET, name))

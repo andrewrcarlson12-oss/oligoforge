@@ -6,13 +6,14 @@ Set your NCBI email once (env var or the field in the UI):  export OLIGOFORGE_EM
 """
 import os, sys
 from typing import Dict, List, Optional
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR, nn as NN
 
-app = FastAPI(title="OligoForge", version="1.31.0")
+app = FastAPI(title="OligoForge", version="1.31.1")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -24,6 +25,45 @@ elif getattr(sys, "frozen", False):
     DATA_DIR = os.path.join(_base, "OligoForge")
 else:
     DATA_DIR = HERE
+
+
+def _env_flag(name, default=False):
+    raw = os.environ.get(name)
+    if raw is None:
+        return bool(default)
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+# The local desktop/server workflow may use process-wide reaction settings and JSON
+# storage.  A public Render instance is multi-user, so those shared mutable features
+# are disabled unless the operator deliberately opts in behind authentication.
+HOSTED_MODE = _env_flag("OLIGOFORGE_HOSTED", False)
+ALLOW_SERVER_STORAGE = _env_flag("OLIGOFORGE_ALLOW_SERVER_STORAGE", not HOSTED_MODE)
+ALLOW_SHARED_CONDITIONS = _env_flag("OLIGOFORGE_ALLOW_SHARED_CONDITIONS", not HOSTED_MODE)
+
+
+def _shared_feature_disabled(feature):
+    return JSONResponse(
+        {"error": "%s is disabled on this multi-user hosted deployment; use browser-local storage "
+                  "or run a private instance" % feature},
+        status_code=403,
+    )
+
+
+def _api_failure(area, exc, status_code=200):
+    """Log full diagnostics server-side without reflecting secrets, paths or stack details publicly."""
+    log.exception("%s failed", area)
+    detail = "%s failed" % area
+    if not HOSTED_MODE:
+        detail += ": %s" % exc
+    return JSONResponse({"error": detail}, status_code=status_code)
+
+
+def _local_blast_denied(mode=None, db_path=None):
+    if HOSTED_MODE and (str(mode or "").lower() == "local" or bool(db_path)):
+        return JSONResponse({"error": "local BLAST database paths are disabled on hosted deployments"},
+                            status_code=403)
+    return None
 
 
 # ---------- build identity (so a deployed instance can prove which commit it is) ----------
@@ -67,17 +107,47 @@ logging.basicConfig(level=os.environ.get("OLIGOFORGE_LOG_LEVEL", "INFO").upper()
 log = logging.getLogger("oligoforge")
 
 
+MAX_REQUEST_BYTES = int(os.environ.get("OLIGOFORGE_MAX_REQUEST_BYTES", 5 * 1024 * 1024))
+
+
+def _security_headers(resp):
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    resp.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    resp.headers.setdefault("Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; "
+        "base-uri 'none'; frame-ancestors 'none'")
+    return resp
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error(_request: Request, exc: RequestValidationError):
+    # Do not echo rejected payload values (which may contain huge sequences, API keys or local paths).
+    details = [{"loc": list(e.get("loc", ())), "msg": e.get("msg", "invalid value"),
+                "type": e.get("type", "validation_error")} for e in exc.errors()]
+    return _security_headers(JSONResponse({"error": "request validation failed", "details": details},
+                                         status_code=422))
+
+
 @app.middleware("http")
 async def _log_requests(request, call_next):
     t0 = _time.perf_counter()
+    raw_len = request.headers.get("content-length")
+    try:
+        if raw_len is not None and int(raw_len) > MAX_REQUEST_BYTES:
+            return _security_headers(JSONResponse({"error": "request body too large"}, status_code=413))
+    except ValueError:
+        return _security_headers(JSONResponse({"error": "invalid Content-Length header"}, status_code=400))
     try:
         resp = await call_next(request)
     except Exception:
         log.exception("unhandled error %s %s", request.method, request.url.path)
-        raise
+        resp = JSONResponse({"error": "internal server error"}, status_code=500)
     log.info("%s %s -> %s %.0fms", request.method, request.url.path,
              resp.status_code, (_time.perf_counter() - t0) * 1000.0)
-    return resp
+    return _security_headers(resp)
 
 
 # ---------- request models ----------
@@ -136,7 +206,9 @@ def healthz():
                 ncbi_api_key=bool(getattr(ncbi.Entrez, "api_key", None)),
                 ncbi_cache=getattr(ncbi, "_CACHE_ON", None),
                 ncbi_cache_ttl_s=getattr(ncbi, "_CACHE_TTL", None),
-                data_dir_writable=data_ok,
+                data_dir_writable=data_ok, hosted_mode=HOSTED_MODE,
+                server_storage_enabled=ALLOW_SERVER_STORAGE,
+                shared_conditions_enabled=ALLOW_SHARED_CONDITIONS,
                 routes=len([r for r in app.routes if getattr(r, "methods", None)]))
 
 @app.get("/api/profiles")
@@ -179,15 +251,20 @@ def qc(r: OligoReq):
     if r.profile in P.PROFILES:
         out["lint"] = [dict(rule=n, status=st, detail=d)
                        for n, st, d in P.lint_oligo(s, r.role, P.PROFILES[r.profile])]
-        if r.profile in ("idt_affinity", "parasite_mtdna") and r.role == "probe":
-            out["lna_note"] = ("LNA probe: the Tm above is the DNA-backbone value. Each LNA base adds "
-                               "~2-8 C; set LNA positions and confirm in IDT OligoAnalyzer.")
+        if r.profile in ("idt_affinity", "parasite_lna") and r.role == "probe" and "+" not in raw:
+            out["lna_note"] = ("The displayed Tm is for the unmodified DNA backbone. LNA effects are "
+                               "sequence- and position-dependent; enter explicit +N positions for the "
+                               "McTigue-model estimate and confirm the final order with the vendor.")
     if "+" in raw:
-        out["lna_note"] = ("LNA (+) bases detected: each locked base raises Tm ~2-8 \u00b0C, so the actual "
-                           "probe Tm is HIGHER than shown here. Confirm in IDT OligoAnalyzer.")
-        _nnl = NN.params_lna(raw)   # computed LNA Tm via McTigue 2004 increments
+        _nnl = NN.params_lna(raw)   # context-specific McTigue 2004 LNA estimate
         if _nnl:
             out["nn_lna"] = _nnl
+            out["lna_note"] = ("LNA estimate calculated from the explicit +N positions using the "
+                               "McTigue nearest-neighbour model. It is a computational estimate, not "
+                               "a vendor certificate or empirical hybridization measurement.")
+        else:
+            out["lna_note"] = ("LNA notation was detected but could not be fully parameterized. Review "
+                               "the +N syntax and confirm the sequence with the vendor calculator.")
     _nn = NN.params(s)   # transparent NN thermodynamics at the reaction conditions (None if degenerate)
     if _nn:
         out["nn"] = _nn
@@ -234,7 +311,10 @@ def get_conditions():
 
 @app.post("/api/conditions")
 def post_conditions(r: CondReq):
-    return T.set_conditions(mv_conc=r.mv_conc, dv_conc=r.dv_conc, dntp_conc=r.dntp_conc, dna_conc=r.dna_conc, anneal_c=r.anneal_c)
+    if not ALLOW_SHARED_CONDITIONS:
+        return _shared_feature_disabled("process-wide reaction-condition changes")
+    return T.set_conditions(mv_conc=r.mv_conc, dv_conc=r.dv_conc, dntp_conc=r.dntp_conc,
+                            dna_conc=r.dna_conc, anneal_c=r.anneal_c)
 
 @app.post("/api/matrix")
 def matrix(r: MatrixReq):
@@ -399,7 +479,7 @@ def design(r: DesignReq):
         try:
             res = _AD_design.design_from_sequences(targets, prof, offs=offs or None, n_candidates=NCAND)
         except Exception as e:
-            return JSONResponse({"error": f"design failed: {e}"}, status_code=200)
+            return _api_failure("design", e)
         if not (res and res.get("candidates")):
             if gc < 40:
                 hint = " The reference is AT-rich (GC %.0f%%) \u2014 switch to Auto, 'low-Tm TaqMan', or 'AT-rich + LNA probe'." % gc
@@ -409,15 +489,27 @@ def design(r: DesignReq):
                 hint = " Try Auto, a longer region, or a different chemistry."
             return JSONResponse({"error": "no clean assay found under %s.%s" % (prof["name"], hint)}, status_code=200)
 
-    def _loc(sub):                                          # locate an oligo's footprint on the reference
+    def _loc(sub):                                          # fallback for legacy candidates lacking coordinates
         i = ref.find((sub or "").upper())
         return [i, i + len(sub)] if (sub and i >= 0) else None
+
+    def _span(assay, key, fallback):
+        """Use the exact design-window coordinate when available.
+
+        Falling back to sequence search is retained only for old/imported candidate
+        records.  It is ambiguous when a target contains repeated motifs.
+        """
+        sp = assay.get(key)
+        if isinstance(sp, (list, tuple)) and len(sp) == 2 and 0 <= sp[0] < sp[1] <= len(ref):
+            return [int(sp[0]), int(sp[1])]
+        return _loc(fallback)
 
     off_ctrl = None                                         # worst-case off-target amplicon as a bench negative control
     if offs:
         try:
             a0 = res["candidates"][0]["assay"]
-            f0 = _loc(a0["forward"]); r0 = _loc(T.revcomp(a0["reverse"]))
+            f0 = _span(a0, "f_xy", a0["forward"])
+            r0 = _span(a0, "r_xy", T.revcomp(a0["reverse"]))
             if f0 and r0:
                 g = D.build_offtarget_gblock(ref[f0[0]:r0[1]], offs)   # amplicon SEQUENCE, not its length
                 if g:
@@ -428,13 +520,10 @@ def design(r: DesignReq):
     cands = []
     for sc in res["candidates"]:
         a = sc["assay"]; pi = a.get("probe_info")
-        fspan = _loc(a["forward"])
-        rspan = _loc(T.revcomp(a["reverse"]))               # reverse primer binds the antisense strand
-        probe_rc = False; pspan = None
-        if a.get("probe"):
-            pspan = _loc(a["probe"])
-            if pspan is None:
-                pspan = _loc(T.revcomp(a["probe"])); probe_rc = pspan is not None
+        fspan = _span(a, "f_xy", a["forward"])
+        rspan = _span(a, "r_xy", T.revcomp(a["reverse"]))  # reverse primer binds the antisense strand
+        probe_rc = bool((a.get("probe_info") or {}).get("strand") == "-")
+        pspan = _span(a, "probe_xy", (T.revcomp(a["probe"]) if probe_rc else a.get("probe"))) if a.get("probe") else None
         amp_span = [fspan[0], rspan[1]] if (fspan and rspan) else None
 
         cons = sc.get("conservation") or {}                 # per-oligo per-position match across targets
@@ -593,7 +682,7 @@ def fetch(r: FetchReq):
             return res
         return JSONResponse({"error": "provide an accession, or gene + organism"}, status_code=200)
     except Exception as e:
-        return JSONResponse({"error": f"NCBI fetch failed: {e}"}, status_code=200)
+        return _api_failure("NCBI fetch", e)
 
 @app.post("/api/intron")
 def intron(r: IntronReq):
@@ -601,16 +690,19 @@ def intron(r: IntronReq):
     try:
         return SP.intron_check(r.gene, r.organism, r.amp_start, r.amp_end, r.mrna_acc, r.forward, r.reverse)
     except Exception as e:
-        return JSONResponse({"error": f"intron check failed: {e}"}, status_code=200)
+        return _api_failure("intron check", e)
 
 @app.post("/api/blast")
 def blast(r: BlastReq):
     _set_email(r.email, r.ncbi_key)
+    denied = _local_blast_denied(r.mode, r.db_path)
+    if denied:
+        return denied
     try:
         return SP.blast_summary(r.seq, mode=r.mode, db=r.db, db_path=r.db_path,
                                 organism=r.organism, top=r.top)
     except Exception as e:
-        return JSONResponse({"error": f"BLAST failed: {e}"}, status_code=200)
+        return _api_failure("BLAST", e)
 
 
 # ============ stage-5 enhancements ============
@@ -631,6 +723,8 @@ class ProjectNameReq(BaseModel):
 
 @app.post("/api/project/save")
 def project_save(r: ProjectSaveReq):
+    if not ALLOW_SERVER_STORAGE:
+        return _shared_feature_disabled("server project storage")
     import datetime
     if not r.name.strip():
         return JSONResponse({"error": "project name required"}, status_code=200)
@@ -656,15 +750,21 @@ def _project_list():
 
 @app.get("/api/project/list")
 def project_list_get():
+    if not ALLOW_SERVER_STORAGE:
+        return _shared_feature_disabled("server project storage")
     return _project_list()
 
 
 @app.post("/api/project/list")
 def project_list_post():
+    if not ALLOW_SERVER_STORAGE:
+        return _shared_feature_disabled("server project storage")
     return _project_list()
 
 @app.post("/api/project/load")
 def project_load(r: ProjectNameReq):
+    if not ALLOW_SERVER_STORAGE:
+        return _shared_feature_disabled("server project storage")
     fn = os.path.join(PROJECTS_DIR, _safe(r.name) + ".json")
     if not os.path.exists(fn):
         return JSONResponse({"error": "no project named " + r.name}, status_code=200)
@@ -672,6 +772,8 @@ def project_load(r: ProjectNameReq):
 
 @app.post("/api/project/delete")
 def project_delete(r: ProjectNameReq):
+    if not ALLOW_SERVER_STORAGE:
+        return _shared_feature_disabled("server project storage")
     fn = os.path.join(PROJECTS_DIR, _safe(r.name) + ".json")
     if os.path.exists(fn):
         os.remove(fn)
@@ -739,12 +841,16 @@ def batch_design(r: BatchReq):
 
 @app.post("/api/panel/save")
 def panel_save(r: PanelSaveReq):
+    if not ALLOW_SERVER_STORAGE:
+        return _shared_feature_disabled("server panel storage")
     fn = os.path.join(PANELS_DIR, _safe(r.name) + ".json")
     json.dump({"name": r.name, "oligos": r.oligos}, open(fn, "w"), indent=1)
     return dict(saved=r.name)
 
 @app.get("/api/panel/list")
 def panel_list():
+    if not ALLOW_SERVER_STORAGE:
+        return _shared_feature_disabled("server panel storage")
     return dict(panels=sorted(f[:-5] for f in os.listdir(PANELS_DIR) if f.endswith(".json")))
 
 
@@ -753,6 +859,8 @@ def factory_reset():
     """Delete every saved panel and project on the server -- the server half of a factory reset.
     Only *.json inside the two managed directories are touched (names come from os.listdir, so no
     path traversal). The browser clears its own localStorage/session separately."""
+    if not ALLOW_SERVER_STORAGE:
+        return _shared_feature_disabled("server project/panel storage")
     removed = {"panels": 0, "projects": 0}
     for key, d in (("panels", PANELS_DIR), ("projects", PROJECTS_DIR)):
         try:
@@ -769,6 +877,8 @@ def factory_reset():
 
 @app.post("/api/panel/load")
 def panel_load(r: PanelLoadReq):
+    if not ALLOW_SERVER_STORAGE:
+        return _shared_feature_disabled("server panel storage")
     fn = os.path.join(PANELS_DIR, _safe(r.name) + ".json")
     if not os.path.exists(fn):
         return JSONResponse({"error": "panel not found"}, status_code=200)
@@ -776,32 +886,18 @@ def panel_load(r: PanelLoadReq):
 
 @app.post("/api/order_csv")
 def order_csv(r: OrderReq):
-    oligos = []
-    for e in r.oligos:
-        if e.kind == "probe_lna":
-            # LNA / Affinity Plus probes use IDT '+N' notation; validate the DNA
-            # backbone but keep the +N positions in the ordered sequence.
-            raw = "".join(e.seq.upper().split())
-            backbone, _, _ = T.strip_lna(raw)
-            _, _, err = T.clean_seq(backbone)
-            seq_for_order = raw
-        else:
-            seq_for_order, _, err = T.clean_seq(e.seq)
-        if err:
-            return JSONResponse({"error": "%s: %s" % (e.name or "oligo", err)}, status_code=200)
-        d = e.dict(); d["seq"] = seq_for_order; oligos.append(d)
-    gbs = []
-    for g in r.gblocks:
-        cs, _, err = T.clean_seq(g.seq)
-        if err:
-            return JSONResponse({"error": "%s: %s" % (g.name or "gBlock", err)}, status_code=200)
-        d = g.dict(); d["seq"] = cs; gbs.append(d)
-    return dict(oligo_csv=O.oligo_csv(oligos) if oligos else "",
-                gblock_fasta=O.gblock_fasta(gbs) if gbs else "")
+    try:
+        return dict(oligo_csv=O.oligo_csv([e.dict() for e in r.oligos]) if r.oligos else "",
+                    gblock_fasta=O.gblock_fasta([g.dict() for g in r.gblocks]) if r.gblocks else "")
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=200)
 
 @app.post("/api/pair_specificity")
 def pair_specificity(r: PairSpecReq):
     _set_email(r.email, r.ncbi_key)
+    denied = _local_blast_denied(r.mode, r.db_path)
+    if denied:
+        return denied
     def one(seq):
         if r.mode == "local":
             return SP.blast_local(seq, r.db_path or "")
@@ -809,7 +905,7 @@ def pair_specificity(r: PairSpecReq):
     try:
         return dict(forward=one(r.forward.upper().strip()), reverse=one(r.reverse.upper().strip()))
     except Exception as e:
-        return JSONResponse({"error": f"specificity check failed: {e}"}, status_code=200)
+        return _api_failure("specificity check", e)
 
 
 # ============ stage-6: conservation, in-silico PCR, LNA Tm ============
@@ -835,12 +931,15 @@ def api_conservation(r: ConsReq):
 @app.post("/api/epcr")
 def api_epcr(r: EpcrReq):
     _set_email(r.email, r.ncbi_key)
+    denied = _local_blast_denied(r.mode, r.db_path)
+    if denied:
+        return denied
     try:
         return SP.in_silico_pcr(r.forward, r.reverse, r.mode, r.db, r.db_path,
                                 r.organism, r.min_product, r.max_product,
                                 fasta=r.fasta, max_mm=r.max_mm)
     except Exception as e:
-        return JSONResponse({"error": f"in-silico PCR failed: {e}"}, status_code=200)
+        return _api_failure("in-silico PCR", e)
 
 class AssaySpecReq(BaseModel):
     forward: str; reverse: str; probe: Optional[str] = None
@@ -852,12 +951,15 @@ class AssaySpecReq(BaseModel):
 @app.post("/api/assay_specificity")
 def api_assay_specificity(r: AssaySpecReq):
     _set_email(r.email, r.ncbi_key)
+    denied = _local_blast_denied(r.mode, r.db_path)
+    if denied:
+        return denied
     try:
         return SP.assay_specificity(r.forward, r.reverse, r.probe, r.mode, r.db, r.db_path,
                                     r.organism, r.min_product, r.max_product,
                                     fasta=r.fasta, max_mm=r.max_mm)
     except Exception as e:
-        return JSONResponse({"error": f"assay specificity failed: {e}"}, status_code=200)
+        return _api_failure("assay specificity", e)
 
 @app.post("/api/lna_tm")
 def api_lna_tm(r: LnaReq):
@@ -876,7 +978,7 @@ def api_gene_lookup(r: GeneLookupReq):
     try:
         return ncbi.gene_lookup(r.gene, r.organism)
     except Exception as e:
-        return JSONResponse({"error": f"gene lookup failed: {e}"}, status_code=200)
+        return _api_failure("gene lookup", e)
 
 from oligoforge import refgenes as RG
 class RefGenesReq(BaseModel):
@@ -889,21 +991,23 @@ def api_report(r: ReportReq):
     try:
         return RPT.build(r.panel, r.meta)
     except Exception as e:
-        return JSONResponse({"error": "report failed: %s" % e}, status_code=200)
+        return _api_failure("report", e)
 
 from oligoforge import rdml as RDML
 class RdmlReq(BaseModel):
     panel: List[dict]; meta: Optional[dict] = None
 @app.post("/api/rdml")
 def api_rdml(r: RdmlReq):
-    """Export the panel as RDML 1.2 (machine-readable assay definitions for qPCR software)."""
+    """Export the panel as RDML 1.3 (machine-readable assay definitions for qPCR software)."""
     try:
         return RDML.build(r.panel, r.meta)
     except Exception as e:
-        return JSONResponse({"error": "RDML export failed: %s" % e}, status_code=200)
+        return _api_failure("RDML export", e)
 
 class MultiplexReq(BaseModel):
-    assays: List[dict]; dimer_threshold: float = -6.0
+    assays: List[dict]
+    dimer_threshold: float = -6.0
+    amp_tm_gap: float = 2.0
 class MarkerReq(BaseModel):
     organism: str; exclude: Optional[str] = None; intent: Optional[str] = "any"
     email: Optional[str] = None; ncbi_key: Optional[str] = None
@@ -925,7 +1029,7 @@ def api_scan_markers(r: MarkerReq):
         base_info["scanned"] = True; base_info["n_scanned"] = len(sc["results"])
         return base_info
     except Exception as e:
-        return JSONResponse({"error": "scan_markers failed: %s" % e}, status_code=200)
+        return _api_failure("marker scan", e)
 
 @app.post("/api/suggest_genes")
 def api_suggest_genes(r: MarkerReq):
@@ -933,14 +1037,14 @@ def api_suggest_genes(r: MarkerReq):
     try:
         return RM.suggest_dynamic(r.organism, r.exclude, r.intent)
     except Exception as e:
-        return JSONResponse({"error": "suggest_genes failed: %s" % e}, status_code=200)
+        return _api_failure("gene suggestion", e)
 
 @app.post("/api/multiplex")
 def api_multiplex(r: MultiplexReq):
     try:
-        return MX.check(r.assays, r.dimer_threshold)
+        return MX.check(r.assays, r.dimer_threshold, r.amp_tm_gap)
     except Exception as e:
-        return JSONResponse({"error": "multiplex failed: %s" % e}, status_code=200)
+        return _api_failure("multiplex analysis", e)
 
 @app.post("/api/refgenes")
 def api_refgenes(r: RefGenesReq):
@@ -953,7 +1057,7 @@ def api_refgenes(r: RefGenesReq):
     try:
         return RG.analyze(data)
     except Exception as e:
-        return JSONResponse({"error": "stability analysis failed: %s" % e}, status_code=200)
+        return _api_failure("reference-gene stability analysis", e)
 
 from oligoforge import ncbi as NC
 class FetchNucReq(BaseModel):
@@ -966,7 +1070,7 @@ def api_fetch_nuc(r: FetchNucReq):
         return dict(n=len(recs), fasta="\n".join(f">{d}\n{s}" for d, s in recs),
                     sequences=[s for _, s in recs])
     except Exception as e:
-        return JSONResponse({"error": f"fetch failed: {e}"}, status_code=200)
+        return _api_failure("sequence fetch", e)
 
 from oligoforge import quant as QT
 class CqPoint(BaseModel):
@@ -1003,7 +1107,7 @@ def api_expression(r: ExpressionReq):
         samples = r.samples or EXP.parse_table(r.csv or "")
         return EXP.analyze(samples, r.reference_genes, r.control_group, r.efficiencies)
     except Exception as e:
-        return JSONResponse({"error": "expression analysis failed: %s" % e}, status_code=200)
+        return _api_failure("expression analysis", e)
 
 from oligoforge import melt as MELT
 class MeltReq(BaseModel):
@@ -1027,7 +1131,7 @@ def api_validate(r: ValidateReq):
         return MIQE.validate_assay(r.assay, observed_amplicon_tm=r.observed_amplicon_tm,
                                    observed_peaks=r.observed_peaks)
     except Exception as e:
-        return JSONResponse({"error": "validation failed: %s" % e}, status_code=200)
+        return _api_failure("assay-readiness validation", e)
 
 from oligoforge import autodesign as AD
 class AutoDesignReq(BaseModel):
@@ -1040,16 +1144,19 @@ class AutoDesignReq(BaseModel):
 @app.post("/api/autodesign")
 def api_autodesign(r: AutoDesignReq):
     _set_email(r.email, r.ncbi_key)
+    denied = _local_blast_denied(r.blast_mode, r.blast_db_path) if r.run_blast else None
+    if denied:
+        return denied
     try:
         return AD.design_from_query(r.target_query, r.profile, r.off_query, min(r.n_fetch, 30),
                                     r.min_ident, r.run_blast, r.blast_mode, r.blast_db,
                                     r.blast_db_path, r.organism, prefer_junction=r.prefer_junction,
                                     nested=r.nested)
     except Exception as e:
-        return JSONResponse({"error": f"autodesign failed: {e}"}, status_code=200)
+        return _api_failure("automatic design", e)
 
 
-# ============ certified orthogonal panel (thermodynamic confusability + Lovász-θ certificate) ============
+# ============ orthogonal panel analysis (exact proofs where available; diagnostics otherwise) ============
 from oligoforge import orthopanel as OP
 
 def _parse_ortho_candidates(text):
@@ -1110,25 +1217,31 @@ def api_orthogonal_panel(r: OrthoPanelReq):
             return JSONResponse({"error": "too many candidates (%d); this tool caps at 1000"
                                           % len(cands)}, status_code=200)
         k = max(1, min(int(r.k or 1), 12))
-        override = any(v is not None for v in (r.mv_conc, r.dv_conc, r.dntp_conc, r.dna_conc, r.anneal_c))
-        snap_cond, snap_anneal = dict(T.COND), T.ANNEAL_C
-        try:
-            if override:
-                res = T.set_conditions(mv_conc=r.mv_conc, dv_conc=r.dv_conc, dntp_conc=r.dntp_conc,
-                                       dna_conc=r.dna_conc, anneal_c=r.anneal_c)
-                if isinstance(res, dict) and res.get("error"):
-                    return JSONResponse({"error": res["error"]}, status_code=200)
-            out = OP.certify_panel(cands, cross_dg=float(r.cross_dg), self_dg=float(r.self_dg),
-                                   k=k, size_limit=int(r.size_limit or 600), use_theta=bool(r.use_theta))
-        finally:
-            if override:
-                T.set_conditions(mv_conc=snap_cond["mv_conc"], dv_conc=snap_cond["dv_conc"],
-                                 dntp_conc=snap_cond["dntp_conc"], dna_conc=snap_cond["dna_conc"],
-                                 anneal_c=snap_anneal)
-        out["conditions"] = dict(T.COND, anneal_c=T.ANNEAL_C)
+        vals = dict(T.COND)
+        limits = {"mv_conc": (0.0, 2000.0), "dv_conc": (0.0, 200.0),
+                  "dntp_conc": (0.0, 100.0), "dna_conc": (1e-6, 1e6)}
+        for name, raw in (("mv_conc", r.mv_conc), ("dv_conc", r.dv_conc),
+                          ("dntp_conc", r.dntp_conc), ("dna_conc", r.dna_conc)):
+            if raw is None:
+                continue
+            value = float(raw)
+            lo, hi = limits[name]
+            if not (lo <= value <= hi):
+                return JSONResponse({"error": "%s out of range (%g..%g)" % (name, lo, hi)}, status_code=200)
+            vals[name] = value
+        anneal = T.ANNEAL_C if r.anneal_c is None else float(r.anneal_c)
+        if not (30.0 <= anneal <= 85.0):
+            return JSONResponse({"error": "anneal_c out of range (30..85)"}, status_code=200)
+        if vals["mv_conc"] + vals["dv_conc"] <= 0:
+            return JSONResponse({"error": "need some salt: monovalent + divalent must be > 0 mM"}, status_code=200)
+        snap = (vals["mv_conc"], vals["dv_conc"], vals["dntp_conc"], vals["dna_conc"], anneal)
+        out = OP.certify_panel(cands, cross_dg=float(r.cross_dg), self_dg=float(r.self_dg),
+                               k=k, size_limit=int(r.size_limit or 600), use_theta=bool(r.use_theta),
+                               thermo_snapshot=snap)
+        out["conditions"] = dict(vals, anneal_c=anneal)
         return out
     except Exception as e:
-        return JSONResponse({"error": f"orthogonal panel failed: {e}"}, status_code=200)
+        return _api_failure("orthogonal-panel analysis", e)
 
 
 # ============ isolate panel validation (inclusivity / exclusivity in-silico PCR) ============
@@ -1142,7 +1255,7 @@ def api_isolate_genomes(r: IsolateGenomesReq):
     try:
         return {"genomes": ncbi.search_genomes(r.query, min(max(int(r.retmax or 60), 5), 200))}
     except Exception as e:
-        return JSONResponse({"error": f"genome search failed: {e}"}, status_code=200)
+        return _api_failure("genome search", e)
 
 class IsolateCheckReq(BaseModel):
     forward: str; reverse: str; probe: str = ""
@@ -1173,7 +1286,9 @@ def api_isolate_check(r: IsolateCheckReq):
             res.update(acc=acc, title=title, slen=len(seq), role=r.role, error=None)
             out.append(res)
         except Exception as e:
-            out.append(dict(acc=acc, title="", slen=0, role=r.role, amplifies=None, error=str(e)))
+            log.exception("isolate check failed for accession %s", acc)
+            detail = "accession analysis failed" if HOSTED_MODE else str(e)
+            out.append(dict(acc=acc, title="", slen=0, role=r.role, amplifies=None, error=detail))
     return {"results": out}
 
 
@@ -1220,7 +1335,7 @@ def viewer_design(r: ViewerDesignReq):
     try:
         cands = D.design_candidates(seq, c, n=n)
     except Exception as e:
-        return JSONResponse({"error": f"design failed: {e}"}, status_code=200)
+        return _api_failure("design", e)
 
     def _gc(s):
         return round(T.gc_percent(s), 1) if s else None

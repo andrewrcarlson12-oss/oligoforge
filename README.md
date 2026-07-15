@@ -1,130 +1,99 @@
-# OligoForge
+# OligoForge 1.31.1
 
-One tool for qPCR primer/probe design and QC, run locally. Real primer3
-thermodynamics, multi-vendor design-rule linting, NCBI fetch, BLAST specificity,
-and intron/exon-junction checking — the whole pipeline in one browser cockpit
-backed by a small Python server.
+OligoForge is a local-first qPCR primer/probe design, QC, specificity-screening, and assay-readiness application. A FastAPI backend runs the scientific calculations; a single-page browser interface provides design, review, panel, analysis, and export workflows.
 
-## Why local
-A browser-only page can't BLAST, can't reach NCBI reliably, and can't map exon
-structure. Running the same UI on a local FastAPI backend removes all three
-limits at once — and the thermodynamics are the actual primer3 numbers, not an
-approximation.
+OligoForge is a **computational design and documentation tool**. It does not certify an assay, establish clinical performance, or replace empirical validation.
 
-## What it does
-Works on **any organism** — you supply the sequence, accession, NCBI query, and target/off-target sets; nothing is hard-coded to a species. Built and validated on non-model wildlife (a draft-genome songbird and its blood parasites), where model-organism web tools have no annotations.
+## Core capabilities
 
-- **Oligo QC** — Tm (SantaLucia 1998 + Owczarzy salt, at qPCR conditions), GC, hairpin, self/hetero-dimer, homopolymer runs, 3' clamp
-- **Reaction-condition aware** — set Mg2+, monovalent, dNTP, and oligo concentration in the header to match your master mix; every Tm in the tool recomputes for your bench, not a generic default
-- **Degenerate-aware Tm** — a primer carrying an IUPAC base (e.g. W = A/T) reports the Tm *range* across its resolutions instead of one misleading number
-- **Vendor lint** — IDT PrimeTime / Affinity Plus, Thermo MGB, Bio-Rad, generic SYBR; pass/fail against each chemistry
-- **Primer-pair / amplicon** QC (Tm match, F×R dimer, amplicon size)
-- **Panel cross-dimer matrix** — every oligo against every other
-- **Certified orthogonal panel** — from a pool of candidate oligos, the largest subset with no strong cross-hybridization, plus an optimality certificate: a proof of how close that panel is to the true maximum under the pairwise ΔG model (gap 0 = provably the largest possible). Built on a thermodynamic confusability graph + maximum independent set, bounded first by a free clique-cover bound and, only if a gap remains, by a Lovász-θ semidefinite program (cvxpy optional, never required). Also reports the θ^k collision-free ceiling for split-pool barcoding. The certificate is exact for the model, not a wet-lab guarantee — and it says so
-- **Auto-design** from a template: enumerate -> gate -> pair -> probe -> gBlock, then one click into the Workbench or the Order tab (carrying its gBlock standard). Design and auto-design results draw a to-scale **amplicon map** (forward / probe / reverse in genomic context) so you can eyeball product size and probe placement before ordering
-- **NCBI fetch** by accession or gene+organism, with isoform-common region
-- **Intron / exon-junction check** — flags gDNA-contamination risk
-- **BLAST specificity** — remote (NCBI) or local (blastn)
-- **In-silico PCR** — predicted amplicons from both primers (catches off-target products a per-primer BLAST misses)
-- **Conservation / discrimination** — per-base oligo conservation across a target set, and mismatch scoring vs an off-target set (e.g. Plasmodium vs Haemoproteus)
-- **LNA-aware Tm** — honest effective-Tm range for LNA probes
-- **Standard-curve copies & IDT order export** — copy number / dilution series; IDT bulk CSV + gBlock FASTA
-- **Reference-gene stability** — geNorm M + pairwise V (how many to use) + BestKeeper Cq SD/CV, from a Cq table; picks your >=2 MIQE reference genes
-- **Workbench** — the hub. Add a designed assay once, then from its card run QC, in-silico PCR (opens the tab with results), the intron/gDNA check, conservation (oligos + a seeded target query prefilled), a standard curve, generate its gBlock standard, and export an order — every result saves onto that specific assay. Edit name/gene/organism/dye inline; when the in-silico intron check can't resolve (common for non-model organisms NCBI hasn't annotated), "mark handled" records gDNA exclusion as user-asserted so the report stays honest. Save and reload named **projects** (one per study system / lab member), export/import the whole panel as JSON, and load a one-click example panel to start from
-- **MIQE report** — one button emits a self-contained HTML report (per-oligo QC recomputed, specificity, validation, MIQE 2.0 completeness checklist) plus a CSV, ready for a supplement
-- **RDML export** — one button writes the panel as an RDML 1.2 file (the standard machine-readable qPCR interchange format), so designed assays load straight into instrument/analysis software (LinRegPCR, RDML-Ninja, Bio-Rad CFX, Roche LightCycler) as predefined targets carrying their primers, probe, detection dye, and amplification efficiency — the machine-readable sibling of the MIQE report
-- **Help tab** — a short, accurate in-app guide: the workflow, probe/SYBR design targets, suggested cycling, exactly which run ticks each MIQE checklist box, a worked example, and honest limits
-- **Multiplex planner** — flags detection-channel conflicts (assays sharing a dye) and cross-assay primer/probe dimers below threshold
-- **Paste-safe input** — strips FASTA headers, whitespace, and numbering from pasted sequences and converts RNA->DNA; flags (never silently drops) invalid characters
+- Whole-target primer/probe candidate search with global ranking rather than first-window acceptance.
+- Exact primer, probe, amplicon, and search-window coordinates, including repeated-sequence targets.
+- Primer3 and published nearest-neighbor thermodynamic calculations at configurable reaction conditions.
+- Hydrolysis-probe, modified-probe, SYBR, low-Tm, degenerate, and exon-junction-aware design paths.
+- Ambiguity-aware target conservation, off-target discrimination, offline in-silico PCR, remote NCBI BLAST, and optional local BLAST.
+- Multi-isolate inclusivity/exclusivity screening and coherent full-assay coverage calculations.
+- Multiplex dye, amplicon-melt, cross-dimer, 3′-engagement, and annealing-temperature checks.
+- Orthogonal-panel graph analysis with exact branch-and-bound model proofs when available, rigorous clique-cover bounds otherwise, and optional non-certifying Lovász-theta diagnostics.
+- Raw fluorescence Cq screening, standard-curve analysis, melt-peak analysis, relative-expression analysis, and geNorm-style reference-gene screening.
+- Strict IDT-style order CSV, unambiguous synthetic-fragment FASTA, escaped HTML/CSV assay-readiness reports, and RDML 1.3 assay-definition export.
 
-## Get it — no Python needed
-Grab the file for your OS from the project's **Releases** page and double-click it.
-A small window opens ("OligoForge is running") and your browser opens the cockpit.
-Close that window to stop. That is the whole install.
+## Important scientific limits
 
-- **Windows** (`OligoForge-windows-x64.exe`): SmartScreen may flag an "unrecognized app"
-  because the build is not code-signed — click **More info -> Run anyway**.
-- **macOS**: take `OligoForge-macos-arm64` for Apple Silicon (M1/M2/M3/M4) or
-  `OligoForge-macos-intel` for older Intel Macs. On first run, right-click -> **Open** ->
-  **Open** to clear Gatekeeper (unsigned). On recent macOS you may instead need
-  **System Settings -> Privacy & Security -> Open Anyway**. If it reports the app is
-  "damaged" with no Open option, clear the quarantine flag in Terminal:
-  `xattr -cr OligoForge-macos-arm64` (until the binaries are code-signed).
-- Saved panels live in an `OligoForge/panels` folder under your user directory
-  (`%LOCALAPPDATA%` on Windows, your home folder otherwise).
+- Selection Tm and displayed Tm use transparent published models but may differ from vendor calculators because concentration conventions, parameter sets, and modification handling differ.
+- LNA calculations require explicit `+N` positions and remain model estimates. MGB and proprietary modified-probe behavior require the selected vendor’s calculation.
+- A predicted single amplicon, a single melt peak, or a favorable graph model is not proof of biological specificity.
+- The reported lowest fully detected standard and exploratory logistic detection estimate are not validated LOD95 values.
+- Reference-gene output is geNorm-style pairwise M/V plus a Cq-SD screen. It is not full BestKeeper or NormFinder.
+- MIQE-aligned outputs are readiness records, not certification of MIQE compliance.
 
-Set your NCBI email once in the header field in the UI; it is remembered after that.
+See [VALIDATION_LIMITS.md](VALIDATION_LIMITS.md) before using results in a publication, regulated workflow, diagnostic claim, or ordering decision.
 
-## Run from source (developers)
-Python 3.10+.
-```
+## Run from source
+
+Python 3.10 or newer is recommended.
+
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux:
+source .venv/bin/activate
 pip install -r requirements.txt
-export OLIGOFORGE_EMAIL="you@university.edu"   # Entrez requires an email
-uvicorn app:app --reload --port 8111
+export OLIGOFORGE_EMAIL="you@institution.edu"
+uvicorn app:app --host 127.0.0.1 --port 8111
 ```
-Open http://localhost:8111. Optional, for fast offline specificity: install NCBI
-BLAST+ (`blastn`, `makeblastdb`).
 
-## Build the executables
-One-off, locally:
-```
-pip install -r requirements.txt -r requirements-build.txt
-pyinstaller oligoforge.spec          # -> dist/OligoForge(.exe)
-python ci_smoke.py                   # sanity-check the frozen binary
-```
-Releases are automated: push a version tag and GitHub Actions builds and attaches
-Windows / macOS / Linux binaries to the release.
-```
-git tag v0.1.0 && git push origin v0.1.0
-```
-For a native app window instead of the browser, `pip install pywebview` before
-building; the launcher picks it up automatically when present.
+Open `http://127.0.0.1:8111`.
 
-## BLAST modes
-- **Remote** (default): NCBI over the network, no install, queued (30 s to a few minutes). Optional organism filter narrows the search.
-- **Local**: point at a blastn database. Build one from a genome FASTA:
-  ```
-  makeblastdb -in GCF_xxxxx_genomic.fna -dbtype nucl -out fsj_genome
-  ```
-  then choose mode = local and put the DB path (`fsj_genome`) in the db field.
+Run the complete source-level test gate:
 
-## Editing
-- qPCR salt conditions -> `oligoforge/thermo.py` (`COND`)
-- Vendor rules / add a chemistry -> `oligoforge/profiles.py`
-- Design + scoring logic -> `oligoforge/design.py`
-
-## Accuracy
-Tm tracks IDT OligoAnalyzer to ~1-2 C absolute, exact for relative comparisons.
-Hairpin/dimer dG are primer3 estimates. Confirm final sequences in your vendor's
-tool before ordering.
-
-## Validated against
-Reproduces the hand-built Florida Scrub-Jay HMBS and SDHA assays exactly
-(primers, probe, amplicon, QC) and the intron check confirmed both amplicons are
-exon-junction-spanning. See `tests/`.
-
-## Layout
+```bash
+python run_tests.py
 ```
-oligoforge/
-  app.py                FastAPI server
-  launcher.py           desktop entrypoint (boots server, opens window/browser)
-  oligoforge/
-    thermo.py           thermodynamics (primer3)
-    design.py           enumerate / pair / probe / gBlock
-    profiles.py         vendor chemistry profiles + linter
-    ncbi.py             Entrez fetch + isoform-common
-    specificity.py      intron check + BLAST + in-silico PCR
-    conservation.py     per-base conservation / discrimination
-    quant.py            copies, dilutions, standard curve
-    orders.py           IDT CSV + gBlock FASTA
-    autodesign.py       Target -> assay (Auto chemistry + auto-BLAST)
-    refgenes.py         reference-gene stability (geNorm + BestKeeper)
-  static/index.html     browser cockpit
-  tests/                validation scripts (run from repo root)
-  oligoforge.spec       PyInstaller build
-  ci_smoke.py           frozen-binary smoke test
-  .github/workflows/    release build (Windows / macOS / Linux)
-  requirements.txt      runtime deps
-  requirements-build.txt  build deps (pyinstaller)
-  CLAUDE.md             context for Claude Code
+
+Optional local BLAST requires NCBI BLAST+ and a local nucleotide database. Public hosted deployments intentionally block arbitrary server-side BLAST database paths.
+
+## Render / multi-user deployment
+
+`render.yaml` enables hosted mode. In hosted mode, server-side project/panel storage and process-wide reaction-condition mutation are disabled unless the operator explicitly opts in behind appropriate authentication and isolation.
+
+Relevant environment variables:
+
+```text
+OLIGOFORGE_HOSTED=1
+OLIGOFORGE_ALLOW_SERVER_STORAGE=0
+OLIGOFORGE_ALLOW_SHARED_CONDITIONS=0
+OLIGOFORGE_EMAIL=<contact email for NCBI>
+OLIGOFORGE_NCBI_KEY=<optional NCBI API key>
+OLIGOFORGE_MAX_REQUEST_BYTES=5242880
+OLIGOFORGE_NCBI_TIMEOUT=30
+OLIGOFORGE_NCBI_RETRIES=2
 ```
+
+Read [SECURITY.md](SECURITY.md) before exposing the service publicly.
+
+## Main modules
+
+```text
+app.py                         FastAPI API and hosted-mode controls
+oligoforge/design.py           candidate enumeration, pairing, probing, ranking
+oligoforge/autodesign.py       full target/off-target workflow
+oligoforge/thermo.py           reaction-aware thermodynamics
+oligoforge/specificity.py      BLAST, offline PCR, intron/exon checks
+oligoforge/conservation.py     target conservation and discrimination
+oligoforge/multiplex.py        channel, dimer, and melt compatibility
+oligoforge/orthopanel.py       graph-based orthogonal-panel analysis
+oligoforge/cq.py               raw-curve Cq screening
+oligoforge/quant.py            copies, dilution series, standard curves
+oligoforge/refgenes.py         geNorm-style reference-gene screening
+oligoforge/report.py           escaped assay-readiness HTML/CSV export
+oligoforge/orders.py           strict order CSV and gBlock FASTA export
+oligoforge/rdml.py             RDML 1.3 assay-definition export
+```
+
+## Reproducibility and release discipline
+
+Dependencies are pinned in `requirements.txt`. The release version is synchronized across the Python package, API, launcher, and UI. `run_tests.py` runs every standalone Python regression script and every Node UI harness, with per-test timeouts so a stalled network or numerical call cannot hang CI indefinitely.
+
+## License
+
+See [LICENSE](LICENSE).
