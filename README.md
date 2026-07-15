@@ -1,99 +1,50 @@
-# OligoForge 1.31.1
+# OligoForge 1.34.0
 
-OligoForge is a local-first qPCR primer/probe design, QC, specificity-screening, and assay-readiness application. A FastAPI backend runs the scientific calculations; a single-page browser interface provides design, review, panel, analysis, and export workflows.
+OligoForge is a computational primer, probe, and qPCR assay-development workbench. Version 1.34.0 is the **decision-analysis release**: it extends the ranking-truth architecture with edit-specific evidence comparison, complete near-match placement reporting, design-run reproducibility comparison, local experimental-evidence summaries, honest benchmark uncertainty, and an authoritative batch-design path.
 
-OligoForge is a **computational design and documentation tool**. It does not certify an assay, establish clinical performance, or replace empirical validation.
+## Core behavior
 
-## Core capabilities
+- Target-spanning, bounded joint search over complete forward-primer/reverse-primer/probe triplets.
+- Diversity-preserving retention across regions, primer pairs, probe positions, product lengths, and trade-off profiles.
+- True hard scientific constraints before objective-specific evidence and soft preferences.
+- Coherent target coverage, paired all-site specificity, condition-envelope thermodynamics, junction evidence, and multiplex interactions can change final rank.
+- Candidate attrition ledger, structured rank trace, Pareto fronts, truthful finalist categories, and concrete rank-reversal scenarios.
+- Explicit near-equivalent/insufficient-evidence states rather than false numerical certainty.
+- Deterministic self-hashing manifests with application/ranker/model versions, reaction conditions, inputs, constraints, candidate limits, database state, warnings, and fallbacks.
+- Automatic, batch, sequence-viewer, manual-design, constrained-redesign, and rescue workflows use the authoritative scientific modules and structured ranker.
+- Manual mapping reports every exact and allowed near-match, including non-extension-eligible 3′ mismatches, instead of silently hiding failed placements.
+- Manual edits can be compared against the last analyzed baseline using complete recalculated evidence: resolved/new hard failures, target/off-target coverage, robustness, interactions, mapping, and rank preference.
+- Complete design runs can be compared for candidate loss, winner changes, rank reversals, context changes, and unexplained non-reproducibility.
+- Experimental feedback is validated, deduplicated, conflict-checked, locally summarized, and split by target group without silently changing the ranker. A learned reranker remains disabled without sufficient leakage-controlled evidence.
 
-- Whole-target primer/probe candidate search with global ranking rather than first-window acceptance.
-- Exact primer, probe, amplicon, and search-window coordinates, including repeated-sequence targets.
-- Primer3 and published nearest-neighbor thermodynamic calculations at configurable reaction conditions.
-- Hydrolysis-probe, modified-probe, SYBR, low-Tm, degenerate, and exon-junction-aware design paths.
-- Ambiguity-aware target conservation, off-target discrimination, offline in-silico PCR, remote NCBI BLAST, and optional local BLAST.
-- Multi-isolate inclusivity/exclusivity screening and coherent full-assay coverage calculations.
-- Multiplex dye, amplicon-melt, cross-dimer, 3′-engagement, and annealing-temperature checks.
-- Orthogonal-panel graph analysis with exact branch-and-bound model proofs when available, rigorous clique-cover bounds otherwise, and optional non-certifying Lovász-theta diagnostics.
-- Raw fluorescence Cq screening, standard-curve analysis, melt-peak analysis, relative-expression analysis, and geNorm-style reference-gene screening.
-- Strict IDT-style order CSV, unambiguous synthetic-fragment FASTA, escaped HTML/CSV assay-readiness reports, and RDML 1.3 assay-definition export.
-
-## Important scientific limits
-
-- Selection Tm and displayed Tm use transparent published models but may differ from vendor calculators because concentration conventions, parameter sets, and modification handling differ.
-- LNA calculations require explicit `+N` positions and remain model estimates. MGB and proprietary modified-probe behavior require the selected vendor’s calculation.
-- A predicted single amplicon, a single melt peak, or a favorable graph model is not proof of biological specificity.
-- The reported lowest fully detected standard and exploratory logistic detection estimate are not validated LOD95 values.
-- Reference-gene output is geNorm-style pairwise M/V plus a Cq-SD screen. It is not full BestKeeper or NormFinder.
-- MIQE-aligned outputs are readiness records, not certification of MIQE compliance.
-
-See [VALIDATION_LIMITS.md](VALIDATION_LIMITS.md) before using results in a publication, regulated workflow, diagnostic claim, or ordering decision.
-
-## Run from source
-
-Python 3.10 or newer is recommended.
+## Run locally
 
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
+# macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-export OLIGOFORGE_EMAIL="you@institution.edu"
-uvicorn app:app --host 127.0.0.1 --port 8111
+uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8111`.
+Open `http://127.0.0.1:8000`.
 
-Run the complete source-level test gate:
+## Test
 
 ```bash
+npm ci
 python run_tests.py
+python tests/run_ranking_benchmark.py
+npm audit --audit-level=high
+pip check
 ```
 
-Optional local BLAST requires NCBI BLAST+ and a local nucleotide database. Public hosted deployments intentionally block arbitrary server-side BLAST database paths.
+Deterministic release tests are offline. Live NCBI and remote BLAST checks are optional integration tests.
 
-## Render / multi-user deployment
+## Render
 
-`render.yaml` enables hosted mode. In hosted mode, server-side project/panel storage and process-wide reaction-condition mutation are disabled unless the operator explicitly opts in behind appropriate authentication and isolation.
+Use `render.yaml` or the included Dockerfile. Configure `OLIGOFORGE_HOSTED=1`, provide an NCBI contact email through environment variables, and store secrets only in Render configuration. Hosted server-side project storage, reaction-setting mutation, and local BLAST paths remain disabled unless deliberately enabled in a private authenticated deployment.
 
-Relevant environment variables:
+## Scientific boundary
 
-```text
-OLIGOFORGE_HOSTED=1
-OLIGOFORGE_ALLOW_SERVER_STORAGE=0
-OLIGOFORGE_ALLOW_SHARED_CONDITIONS=0
-OLIGOFORGE_EMAIL=<contact email for NCBI>
-OLIGOFORGE_NCBI_KEY=<optional NCBI API key>
-OLIGOFORGE_MAX_REQUEST_BYTES=5242880
-OLIGOFORGE_NCBI_TIMEOUT=30
-OLIGOFORGE_NCBI_RETRIES=2
-```
-
-Read [SECURITY.md](SECURITY.md) before exposing the service publicly.
-
-## Main modules
-
-```text
-app.py                         FastAPI API and hosted-mode controls
-oligoforge/design.py           candidate enumeration, pairing, probing, ranking
-oligoforge/autodesign.py       full target/off-target workflow
-oligoforge/thermo.py           reaction-aware thermodynamics
-oligoforge/specificity.py      BLAST, offline PCR, intron/exon checks
-oligoforge/conservation.py     target conservation and discrimination
-oligoforge/multiplex.py        channel, dimer, and melt compatibility
-oligoforge/orthopanel.py       graph-based orthogonal-panel analysis
-oligoforge/cq.py               raw-curve Cq screening
-oligoforge/quant.py            copies, dilution series, standard curves
-oligoforge/refgenes.py         geNorm-style reference-gene screening
-oligoforge/report.py           escaped assay-readiness HTML/CSV export
-oligoforge/orders.py           strict order CSV and gBlock FASTA export
-oligoforge/rdml.py             RDML 1.3 assay-definition export
-```
-
-## Reproducibility and release discipline
-
-Dependencies are pinned in `requirements.txt`. The release version is synchronized across the Python package, API, launcher, and UI. `run_tests.py` runs every standalone Python regression script and every Node UI harness, with per-test timeouts so a stalled network or numerical call cannot hang CI indefinitely.
-
-## License
-
-See [LICENSE](LICENSE).
+OligoForge ranks the **best-supported computational candidate among the retained and fully evaluated pool under declared assumptions**. Search is heuristic-bounded, and software cannot establish a universal wet-lab optimum. Read `RANKING_AUDIT.md`, `RANKING_VALIDATION_REPORT.md`, `VALIDATION_LIMITS.md`, and `RELEASE_SUMMARY.md` before publication or large-scale ordering.

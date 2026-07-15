@@ -194,7 +194,12 @@ def _calc_tm(seq, salt_method=None):
                                salt_corrections_method=salt_method or SALT_METHOD, **COND)
 
 
-@lru_cache(maxsize=8192)
+# Target-wide design revisits overlapping oligo windows.  An 8k cache sits just
+# below the working set of a multi-window run; the next deterministic rerun then
+# cycles through evicted entries and can spend minutes recomputing Primer3 Tm.
+# 65k keeps several complete target-wide runs resident while remaining modest in
+# memory (short sequence strings + floats).
+@lru_cache(maxsize=65536)
 def _tm_at(seq, snap):
     with _P3:
         r = _resolve(seq)

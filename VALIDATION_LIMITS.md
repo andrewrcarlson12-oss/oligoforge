@@ -1,43 +1,16 @@
-# Validation limits
+# Validation limits — OligoForge 1.34.0
 
-OligoForge 1.31.1 produces computational candidates and assay-readiness records. The following evidence remains necessary before describing an assay as validated or publication-ready.
+OligoForge produces computational candidates, structured evidence, uncertainty labels, provenance manifests, and assay-readiness records. It does not biologically validate an assay.
 
-## Sequence and specificity
+Before describing an assay as validated or publication-ready, obtain representative target and near-neighbor panels; replicate standard curves; efficiency and linearity; adequately replicated LOD/LOQ; product identity; inclusivity/exclusivity; inhibition and matrix tests; probe-signal performance; multiplex interaction tests; synthesis/vendor review for modified oligos; and locked analysis criteria.
 
-1. Confirm the intended reference build, transcript/isoform, strand, and amplicon coordinates.
-2. Re-run final primer pairs through NCBI Primer-BLAST or an equivalent paired-primer search against the relevant database and near-neighbor taxa.
-3. Test representative target isolates and the biologically plausible off-target panel.
-4. Verify product identity by sequencing, size plus a specific probe, or another orthogonal method. A single melt peak alone is insufficient.
-5. For RT-qPCR, establish how genomic DNA is excluded: exon-junction placement, DNase treatment, no-RT controls, or a validated intron-spanning design.
+The ranking benchmark proves that the software obeys frozen adversarial decision preferences and avoids known compensation and candidate-loss failures. It does **not** prove that rank 1 will outperform ranks 2–20 at the bench. The repository does not contain a sufficiently large target-grouped held-out experimental preference dataset.
 
-## Reaction optimization
+Rank confidence is conditional on supplied evidence. Missing off-target, panel, junction, sequence-version, or database-version information can produce an explicit insufficient-evidence state. “Near-equivalent” means the implemented computational evidence does not support a decisive distinction; it is not an equivalence proof.
 
-1. Confirm final oligo Tm and modifications with the selected vendor and actual master-mix conditions.
-2. Run an annealing-temperature gradient.
-3. Evaluate primer/probe concentrations and multiplex interactions experimentally.
-4. Include no-template, no-RT where applicable, positive, extraction, and inhibition controls.
+Search is heuristic-bounded. A stronger triplet can exist outside the retained pool. Every run records candidate limits, attrition, conditions, input hashes, model versions, external-database state, warnings, and fallbacks so that this uncertainty remains visible.
 
-## Quantitative validation
+Experimental-feedback records remain local evidence. The learned-reranker gate is only a minimum eligibility screen and does not establish that a model is valid or deployable.
 
-1. Use independent dilution levels spanning the intended dynamic range.
-2. Treat technical replicates as precision measurements, not independent dilution levels.
-3. Report slope, efficiency, linearity, residual behavior, replicate dispersion, and excluded data with reasons.
-4. Estimate LOD/LOQ using a dedicated replicate-rich experiment around the transition region. OligoForge’s lowest fully detected standard and logistic estimate are screening descriptors only.
-5. Validate performance in the actual sample matrix and extraction workflow.
+Manual edit comparison is also computational. A reported improvement means that the edited assay has stronger modeled evidence under the supplied context; it does not establish improved amplification efficiency, fluorescence, inhibition tolerance, synthesis quality, or multiplex behavior. Batch designs use a shorter declared search budget than a full interactive design and can therefore miss candidates retained by a broader run; compare the manifests and rerun critical targets interactively before ordering.
 
-## Modified probes and degenerate oligos
-
-- LNA estimates use explicit `+N` positions and a published model. Sequence context, placement, dye/quencher chemistry, and vendor parameterization matter.
-- MGB and other proprietary modifications are not predicted as exact physical Tm values.
-- Degenerate pools must be reviewed for synthesis complexity, component concentration, target coverage, and off-target coverage.
-
-## Expression studies
-
-- Average technical replicates before reference-gene analysis.
-- Supply assay-specific amplification efficiencies when available.
-- Use biological replicates for inferential statistics.
-- geNorm-style M/V results should be cross-checked with biological knowledge and an independent method where publication claims depend on reference stability.
-
-## Regulatory and clinical use
-
-OligoForge is not a medical device, diagnostic system, laboratory-developed-test validation package, or regulatory submission system. Do not use its output alone for patient care, release testing, or a regulated performance claim.

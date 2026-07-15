@@ -12,8 +12,9 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR, nn as NN
+from oligoforge import ranking_profiles as RPROF, manual_design as MDS, assay_rescue as ARES, experimental_feedback as EFB, run_compare as RCOMP
 
-app = FastAPI(title="OligoForge", version="1.31.1")
+app = FastAPI(title="OligoForge", version="1.34.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -163,6 +164,7 @@ class MatrixReq(BaseModel):
 class DesignReq(BaseModel):
     template: str; profile: str = "idt_taqman"; off_targets: Optional[str] = None
     panel: Optional[List[dict]] = None
+    objective: str = "balanced"
 
 class FetchReq(BaseModel):
     accession: Optional[str] = None; gene: Optional[str] = None
@@ -215,6 +217,38 @@ def healthz():
 def profiles():
     return {k: {"name": v["name"], "no_probe": v.get("no_probe", False),
                 "notes": v.get("notes", "")} for k, v in P.PROFILES.items()}
+
+@app.get("/api/ranking-profiles")
+def ranking_profiles():
+    return RPROF.public_profiles()
+
+
+def _require_objective(name):
+    key = str(name or "balanced").strip().lower()
+    if key not in RPROF.OBJECTIVE_PROFILES:
+        raise ValueError("unknown assay objective: %s" % key)
+    return key
+
+
+def _require_profile(key):
+    if key not in P.PROFILES:
+        raise ValueError("unknown chemistry profile: %s" % key)
+    return P.PROFILES[key]
+
+
+def _bounded_sequence_list(rows, label, max_records=50):
+    rows = list(rows or [])
+    if len(rows) > max_records:
+        raise ValueError("%s contains %d records; limit %d" % (label, len(rows), max_records))
+    out = []
+    for i, row in enumerate(rows):
+        if len(row or "") > T.MAX_TEMPLATE_LEN:
+            raise ValueError("%s record %d exceeds %d nt" % (label, i + 1, T.MAX_TEMPLATE_LEN))
+        c, _n, err = T.clean_seq(row or "")
+        if err or not c:
+            raise ValueError("%s record %d is invalid: %s" % (label, i + 1, err or "empty"))
+        out.append(c)
+    return out
 
 @app.post("/api/qc")
 def qc(r: OligoReq):
@@ -432,6 +466,10 @@ def _parse_junction_template(text):
 
 @app.post("/api/design")
 def design(r: DesignReq):
+    try:
+        r.objective = _require_objective(r.objective)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
     junctions = []
     if len(r.template or "") > T.MAX_TEMPLATE_LEN:
         return JSONResponse({"error": "template too long (%d nt; limit %d). Paste the transcript / "
@@ -463,7 +501,9 @@ def design(r: DesignReq):
         res = None; used = None
         for pk in order:
             try:
-                res = _AD_design.design_from_sequences(targets, P.PROFILES[pk], offs=offs or None, n_candidates=NCAND)
+                res = _AD_design.design_from_sequences(targets, P.PROFILES[pk], offs=offs or None,
+                                                        n_candidates=NCAND, objective=r.objective,
+                                                        junctions=junctions, panel=panel)
             except Exception:
                 res = None
             if res and res.get("candidates"):
@@ -477,7 +517,9 @@ def design(r: DesignReq):
         pk = r.profile if r.profile in P.PROFILES else "idt_taqman"
         prof = P.PROFILES[pk]
         try:
-            res = _AD_design.design_from_sequences(targets, prof, offs=offs or None, n_candidates=NCAND)
+            res = _AD_design.design_from_sequences(targets, prof, offs=offs or None,
+                                                    n_candidates=NCAND, objective=r.objective,
+                                                    junctions=junctions, panel=panel)
         except Exception as e:
             return _api_failure("design", e)
         if not (res and res.get("candidates")):
@@ -589,19 +631,26 @@ def design(r: DesignReq):
             probe_hairpin=round(pi["hairpin_dg"], 2) if pi else None,
             probe_dimer_f=round(pi["dimer_f"], 2) if pi else None,
             probe_dimer_r=round(pi["dimer_r"], 2) if pi else None,
-            gblock=a["gblock"], score=sc.get("score"), quality_flags=a.get("quality_flags") or [],
+            gblock=a["gblock"], score=sc.get("display_score", sc.get("score")),
+            legacy_score=sc.get("legacy_score", sc.get("score")), quality_flags=a.get("quality_flags") or [],
             f_span=fspan, r_span=rspan, probe_span=pspan, probe_rc=probe_rc, amp_span=amp_span,
             score_breakdown=dict(raw=sc.get("score_raw"), quality=sc.get("quality_penalty"),
                                  amplicon=sc.get("amplicon_penalty")),
-            conservation=cons_out, discrimination=disc_out, specificity=spec, degenerate=deg, panel_fit=pf,
-            junction=jx))
-    if junctions:                                            # surface gDNA-excluding candidates first; engine score breaks ties
-        _jr = {"strong": 0, "size": 1, "none": 2}
-        cands.sort(key=lambda c: (_jr.get((c.get("junction") or {}).get("level", "none"), 2), -(c.get("score") or 0)))
+            conservation=cons_out, discrimination=disc_out, specificity=spec, degenerate=deg,
+            panel_fit=(sc.get("evidence") or {}).get("panel_fit") or pf,
+            junction=jx or (sc.get("evidence") or {}).get("junction"),
+            rank=sc.get("rank"), pareto_front=(sc.get("evidence") or {}).get("pareto_front"),
+            hard_valid=(sc.get("evidence") or {}).get("hard_valid"),
+            hard_failures=(sc.get("evidence") or {}).get("hard_failures") or [],
+            evidence=sc.get("evidence"), finalist_categories=sc.get("finalist_categories") or [],
+            rank_explanation=sc.get("rank_explanation")))
     return dict(template=ref, profile=prof["name"], n=len(cands), candidates=cands,
                 n_targets=len(targets), n_offs=len(offs), n_panel=len(panel),
                 junctions=junctions, n_junctions=len(junctions), off_control=off_ctrl,
-                note=(" \u00b7 ".join(notes) if notes else None), constraint_note=res.get("constraint_note"))
+                objective_profile=res.get("objective_profile"), candidate_attrition=res.get("candidate_attrition"),
+                ranker_manifest=res.get("ranker_manifest"), search_status=res.get("search_status"),
+                ranking_statement=res.get("ranking_statement"),
+                note=(" · ".join(notes) if notes else None), constraint_note=res.get("constraint_note"))
 
 
 class AccessReq(BaseModel):
@@ -787,6 +836,8 @@ class CopiesReq(BaseModel):
 
 class BatchItem(BaseModel):
     name: str; template: str; profile: str = "idt_taqman"
+    objective: str = "balanced"
+    off_targets: Optional[str] = None
 class BatchReq(BaseModel):
     items: List[BatchItem]
 
@@ -822,22 +873,80 @@ def copies(r: CopiesReq):
 
 @app.post("/api/batch_design")
 def batch_design(r: BatchReq):
+    if not r.items:
+        return JSONResponse({"error": "batch contains no design items"}, status_code=422)
+    if len(r.items) > 8:
+        return JSONResponse({"error": "batch is limited to 8 templates per request"}, status_code=422)
     out = []
     for it in r.items:
-        prof = P.PROFILES.get(it.profile, P.PROFILES["idt_taqman"])
+        item_name = str(it.name or "unnamed")[:120]
         try:
-            a = D.design_assay(it.template.upper().strip(), prof)
-        except Exception:
-            a = None
-        if a:
-            pi = a.get("probe_info")
-            out.append(dict(name=it.name, ok=True, forward=a["forward"], reverse=a["reverse"],
-                            probe=a["probe"], amplicon=a["amplicon"], f_tm=round(a["f_tm"], 1),
-                            r_tm=round(a["r_tm"], 1),
-                            probe_tm=round(pi["tm"], 1) if pi else None, gblock=a["gblock"]))
-        else:
-            out.append(dict(name=it.name, ok=False, error="no clean assay under that profile"))
-    return dict(results=out)
+            objective = _require_objective(it.objective)
+        except ValueError as exc:
+            out.append(dict(name=item_name, ok=False, error=str(exc)))
+            continue
+        if len(it.template or "") > T.MAX_TEMPLATE_LEN:
+            out.append(dict(name=item_name, ok=False,
+                            error="template exceeds %d nt" % T.MAX_TEMPLATE_LEN))
+            continue
+        targets, _notes = _parse_fasta_targets(it.template)
+        if not targets:
+            out.append(dict(name=item_name, ok=False,
+                            error="no usable target sequence (need at least ~60 nt)"))
+            continue
+        offs, _off_notes = _parse_fasta_targets(it.off_targets) if it.off_targets else ([], [])
+        ref = _AD_design._reference(targets)
+        try:
+            if str(it.profile or "").lower() == "auto":
+                order, _gc = _AD_design._auto_order(ref)
+                result = None; used_key = None
+                for profile_key in order:
+                    candidate_result = _AD_design.design_from_sequences(
+                        targets, P.PROFILES[profile_key], offs=offs or None,
+                        n_candidates=3, objective=objective, search_budget_s=12.0)
+                    if candidate_result and candidate_result.get("candidates"):
+                        result = candidate_result; used_key = profile_key; break
+                prof = P.PROFILES[used_key] if used_key else None
+            else:
+                profile_key = it.profile if it.profile in P.PROFILES else "idt_taqman"
+                prof = P.PROFILES[profile_key]
+                result = _AD_design.design_from_sequences(
+                    targets, prof, offs=offs or None,
+                    n_candidates=3, objective=objective, search_budget_s=12.0)
+        except Exception as exc:
+            log.exception("batch design failed for %s", item_name)
+            detail = "batch design failed" if HOSTED_MODE else str(exc)
+            out.append(dict(name=item_name, ok=False, error=detail))
+            continue
+        if not (result and result.get("candidates")):
+            out.append(dict(name=item_name, ok=False,
+                            error=(result or {}).get("error") or "no hard-valid assay under that profile"))
+            continue
+        ranked = result["candidates"][0]
+        a = ranked["assay"]
+        pi = a.get("probe_info")
+        evidence = ranked.get("evidence") or {}
+        explanation = ranked.get("rank_explanation") or {}
+        out.append(dict(
+            name=item_name, ok=True, forward=a["forward"], reverse=a["reverse"],
+            probe=a.get("probe"), amplicon=a["amplicon"],
+            f_tm=round(a["f_tm"], 1), r_tm=round(a["r_tm"], 1),
+            probe_tm=round(pi["tm"], 1) if pi else None, gblock=a.get("gblock"),
+            profile=(prof or {}).get("name"), objective=objective,
+            rank=ranked.get("rank"), display_score=ranked.get("display_score"),
+            hard_valid=evidence.get("hard_valid"), hard_failures=evidence.get("hard_failures") or [],
+            uncertainty=(explanation.get("uncertainty") or explanation.get("preference_strength")),
+            strongest_feature=explanation.get("strongest_feature"),
+            weakest_feature=explanation.get("weakest_feature"),
+            ranking_statement=result.get("ranking_statement"),
+            ranker_manifest=result.get("ranker_manifest"),
+            candidate_attrition=result.get("candidate_attrition"),
+            alternatives_evaluated=result.get("n_candidates_screened"),
+        ))
+    return dict(results=out, pipeline="authoritative_structured_ranker",
+                policy=("Every successful batch winner passed the same retained-pool annotation and "
+                        "structured ranking path used by interactive automatic design. Batch search uses "
+                        "a declared 12-second per-template enumeration budget; the manifest records that limit."))
 
 @app.post("/api/panel/save")
 def panel_save(r: PanelSaveReq):
@@ -1141,8 +1250,13 @@ class AutoDesignReq(BaseModel):
     run_blast: bool = False; blast_mode: str = "remote"
     blast_db: str = "nt"; blast_db_path: Optional[str] = None; organism: Optional[str] = None
     email: Optional[str] = None; ncbi_key: Optional[str] = None; prefer_junction: bool = False; nested: bool = False
+    objective: str = "balanced"
 @app.post("/api/autodesign")
 def api_autodesign(r: AutoDesignReq):
+    try:
+        r.objective = _require_objective(r.objective)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
     _set_email(r.email, r.ncbi_key)
     denied = _local_blast_denied(r.blast_mode, r.blast_db_path) if r.run_blast else None
     if denied:
@@ -1151,10 +1265,177 @@ def api_autodesign(r: AutoDesignReq):
         return AD.design_from_query(r.target_query, r.profile, r.off_query, min(r.n_fetch, 30),
                                     r.min_ident, r.run_blast, r.blast_mode, r.blast_db,
                                     r.blast_db_path, r.organism, prefer_junction=r.prefer_junction,
-                                    nested=r.nested)
+                                    nested=r.nested, objective=r.objective)
     except Exception as e:
         return _api_failure("automatic design", e)
 
+
+# ============ ranking-truth manual design and assay rescue ============
+class ManualDesignReq(BaseModel):
+    forward: str; reverse: str; template: str
+    probe: Optional[str] = None; profile: str = "idt_taqman"; objective: str = "balanced"
+    targets: Optional[List[str]] = None; off_targets: Optional[List[str]] = None; max_mm: int = 2
+
+class RedesignReq(ManualDesignReq):
+    locks: Optional[Dict[str, bool]] = None; max_results: int = 8
+    max_shift: Optional[int] = None; excluded_regions: Optional[List[List[int]]] = None
+    amp_min: Optional[int] = None; amp_max: Optional[int] = None
+    required_region: Optional[List[int]] = None
+
+class RescueReq(ManualDesignReq):
+    observed: Optional[dict] = None; max_results: int = 4
+
+class ManualEditCompareReq(BaseModel):
+    baseline_forward: str; baseline_reverse: str
+    edited_forward: str; edited_reverse: str
+    template: str
+    baseline_probe: Optional[str] = None; edited_probe: Optional[str] = None
+    profile: str = "idt_taqman"; objective: str = "balanced"
+    targets: Optional[List[str]] = None; off_targets: Optional[List[str]] = None
+    max_mm: int = 2
+
+class FeedbackReq(BaseModel):
+    records: List[dict]
+
+class FeedbackImportReq(BaseModel):
+    payload: str
+    format_hint: str = "auto"
+
+class FeedbackSplitReq(FeedbackReq):
+    train_fraction: float = 0.70
+    validation_fraction: float = 0.15
+
+
+class RunCompareReq(BaseModel):
+    left: dict
+    right: dict
+    top_k: int = 10
+
+
+def _profile_or_default(key):
+    return _require_profile(key)
+
+
+def _manual_inputs(r):
+    objective = _require_objective(r.objective)
+    if len(r.template or "") > T.MAX_TEMPLATE_LEN:
+        raise ValueError("template exceeds %d nt" % T.MAX_TEMPLATE_LEN)
+    targets = _bounded_sequence_list(r.targets, "target set") if r.targets is not None else None
+    offs = _bounded_sequence_list(r.off_targets, "off-target set") if r.off_targets is not None else None
+    return _profile_or_default(r.profile), objective, targets, offs
+
+@app.post("/api/manual-design/analyze")
+def api_manual_design(r: ManualDesignReq):
+    try:
+        profile, objective, targets, offs = _manual_inputs(r)
+        return MDS.analyze_assay(r.forward, r.reverse, r.template, profile,
+                                 r.probe, targets=targets, offs=offs,
+                                 objective=objective, max_mm=max(0, min(int(r.max_mm), 4)))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return _api_failure("manual assay analysis", e)
+
+@app.post("/api/manual-design/redesign")
+def api_manual_redesign(r: RedesignReq):
+    try:
+        profile, objective, targets, offs = _manual_inputs(r)
+        excluded = [(int(x[0]), int(x[1])) for x in (r.excluded_regions or []) if len(x) == 2]
+        required = r.required_region if (r.required_region and len(r.required_region) == 2) else None
+        return MDS.constrained_redesign(r.forward, r.reverse, r.template, profile,
+                                        r.probe, locks=r.locks, objective=objective,
+                                        max_results=max(1, min(int(r.max_results), 20)),
+                                        max_shift=r.max_shift, excluded_regions=excluded,
+                                        max_mm=max(0, min(int(r.max_mm), 4)),
+                                        amp_min=r.amp_min, amp_max=r.amp_max,
+                                        required_region=required, targets=targets, offs=offs)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return _api_failure("constrained redesign", e)
+
+@app.post("/api/assay-rescue")
+def api_assay_rescue(r: RescueReq):
+    try:
+        profile, objective, targets, offs = _manual_inputs(r)
+        return ARES.rescue(r.forward, r.reverse, r.template, profile,
+                           r.probe, objective=objective, observed=r.observed,
+                           targets=targets, offs=offs,
+                           max_results=max(1, min(int(r.max_results), 10)))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return _api_failure("assay rescue", e)
+
+
+@app.post("/api/manual-design/compare-edit")
+def api_manual_compare_edit(r: ManualEditCompareReq):
+    try:
+        objective = _require_objective(r.objective)
+        profile = _profile_or_default(r.profile)
+        if len(r.template or "") > T.MAX_TEMPLATE_LEN:
+            raise ValueError("template exceeds %d nt" % T.MAX_TEMPLATE_LEN)
+        targets = _bounded_sequence_list(r.targets, "target set") if r.targets is not None else None
+        offs = _bounded_sequence_list(r.off_targets, "off-target set") if r.off_targets is not None else None
+        return MDS.compare_edits(
+            r.baseline_forward, r.baseline_reverse,
+            r.edited_forward, r.edited_reverse, r.template, profile,
+            baseline_probe=r.baseline_probe, edited_probe=r.edited_probe,
+            targets=targets, offs=offs, objective=objective,
+            max_mm=max(0, min(int(r.max_mm), 4)))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return _api_failure("manual assay edit comparison", e)
+
+@app.post("/api/experimental-feedback/status")
+def api_feedback_status(r: FeedbackReq):
+    try:
+        return EFB.calibration_status(r.records)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return _api_failure("experimental feedback", e)
+
+
+@app.post("/api/experimental-feedback/import")
+def api_feedback_import(r: FeedbackImportReq):
+    try:
+        records = EFB.parse_records(r.payload, r.format_hint)
+        return EFB.dataset_status(records)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return _api_failure("experimental feedback import", e)
+
+@app.post("/api/experimental-feedback/split")
+def api_feedback_split(r: FeedbackSplitReq):
+    try:
+        return EFB.target_group_split(r.records, r.train_fraction, r.validation_fraction)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return _api_failure("experimental feedback split", e)
+
+
+@app.post("/api/experimental-feedback/summary")
+def api_feedback_summary(r: FeedbackReq):
+    try:
+        return EFB.evidence_summary(r.records)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return _api_failure("experimental feedback summary", e)
+
+
+@app.post("/api/design-runs/compare")
+def api_run_compare(r: RunCompareReq):
+    try:
+        return RCOMP.compare_runs(r.left, r.right, top_k=max(1, min(int(r.top_k), 100)))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return _api_failure("design run comparison", e)
 
 # ============ orthogonal panel analysis (exact proofs where available; diagnostics otherwise) ============
 from oligoforge import orthopanel as OP

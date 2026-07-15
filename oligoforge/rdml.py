@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from . import thermo as T
+from . import provenance as PROV
 
 RDML_NS = "http://www.rdml.org"
 XSI = "http://www.w3.org/2001/XMLSchema-instance"
@@ -76,6 +77,28 @@ def _plain_sequence(seq, field):
     return bare.upper()
 
 
+
+def _provenance_description(assay):
+    """Compact, schema-safe provenance text for RDML's target description."""
+    a = assay or {}
+    m = a.get("ranker_manifest") or {}
+    if not m:
+        return "OligoForge rank provenance: not attached (manual or legacy assay)"
+    v = PROV.verify_manifest(m)
+    objective = a.get("objective_profile") or a.get("objective") or {}
+    if isinstance(objective, dict):
+        objective = objective.get("label") or objective.get("key") or "declared objective"
+    rank = a.get("candidate_rank")
+    return ("OligoForge %s; ranker %s; run %s; manifest_sha256 %s; manifest %s; "
+            "candidate rank %s; objective %s" % (
+                m.get("application_version", "unrecorded"),
+                m.get("ranker_version", "unrecorded"),
+                m.get("run_id", "unrecorded"),
+                m.get("manifest_sha256", "unrecorded"),
+                "verified" if v.get("valid") else "invalid_or_altered",
+                rank if rank is not None else "unrecorded",
+                objective or "unrecorded"))
+
 def _oligo(seqparent, tag, seq, field):
     if not seq:
         return
@@ -120,9 +143,9 @@ def build(panel, meta=None):
 
     for tid, dye, assay in parsed:
         tgt = ET.SubElement(root, "{%s}target" % RDML_NS, {"id": tid})
-        desc = " / ".join(str(x) for x in (assay.get("gene"), assay.get("organism")) if x)
-        if desc:
-            _sub(tgt, "description", desc)
+        desc_parts = [str(x) for x in (assay.get("gene"), assay.get("organism")) if x]
+        desc_parts.append(_provenance_description(assay))
+        _sub(tgt, "description", " / ".join(desc_parts))
         _sub(tgt, "type", _ttype(assay))
         val = assay.get("validation") or {}
         eff = val.get("efficiency_pct")

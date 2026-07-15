@@ -89,6 +89,13 @@ def run_node():
 
 
 if __name__ == "__main__":
+    # On POSIX, replace this process with the shell runner so exhaustive Primer3
+    # tests are direct children of the shell. CPython 3.13 can deadlock primer3-py
+    # when the same workload runs in a nested Python subprocess. Windows retains
+    # the pure-Python fallback below.
+    shell_runner = os.path.join(ROOT, "run_tests.sh")
+    if os.name != "nt" and os.path.exists(shell_runner) and os.environ.get("OLIGOFORGE_PY_RUNNER") != "1":
+        os.execv("/bin/bash", ["bash", shell_runner] + sys.argv[1:])
     only = sys.argv[1] if len(sys.argv) > 1 else ""
     total_fail = 0
     allfailed = []

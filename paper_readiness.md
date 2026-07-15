@@ -1,23 +1,12 @@
-# Paper-readiness assessment — OligoForge 1.31.1
+# Paper-readiness assessment — OligoForge 1.34.0
 
-## Verdict
+The software methods, candidate provenance, attrition accounting, explicit rank uncertainty, benchmark-integrity checks, and adversarial computational validation are suitable for a methods preprint after independent code review. Claims must remain limited to computational behavior.
 
-The software is suitable for continued internal development, computational benchmarking, and generation of candidate assays. It is **not yet sufficient by itself for a methods-paper claim of assay validation**.
+A paper claiming superior assay performance requires a preregistered, target-group-separated wet-lab comparison of rank 1 against diverse alternatives and external design tools under matched inputs. Preserve failed assays, adjudicate conflicting outcomes, freeze development/tuning/held-out/final-test splits, report all exclusions and candidate limits, and retain versioned run manifests.
 
-## What can be reported now
+Do not use the current synthetic/adversarial benchmark or the minimum feedback-data gate as evidence of biological superiority or a validated learned reranker.
 
-- Software architecture and deterministic algorithms.
-- Thermodynamic models and stated concentration conventions.
-- Offline regression fixtures and benchmark design.
-- Input validation, hosted-security controls, and reproducible exports.
-- Computational comparisons against independent primary implementations where those comparisons are actually run and reported.
+## 1.34.0 impact
 
-## What still needs empirical evidence
+Decision traceability is stronger: manual edits, batch winners, run-to-run changes, and local experimental feedback are now auditable. This improves methods reporting and reproducibility, but the central publication blocker remains unchanged: no sufficiently large, target-group-separated wet-lab ranking dataset demonstrates that rank 1 outperforms lower-ranked candidates across independent assay families.
 
-- A preregistered or frozen benchmark panel of targets and near-neighbor off-targets.
-- Comparison against Primer3/Primer-BLAST and selected vendor tools using the same input conditions.
-- Wet-lab success rate for top-ranked versus lower-ranked or external-tool assays.
-- Efficiency, linearity, product identity, inclusivity, exclusivity, matrix effects, reproducibility, LOD, and LOQ.
-- Failure-case analysis rather than only successful examples.
-
-See `VALIDATION_LIMITS.md` for the minimum evidence expected before assay-level publication claims.

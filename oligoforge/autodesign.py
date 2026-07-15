@@ -12,12 +12,68 @@ under-specifies the problem: it needs the gene (so the fetched sequences share a
 locus) and, for a detection assay, what to discriminate against.
 """
 from . import design as D, conservation as C, ncbi as N, thermo as T, profiles as PROF, specificity as SP, structure as STR, refmarkers as RM
+from . import candidate_search as CSEARCH
+from . import candidate_retention as CRET
+from . import ranking as RANK
+from . import ranking_explain as REXPLAIN
+import hashlib
+import json
+import threading
+from collections import OrderedDict
+from copy import deepcopy
 
 # Mitochondrial / ribosomal barcode words: their GenBank records (e.g. MalAvi cytb
 # barcodes) are deposited as partial sequences not linked to a Gene record, so a precise
 # [Gene Name] fetch would MISS them — keep these as free-text. Protein-coding genes
 # (IFNG, IL4, RPL13...) instead get the precise fetch so "interferon gamma" lands on IFNG,
 # not IFNGR1 (interferon-gamma receptor 1).
+# Candidate generation makes many native Primer3 calls.  Bounded defensive-copy
+# caches prevent repeated identical requests from re-entering that native search,
+# improve interactive reproducibility, and avoid a primer3-py long-run stall seen
+# after back-to-back exhaustive searches.  Keys include reaction conditions and all
+# ranking/search inputs; callers never receive the cached mutable object itself.
+_CACHE_LOCK = threading.RLock()
+_SEARCH_CACHE = OrderedDict()
+_DESIGN_CACHE = OrderedDict()
+_SEARCH_CACHE_MAX = 8
+_DESIGN_CACHE_MAX = 8
+
+
+def _stable_hash(value):
+    raw = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _cache_get(cache, key):
+    with _CACHE_LOCK:
+        if key not in cache:
+            return None
+        value = cache.pop(key)
+        cache[key] = value
+        return deepcopy(value)
+
+
+def _cache_put(cache, key, value, limit):
+    with _CACHE_LOCK:
+        cache.pop(key, None)
+        cache[key] = deepcopy(value)
+        while len(cache) > limit:
+            cache.popitem(last=False)
+
+
+def clear_design_caches():
+    """Clear bounded sequence-design memoization (tests/admin diagnostics)."""
+    with _CACHE_LOCK:
+        _SEARCH_CACHE.clear()
+        _DESIGN_CACHE.clear()
+
+
+def design_cache_info():
+    with _CACHE_LOCK:
+        return {"search_entries": len(_SEARCH_CACHE), "design_entries": len(_DESIGN_CACHE),
+                "search_limit": _SEARCH_CACHE_MAX, "design_limit": _DESIGN_CACHE_MAX}
+
+
 _MARKER_WORDS = {"cytb", "cob", "cytochrome", "oxidase", "nadh", "cox1", "cox2", "cox3", "coi", "co1", "coii", "coiii",
                  "nad1", "nad5", "nad4", "atp6", "18s", "28s", "16s", "23s", "12s",
                  "its", "its1", "its2", "rrna", "ribosomal", "rbcl", "matk", "trnl",
@@ -55,20 +111,6 @@ def _reference(seqs):
     return max(capped, key=len) if capped else min(seqs, key=len)
 
 
-def _design_one(template, profile):
-    if profile.get("no_probe"):
-        fwd, rev = D.enumerate_primers(template, profile)
-        pairs = D.pair_primers(fwd, rev, profile)
-        if not pairs:
-            return None
-        p = pairs[0]
-        return dict(forward=p["f"], reverse=p["r"], probe=None, amplicon=p["amp"],
-                    amplicon_tm=round(T.amplicon_tm(template.upper()[p["fstart"]:p["rend"]]), 1),
-                    f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]), probe_info=None,
-                    f_xy=(p["fstart"], p["fend"]), r_xy=(p["rstart"], p["rend"]))
-    return D.design_assay(template, profile)
-
-
 def _spread_order(starts):
     """Visit a sorted coordinate list in a target-spanning order.
 
@@ -93,66 +135,30 @@ def _spread_order(starts):
     return out
 
 
-def _candidates(reference, profile, n=3, window=350, step=100, budget_s=30.0):
-    """Collect assay candidates across the full reference before global ranking.
+def _candidates_with_ledger(reference, profile, n=3, window=420, step=140, budget_s=35.0):
+    """Target-wide complete-triplet search plus machine-readable attrition ledger."""
+    # ``n`` is the requested number of displayed finalists, not the number allowed
+    # to survive preliminary search.  A broad pool must reach full annotation.
+    retained_limit = max(48, min(120, int(n) * 12))
+    key = _stable_hash({"reference": reference, "profile": profile, "n": int(n),
+                        "window": int(window), "step": int(step), "budget_s": float(budget_s),
+                        "retained_limit": retained_limit, "conditions": T._snapshot(),
+                        "search_version": getattr(CSEARCH, "SEARCH_VERSION", "unknown")})
+    cached = _cache_get(_SEARCH_CACHE, key)
+    if cached is not None:
+        return cached
+    result = CSEARCH.search(reference, profile, window=window, step=step,
+                            budget_s=budget_s, pair_limit=12, probes_per_pair=3,
+                            triplets_per_window=30, retained_limit=retained_limit,
+                            max_windows=18)
+    _cache_put(_SEARCH_CACHE, key, result, _SEARCH_CACHE_MAX)
+    return deepcopy(result)
 
-    Earlier releases stopped as soon as ``n`` early windows happened to succeed.
-    That made acceptable 5' assays crowd out stronger downstream assays.  This
-    version samples the full target in a spread order, deduplicates complete assay
-    identities, and returns the full bounded pool. ``design_from_sequences`` then
-    applies conservation, discrimination and quality scoring globally and trims to
-    the requested count.
-    """
-    import time
-    L = len(reference)
-    window = max(int(window), min(int(profile.get("amp_max", 150)) + 120, 2200))
-    if L <= window:
-        starts = [0]
-    else:
-        max_windows = 30
-        span = L - window
-        # Evenly spaced coordinates guarantee the 3' end is represented.  Add the
-        # legacy step grid for local resolution, then cap deterministically.
-        even = [round(i * span / (max_windows - 1)) for i in range(max_windows)]
-        grid = list(range(0, span + 1, max(step, 1))) + [span]
-        starts = sorted(set(even + grid))
-        if len(starts) > max_windows:
-            starts = [starts[round(i * (len(starts) - 1) / (max_windows - 1))]
-                      for i in range(max_windows)]
-    starts = _spread_order(starts)
-    cands, seen = [], set()
-    t0 = time.monotonic()
-    for start in starts:
-        if cands and time.monotonic() - t0 >= budget_s:
-            break
-        try:
-            assay = _design_one(reference[start:start + window], profile)
-        except Exception:
-            assay = None
-        if not assay:
-            continue
-        key = (assay.get("forward"), assay.get("reverse"), assay.get("probe"))
-        if key in seen:
-            continue
-        seen.add(key)
-        # Preserve the exact selected site on the full reference.  Sequence-only
-        # ``str.find`` is ambiguous in repeat-rich targets and can map a valid assay
-        # to the wrong copy of a motif.
-        pxy = D.probe_span(reference[start:start + window], assay)
-        assay["search_window_start"] = start
-        if assay.get("f_xy"):
-            assay["f_xy"] = [assay["f_xy"][0] + start, assay["f_xy"][1] + start]
-        if assay.get("r_xy"):
-            assay["r_xy"] = [assay["r_xy"][0] + start, assay["r_xy"][1] + start]
-        assay["probe_xy"] = ([pxy[0] + start, pxy[1] + start] if pxy else None)
-        if assay.get("f_xy") and assay.get("r_xy"):
-            assay["amplicon_xy"] = [assay["f_xy"][0], assay["r_xy"][1]]
-        if assay.get("gblock_span"):
-            assay["gblock_span"] = [assay["gblock_span"][0] + start,
-                                      assay["gblock_span"][1] + start]
-        cands.append(assay)
-    return cands
 
+def _candidates(reference, profile, n=3, window=420, step=140, budget_s=35.0):
+    """Backward-compatible candidate-list API; use _candidates_with_ledger for audit data."""
+    rows, _ledger = _candidates_with_ledger(reference, profile, n, window, step, budget_s)
+    return rows
 
 def _score(assay, targets, offs, min_ident):
     oligos = {"F": assay["forward"], "R": assay["reverse"]}
@@ -289,7 +295,7 @@ def _degenerate(oligo, targets, max_mm_frac=0.25, min_minor=0.18, min_count=2, c
     return "".join(out), ndeg, used
 
 
-def _disc_candidates(reference, profile, offs, want=6, window=350, screen=300):
+def _disc_candidates(reference, profile, offs, want=6, window=420, screen=80, max_windows=12):
     """When an off-target set is given, surface primer pairs that DISCRIMINATE it.
     The normal path keeps only the single Tm-optimal pair per window, so a pair whose
     primer 3' end mismatches the off-target -- and would block its amplicon -- is thrown
@@ -305,12 +311,14 @@ def _disc_candidates(reference, profile, offs, want=6, window=350, screen=300):
     if L <= window:
         starts = [0]
     else:
-        starts = list(range(0, L - window + 1, max(100, (L - window) // 29 + 1)))
+        span = L - window
+        starts = sorted(set(round(i * span / max(1, max_windows - 1)) for i in range(max_windows)))
+        starts = _spread_order(starts)
     dcache = {}
     def blk3(seq):
         v = dcache.get(seq)
         if v is None:
-            if len(dcache) >= 1000:            # bound total alignment work on long, many-window references
+            if len(dcache) >= 500:            # bound total alignment work on long, many-window references
                 return (0, 100)
             d = C.discrimination(seq, offs)
             v = ((d.get("min_3prime_mismatch", 0), d.get("max_ident", 100)) if d.get("n") else (0, 100))
@@ -335,35 +343,52 @@ def _disc_candidates(reference, profile, offs, want=6, window=350, screen=300):
     ranked.sort(key=lambda x: (x[0], x[1], x[2], x[3]))
     out, seen = [], set()
     no_probe = profile.get("no_probe")
-    for _sum, _b, _id, _sc, s, win, p in ranked:
-        if p["f"] in seen:
+    # Preserve primer-pair diversity before spending additional slots on probe
+    # alternatives.  A naive pair-major loop let the first two pairs consume the
+    # complete specialist budget with three probes each, discarding a stronger
+    # later pair before full annotation.  Select one triplet per unique pair first,
+    # then add second/third probes round-robin.
+    pair_groups = []
+    pair_seen = set()
+    pair_budget = max(8, min(int(want), (3 * int(want) + 3) // 4))
+    for _sum, _b, _id, _sc, start, win, pair in ranked:
+        pident = (pair["f"], pair["r"])
+        if pident in pair_seen:
             continue
         if no_probe:
-            assay = dict(forward=p["f"], reverse=p["r"], probe=None, amplicon=p["amp"],
-                         amplicon_tm=round(T.amplicon_tm(win[p["fstart"]:p["rend"]]), 1),
-                         f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]), probe_info=None,
-                         f_xy=(p["fstart"], p["fend"]), r_xy=(p["rstart"], p["rend"]))
+            probes = [None]
         else:
-            probe = D.find_probe(win, p["fend"], p["rstart"], p["f"], p["r"], profile)
-            if not probe:
+            probes = D.enumerate_probe_candidates(
+                win, pair["fend"], pair["rstart"], pair["f"], pair["r"], profile, limit=3)
+            if not probes:
                 continue
-            gb, gs, ge = D.build_gblock(win, p["fstart"], p["rend"])
-            assay = dict(forward=p["f"], reverse=p["r"], probe=probe["probe"], amplicon=p["amp"],
-                         pair_tm_gap=p.get("gap"), amplicon_tm=round(T.amplicon_tm(win[p["fstart"]:p["rend"]]), 1),
-                         f_tm=T.tm(p["f"]), r_tm=T.tm(p["r"]), probe_info=probe,
-                         gblock=gb, gblock_span=(gs, ge), f_xy=(p["fstart"], p["fend"]), r_xy=(p["rstart"], p["rend"]))
-        pxy = D.probe_span(win, assay)
-        assay["search_window_start"] = s
-        assay["f_xy"] = [assay["f_xy"][0] + s, assay["f_xy"][1] + s]
-        assay["r_xy"] = [assay["r_xy"][0] + s, assay["r_xy"][1] + s]
-        assay["probe_xy"] = ([pxy[0] + s, pxy[1] + s] if pxy else None)
-        assay["amplicon_xy"] = [assay["f_xy"][0], assay["r_xy"][1]]
-        if assay.get("gblock_span"):
-            assay["gblock_span"] = [assay["gblock_span"][0] + s,
-                                      assay["gblock_span"][1] + s]
-        seen.add(p["f"]); out.append(assay)
-        if len(out) >= want:
+        pair_seen.add(pident)
+        pair_groups.append((start, win, pair, probes))
+        if len(pair_groups) >= pair_budget:
             break
+
+    max_depth = max((len(x[3]) for x in pair_groups), default=0)
+    for depth in range(max_depth):
+        for start, win, pair, probes in pair_groups:
+            if depth >= len(probes):
+                continue
+            probe = probes[depth]
+            ident = (pair["f"], pair["r"], probe.get("probe") if probe else None)
+            if ident in seen:
+                continue
+            assay = D.assay_from_pair(win, pair, probe=probe)
+            assay["search_window_start"] = start
+            assay["f_xy"] = [assay["f_xy"][0] + start, assay["f_xy"][1] + start]
+            assay["r_xy"] = [assay["r_xy"][0] + start, assay["r_xy"][1] + start]
+            if assay.get("probe_xy"):
+                assay["probe_xy"] = [assay["probe_xy"][0] + start, assay["probe_xy"][1] + start]
+            assay["amplicon_xy"] = [assay["f_xy"][0], assay["r_xy"][1]]
+            if assay.get("gblock_span"):
+                assay["gblock_span"] = [assay["gblock_span"][0] + start,
+                                          assay["gblock_span"][1] + start]
+            seen.add(ident); out.append(assay)
+            if len(out) >= want:
+                return out
     return out
 
 
@@ -406,9 +431,131 @@ def epcr_offline(forward, reverse, sequences, probe=None, min_product=40, max_pr
     return out
 
 
-def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidates=5):
-    # defensive: de-gap / uppercase / RNA->DNA each sequence and drop anything unusable, so a
-    # pasted alignment or RNA sequence is corrected here rather than reaching the Tm engine dirty.
+def _junction_record(assay, junctions):
+    if not junctions:
+        return None
+    def crosses(sp):
+        return [j for j in junctions if sp and sp[0] < j < sp[1]]
+    f = crosses(assay.get("f_xy")); r = crosses(assay.get("r_xy")); p = crosses(assay.get("probe_xy"))
+    amp = crosses(assay.get("amplicon_xy"))
+    level = "strong" if (f or r or p) else ("size" if amp else "none")
+    return dict(level=level, forward=bool(f), reverse=bool(r), probe=bool(p),
+                amplicon=bool(amp), junctions=sorted(set(f + r + p + amp)))
+
+
+
+def _augment_objective_probes(candidates, reference, profile, targets, offs, objective,
+                              min_ident=0.6, pair_limit=10, probe_scan_limit=24,
+                              additions_per_pair=2):
+    """Recover target-aware probe alternatives that a cheap local beam can miss.
+
+    Probe enumeration initially has only the reference sequence and thermodynamic
+    evidence.  In multi-isolate or discrimination designs, a probe with slightly
+    worse local Tm preference can be decisively better after conservation or
+    off-target annotation.  This bounded second-stage scan revisits a diverse set
+    of retained primer pairs, ranks additional probes using cheap corpus evidence,
+    and sends only a few alternatives per pair to the authoritative full ranker.
+    """
+    if profile.get("no_probe") or not candidates or (len(targets or []) < 2 and not offs):
+        return [], dict(stage="objective_probe_augmentation", entered=0, retained=0,
+                        rejected=0, hard_gate=False, reversible=True,
+                        reason="not applicable")
+    # One representative per primer pair, ordered by the existing preliminary
+    # pair/triplet evidence.  Pair diversity was already preserved upstream.
+    pair_rows = {}
+    for assay in candidates:
+        key = (assay.get("forward"), assay.get("reverse"),
+               tuple(assay.get("f_xy") or ()), tuple(assay.get("r_xy") or ()))
+        if not key[0] or not key[1] or len(key[2]) != 2 or len(key[3]) != 2:
+            continue
+        old = pair_rows.get(key)
+        if old is None or float(assay.get("candidate_rank", 1e12)) < float(old.get("candidate_rank", 1e12)):
+            pair_rows[key] = assay
+    ordered_pairs = sorted(pair_rows.values(), key=lambda a:(float(a.get("candidate_rank", 1e12)),
+                                                              (a.get("f_xy") or [0])[0],
+                                                              a.get("forward"), a.get("reverse")))[:max(1,int(pair_limit))]
+    existing = {(a.get("forward"), a.get("reverse"), a.get("probe")) for a in candidates}
+    added=[]; scanned=0; accepted=0; decisions=[]
+    for assay in ordered_pairs:
+        fxy, rxy = assay["f_xy"], assay["r_xy"]
+        pair = dict(f=assay["forward"], r=assay["reverse"],
+                    fstart=int(fxy[0]), fend=int(fxy[1]),
+                    rstart=int(rxy[0]), rend=int(rxy[1]),
+                    amp=int(assay.get("amplicon") or (int(rxy[1])-int(fxy[0]))),
+                    gap=float(assay.get("pair_tm_gap") or abs(T.tm(assay["forward"])-T.tm(assay["reverse"]))),
+                    dimer=float(assay.get("pair_dimer") or T.hetero_dimer(assay["forward"],assay["reverse"])),
+                    score=float(assay.get("preliminary_pair_score") or 0.0))
+        try:
+            probes = D.enumerate_probe_candidates(reference, pair["fend"], pair["rstart"],
+                                                   pair["f"], pair["r"], profile,
+                                                   limit=max(4,int(probe_scan_limit)))
+        except Exception as exc:
+            decisions.append(dict(pair=[pair["f"],pair["r"]],decision="error",reason=type(exc).__name__))
+            continue
+        scored=[]
+        for probe in probes:
+            scanned += 1
+            ident=(pair["f"],pair["r"],probe.get("probe"))
+            if ident in existing:
+                decisions.append(dict(pair=[pair["f"],pair["r"]],probe=probe.get("probe"),
+                                      decision="rejected",reason="existing_triplet_duplicate"))
+                continue
+            tc=C.conservation(probe["probe"],targets,min_ident)
+            dc=C.discrimination(probe["probe"],offs) if offs else None
+            target_mean=float(tc.get("mean_ident") or 0.0)
+            target_min=float(tc.get("min_ident") or 0.0)
+            off_max=float((dc or {}).get("max_ident") or 0.0)
+            if objective in {"discrimination","confirmatory"}:
+                corpus_key=(-target_min,-target_mean,off_max,float(probe.get("preliminary_penalty",1e9)))
+            else:
+                corpus_key=(-target_min,-target_mean,float(probe.get("preliminary_penalty",1e9)),off_max)
+            scored.append((corpus_key,probe,tc,dc))
+        ordered_scored=sorted(scored,key=lambda x:(x[0],x[1].get("start",0),x[1].get("probe","")))
+        keep_n=max(1,int(additions_per_pair))
+        for idx,(corpus_key,probe,tc,dc) in enumerate(ordered_scored):
+            if idx >= keep_n:
+                decisions.append(dict(pair=[pair["f"],pair["r"]],probe=probe.get("probe"),
+                                      decision="rejected",reason="objective_probe_budget",
+                                      target_mean_identity=tc.get("mean_ident"),target_min_identity=tc.get("min_ident"),
+                                      off_target_max_identity=(dc or {}).get("max_ident"),
+                                      selection_key=list(corpus_key)))
+                continue
+            new=D.assay_from_pair(reference,pair,probe=probe)
+            new["search_window_start"]=0
+            new["amplicon_xy"]=[new["f_xy"][0],new["r_xy"][1]]
+            new["objective_probe_augmentation"]={"target_conservation":tc,"offtarget_discrimination":dc,
+                                                  "selection_key":list(corpus_key),
+                                                  "status":"cheap_corpus_screen_only"}
+            ident=(new.get("forward"),new.get("reverse"),new.get("probe"))
+            if ident not in existing:
+                existing.add(ident);added.append(new);accepted += 1
+                decisions.append(dict(pair=[pair["f"],pair["r"]],probe=probe.get("probe"),
+                                      decision="retained",reason="objective_corpus_probe_alternative",
+                                      target_mean_identity=tc.get("mean_ident"),target_min_identity=tc.get("min_ident"),
+                                      off_target_max_identity=(dc or {}).get("max_ident"),
+                                      selection_key=list(corpus_key)))
+    reason_counts={}
+    for decision in decisions:
+        if decision.get("decision") in {"retained","rejected"}:
+            reason=decision.get("reason") or "unspecified"
+            reason_counts[reason]=reason_counts.get(reason,0)+1
+    ledger=dict(stage="objective_probe_augmentation",unit="probe_candidates",
+                entered=scanned,retained=accepted,rejected=max(0,scanned-accepted),
+                hard_gate=False,reversible=True,pairs_scanned=len(ordered_pairs),
+                pair_limit=int(pair_limit),probe_scan_limit=int(probe_scan_limit),
+                additions_per_pair=int(additions_per_pair),candidate_decisions=decisions,
+                rejection_reasons={k:v for k,v in reason_counts.items() if k != "objective_corpus_probe_alternative"},
+                reason="target/off-target corpus evidence can rescue probes outside the local thermodynamic beam")
+    return added,ledger
+
+def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidates=5,
+                          objective="balanced", junctions=None, panel=None,
+                          search_budget_s=35.0):
+    """Design and rank complete assays under an explicit objective profile.
+
+    Every retained triplet receives the same target coverage, supplied off-target,
+    conservation, and condition-robustness evaluations before final sorting.
+    """
     _clean = []
     for t in (targets or []):
         c, _n, err = T.clean_seq(t) if isinstance(t, str) and t.strip() else ("", None, "empty")
@@ -417,24 +564,56 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
     targets = [t for t in _clean if len(t) > 60]
     if not targets:
         return dict(error="no usable target sequences (need >=1, ideally several)")
+    _off_clean = []
+    for t in (offs or []):
+        c, _n, err = T.clean_seq(t) if isinstance(t, str) and t.strip() else ("", None, "empty")
+        if c and not err and len(c) > 20:
+            _off_clean.append(c)
+    offs = _off_clean
+    search_budget_s = max(3.0, min(float(search_budget_s), 120.0))
+    design_key = _stable_hash({"targets": targets, "offs": offs, "profile": profile,
+                               "min_ident": float(min_ident), "n_candidates": int(n_candidates),
+                               "objective": objective, "junctions": junctions or [],
+                               "panel": panel or [], "conditions": T._snapshot(),
+                               "search_budget_s": float(search_budget_s),
+                               "ranker_version": getattr(RANK, "RANKING_SCHEMA_VERSION", "unknown")})
+    cached_design = _cache_get(_DESIGN_CACHE, design_key)
+    if cached_design is not None:
+        return cached_design
     ref = _reference(targets)
-    cands = _candidates(ref, profile, n_candidates)
-    if offs:                                  # augment with discrimination-aware pairs (3'-blockers the
-        try:                                  # Tm-only path never surfaces); best-effort, must not break design
-            _dc = _disc_candidates(ref, profile, offs, want=8)
-            _have = {c["forward"] for c in cands}
+    cands, attrition = _candidates_with_ledger(ref, profile, n_candidates,
+                                               budget_s=search_budget_s)
+    attrition.setdefault("candidate_limits", {})["search_budget_seconds"] = search_budget_s
+    if offs:
+        # Preserve discrimination-specialist pairs that a generic preliminary
+        # thermodynamic beam may not surface.  They still undergo the same final
+        # full annotation and cannot bypass hard constraints.
+        try:
+            _dc = _disc_candidates(ref, profile, offs, want=max(16, int(n_candidates) * 3))
+            _have = {(c.get("forward"), c.get("reverse"), c.get("probe")) for c in cands}
+            _before = len(_have)
             for _a in _dc:
-                if _a["forward"] not in _have:
-                    cands.append(_a); _have.add(_a["forward"])
-        except Exception:
-            pass
+                _key = (_a.get("forward"), _a.get("reverse"), _a.get("probe"))
+                if _key not in _have:
+                    cands.append(_a); _have.add(_key)
+            attrition["discrimination_specialists_added"] = len(_have) - _before
+        except Exception as exc:
+            attrition["discrimination_specialist_error"] = type(exc).__name__
+    augmented_probes, augmentation_ledger = _augment_objective_probes(
+        cands, ref, profile, targets, offs, objective, min_ident=min_ident,
+        pair_limit=max(8, int(n_candidates) * 2), probe_scan_limit=24,
+        additions_per_pair=2)
+    if augmented_probes:
+        cands.extend(augmented_probes)
+    attrition.setdefault("stages", []).append(augmentation_ledger)
+    attrition["objective_probe_alternatives_added"] = len(augmented_probes)
     if not cands:
         return dict(error="no primer/probe set met this chemistry's Tm window on the reference. "
                           "AT-rich targets like parasite mtDNA can't reach a high-Tm probe — use the "
                           "Auto setting, or pick a low-Tm / MGB profile. (Very short fetched sequences "
-                          "can also lack a full amplicon window.)")
+                          "can also lack a full amplicon window.)", candidate_attrition=attrition)
     multi = len(targets) >= 2
-    scored = []
+    prelim = []
     for a in cands:
         sc, cons, disc = _score(a, targets, offs, min_ident)
         qf, pen = _seq_quality(a["forward"])
@@ -442,13 +621,9 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
         if a.get("probe"):
             pqf, ppen = _seq_quality(a["probe"]); qf += pqf; pen += ppen
         a["quality_flags"] = qf
-        # qPCR-practical ranking: prefer shorter amplicons. Beyond the ~150 bp efficiency ceiling a
-        # mild per-base penalty keeps a longer pair from out-ranking an in-range one of comparable
-        # biology, while leaving every set at/under 150 bp (all pinned panel assays) untouched. The
-        # hard amp_min/amp_max gate is unchanged; this only orders candidates within it.
         _amp = a.get("amplicon")
         amp_pen = 0.25 * (_amp - 150) if isinstance(_amp, int) and _amp > 150 else 0.0
-        if multi:                         # genus / multi-template: add degenerate coverage
+        if multi:
             df, ndf, nu = _degenerate(a["forward"], targets)
             dr, ndr, _ = _degenerate(a["reverse"], targets)
             dp, ndp = (None, 0)
@@ -460,20 +635,79 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
                     a["probe_deg"] = dp
                 a["n_degenerate"] = ndf + ndr + ndp
                 a["deg_targets"] = nu
-        scored.append(dict(score=round(sc - pen - amp_pen, 1), score_raw=sc, quality_penalty=round(pen, 1),
-                           amplicon_penalty=round(amp_pen, 1),
+        prelim.append(dict(score=round(sc - pen - amp_pen, 1), score_raw=sc,
+                           quality_penalty=round(pen, 1), amplicon_penalty=round(amp_pen, 1),
                            assay=a, conservation=cons, discrimination=disc))
-    scored.sort(key=lambda x: -x["score"])
-    n_found = len(scored)
-    scored = scored[:max(1, int(n_candidates))]
-    out = dict(n_targets=len(targets), n_offs=len(offs) if offs else 0,
-               reference_len=len(ref), n_candidates=len(scored), n_candidates_screened=n_found,
-               n_requested=n_candidates, candidates=scored)
-    if len(scored) < n_candidates:
-        out["constraint_note"] = ("only %d clean set(s) met the %s constraints on this target — "
-            "AT-rich or short targets tighten the design space. Try the Auto setting, a low-Tm/MGB "
-            "profile, or a wider amplicon window for more options." % (len(scored), profile.get("name", "selected")))
-    return out
+
+    # Primer3's native structure engine can become unstable after very large
+    # uninterrupted batches, and fully annotating every cheap-screen survivor is
+    # not necessary for an interactive bounded search.  Retain a broad,
+    # objective-aware and regionally diverse pool before expensive all-site PCR
+    # and condition-envelope structure analysis.  This stage is fully auditable;
+    # discarded candidates remain visible in the attrition ledger.
+    full_annotation_limit = max(20, min(28, int(n_candidates) * 5))
+    for row in prelim:
+        # retain_diverse is a lower-is-better beam; the legacy preliminary score
+        # is higher-is-better and already includes objective-relevant cheap
+        # conservation/discrimination evidence.
+        row["assay"]["candidate_rank"] = -float(row.get("score", 0.0))
+    retained_assays, annotation_ledger = CRET.retain_diverse(
+        [row["assay"] for row in prelim], limit=full_annotation_limit,
+        region_size=max(100, int(profile.get("amp_max", 150))),
+        per_region=max(4, full_annotation_limit // 4), per_near=3)
+    rows_by_identity = {}
+    for row in sorted(prelim, key=lambda x: (-float(x.get("score", 0.0)),
+                                             CRET.identity_key(x["assay"]))):
+        rows_by_identity.setdefault(CRET.identity_key(row["assay"]), row)
+    prelim = [rows_by_identity[CRET.identity_key(a)] for a in retained_assays]
+    annotation_ledger = dict(annotation_ledger)
+    annotation_ledger.update(stage="full_annotation_diversity_retention",
+                             unit="complete_assays",
+                             reason="objective-aware regional beam before all-site PCR and condition robustness")
+    attrition.setdefault("candidate_limits", {})["full_annotation_pool"] = full_annotation_limit
+    attrition.setdefault("stages", []).append(annotation_ledger)
+
+    jmap = {}
+    if junctions:
+        for row in prelim:
+            a = row["assay"]
+            jmap[(a.get("forward"), a.get("reverse"), a.get("probe"))] = _junction_record(a, junctions)
+    ranked, objective_profile = RANK.rank_candidates(prelim, targets, offs, profile,
+                                                      objective_name=objective,
+                                                      junction_by_identity=jmap,
+                                                      panel=panel)
+    finalists = RANK.select_finalists(ranked, n=max(1, int(n_candidates)))
+    for idx, row in enumerate(finalists):
+        comp = ranked[row["rank"]] if row.get("rank", 0) < len(ranked) else None
+        row["rank_explanation"] = REXPLAIN.explain(row, comp)
+        # Compatibility: ``score`` remains visible, but is explicitly subordinate.
+        row["score"] = row["display_score"]
+    attrition.setdefault("stages", []).append({
+        "stage": "full_annotation", "entered": len(prelim), "retained": len(ranked),
+        "rejected": 0, "hard_gate": False, "reversible": False,
+        "evaluations": ["target_epcr", "offtarget_epcr", "conservation", "condition_robustness"]})
+    attrition["stages"].append({
+        "stage": "finalist_selection", "entered": len(ranked), "retained": len(finalists),
+        "rejected": len(ranked) - len(finalists), "hard_gate": False, "reversible": True,
+        "reason": "diverse finalist display budget"})
+    ih = hashlib.sha256(("\n".join(targets) + "\n--OFF--\n" + "\n".join(offs)).encode()).hexdigest()
+    out = dict(n_targets=len(targets), n_offs=len(offs), reference_len=len(ref),
+               n_candidates=len(finalists), n_candidates_screened=len(ranked),
+               n_requested=n_candidates, candidates=finalists,
+               objective_profile=objective_profile, candidate_attrition=attrition,
+               ranker_manifest=RANK.manifest(objective_profile, attrition.get("candidate_limits", {}),
+                                             input_hashes={"sequence_corpus_sha256": ih}),
+               search_status="heuristic_bounded",
+               cache_policy=("bounded defensive-copy memoization keyed by sequence corpus, chemistry, "
+                             "reaction conditions, objective, and constraints"),
+               ranking_statement=("Strongest computational support among the fully evaluated retained pool "
+                                  "under the declared objective; not a universal wet-lab optimum."))
+    if len(finalists) < n_candidates:
+        out["constraint_note"] = ("only %d finalist set(s) survived the %s search and ranking constraints. "
+            "Try a different objective/profile or a longer target region; do not relax true off-target or "
+            "geometry failures merely to fill the list." % (len(finalists), profile.get("name", "selected")))
+    _cache_put(_DESIGN_CACHE, design_key, out, _DESIGN_CACHE_MAX)
+    return deepcopy(out)
 
 
 AUTO_ORDER = ["idt_taqman", "parasite_mtdna", "gc_rich", "parasite_sybr"]   # normal-composition default
@@ -625,7 +859,8 @@ def design_nested(reference, profile, inner_assay, outer_flank_max=600, min_gap=
 def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=20,
                       min_ident=0.6, run_blast=False, blast_mode="remote",
                       blast_db="nt", blast_db_path=None, organism=None, prefer_junction=False,
-                      nested=False):
+                      nested=False, objective="balanced"):
+
     """Fetch -> design -> (optional) in-silico-PCR the winning pair.
 
     profile_key may be a specific profile, or "auto": Auto tries the IDT-orderable
@@ -669,7 +904,7 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
         order, _autogc = _auto_order(_refseq)
         for pk in order:
             tried.append(pk)
-            r = design_from_sequences(tg, PROF.PROFILES[pk], off, min_ident)
+            r = design_from_sequences(tg, PROF.PROFILES[pk], off, min_ident, objective=objective)
             if r.get("candidates"):
                 out = r
                 out["profile_used"] = pk
@@ -685,7 +920,7 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
         prof = PROF.PROFILES.get(profile_key)
         if not prof:
             return dict(error=f"unknown profile: {profile_key}")
-        out = design_from_sequences(tg, prof, off, min_ident)
+        out = design_from_sequences(tg, prof, off, min_ident, objective=objective)
         if out.get("error"):
             out["target_query"] = target_query
             out["off_query"] = off_query
@@ -705,6 +940,31 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
         return rows
     out["target_subjects"] = _subjects(_pairs)   # actual accessions/species behind the conservation call
     out["off_subjects"] = _subjects(_off_pairs)   # ...and the off-target set behind the discrimination call
+    # Rebuild the deterministic manifest with the concrete accession set.  NCBI
+    # retrieval dates are not invented; accession identifiers and query strings
+    # are still enough to expose exactly what external evidence was requested.
+    if out.get("ranker_manifest"):
+        _old_manifest = out.get("ranker_manifest") or {}
+        out["ranker_manifest"] = RANK.manifest(
+            out.get("objective_profile") or RANK.get_profile(objective),
+            (out.get("candidate_attrition") or {}).get("candidate_limits", {}),
+            input_hashes=_old_manifest.get("input_hashes") or {},
+            external_databases={
+                "ncbi_nucleotide": {
+                    "target_query": target_query,
+                    "target_accessions": [x.get("acc") for x in out["target_subjects"] if x.get("acc")],
+                    "offtarget_query": off_query,
+                    "offtarget_accessions": [x.get("acc") for x in out["off_subjects"] if x.get("acc")],
+                    "retrieval_date": None,
+                    "database_snapshot": "live service; exact snapshot not reported by NCBI response",
+                }
+            },
+            warnings=(["no supplied off-target corpus; exclusivity remains unresolved"] if not off else []),
+            fallbacks=(out.get("fallbacks") or []),
+            constraints={"workflow": "automatic_design", "profile": out.get("profile_used"),
+                         "min_identity": min_ident, "prefer_junction": bool(prefer_junction),
+                         "nested_requested": bool(nested)},
+        )
 
     if out.get("candidates"):
         try:

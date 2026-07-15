@@ -1,30 +1,34 @@
-# OligoForge 1.31.1 engineering handoff
+# OligoForge 1.34.0 engineering handoff
 
-## Current state
+Authoritative search/ranking modules are `candidate_search.py`, `candidate_retention.py`, `ranking_profiles.py`, `ranking.py`, `ranking_explain.py`, `provenance.py`, and `ranking_benchmark.py`.
 
-This tree is the repaired continuation of the user-supplied `oligoforge_v1.31.0.zip`. It is a computational pre-release. No wet-lab performance claim is implied.
+Manual/evidence modules are `manual_design.py`, `assay_rescue.py`, and `experimental_feedback.py`.
 
-## Highest-impact changes
+Do not reintroduce a UI-only score or a parallel Tm, specificity, sequence-normalization, coordinate, or ranking implementation. Automatic, batch, viewer, manual, rescue, API, and report paths must continue to use the same scientific modules.
 
-- Full-target candidate collection and global ranking replaced first-success/early-window acceptance.
-- Exact selected-site coordinates are propagated through design and display.
-- Ambiguous template bases are not silently converted into arbitrary oligo bases.
-- Offline PCR performs ambiguity-aware, all-site, exact-3′-anchor screening and reports uncertain matches conservatively.
-- Multiplex analysis strictly validates oligos, distinguishes assays by identity rather than display name, and reports annealing-context dimer metrics.
-- Raw Cq, standard-curve, reference-gene, MIQE-readiness, report, order, and RDML calculations were corrected to avoid false statistical or validation confidence.
-- Orthogonal-panel exact proofs, rigorous bounds, and numerical theta diagnostics are separated.
-- Hosted deployment isolates shared state, blocks local database paths, sanitizes errors, limits requests, and adds browser security headers.
+Any authoritative rank-order change requires:
 
-## Release gate
+1. a new ranker/profile or scientific-model version;
+2. updated frozen benchmark and biological traces;
+3. a documented winner-change rationale;
+4. deterministic regression tests;
+5. confirmation that hard constraints and evidence-completeness semantics were not weakened.
 
-Run:
+A deterministic display order is not proof that close candidates are biologically distinguishable. Preserve equivalence groups and explicit missing-evidence states.
 
-```bash
-python run_tests.py
-```
+Experimental feedback is assay-specific evidence. Do not activate a learned reranker merely because records exist; require target-group isolation, outcome balance, conflict adjudication, leakage-controlled validation, calibration, ablation, and held-out improvement.
 
-Network-dependent tools should be manually smoke-tested with a real NCBI email and, where relevant, a local BLAST database. Render/GitHub deployment was not performed from this archive.
+Current status: computational pre-release. Synthetic/adversarial ranking behavior improved; held-out wet-lab rank-1 superiority is not established.
 
-## Required empirical work
+## Workbench and exports
 
-Read `VALIDATION_LIMITS.md`. Final assay candidates require paired specificity review, target/off-target panels, reaction optimization, efficiency/linearity experiments, product-identity evidence, and dedicated LOD/LOQ studies.
+Ranked candidates must retain `ranker_manifest`, `objective_profile`, `candidate_rank`, `ranking_evidence`, `rank_trace`, and `rank_explanation` when entering the Workbench. HTML/CSV reports verify the manifest, recompute under its recorded reaction-condition snapshot, and RDML descriptions carry compact provenance. Do not remove these fields during UI refactors or panel import/export.
+
+## 1.34.0 maintenance notes
+
+- Keep `manual_design.compare_edits` on the same `analyze_assay` path; do not create a lightweight Tm-only edit checker.
+- Keep manual mapping exhaustive by default and filter with `extension_eligible` only when constructing PCR products.
+- Batch Design intentionally uses the same structured ranker with a smaller, manifested search-time budget. Do not restore `design_assay()` as an endpoint shortcut.
+- `run_compare` candidate identity is the normalized F/R/P triplet, not the display name.
+- Experimental-feedback summaries are descriptive and context-local; they must not silently feed ranker weights.
+

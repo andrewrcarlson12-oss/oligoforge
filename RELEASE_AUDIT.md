@@ -1,32 +1,31 @@
-# OligoForge 1.31.1 release audit
+# OligoForge 1.34.0 Release Audit
 
-Audit date: 2026-07-15
+## Scope
 
-## Automated release gates
+Ranking truth, complete-triplet retention, objective profiles, structured ranking, attrition provenance, explicit rank uncertainty, deterministic self-hashing manifests, Manual Design Studio, exact edit comparison, design-run comparison, constrained redesign, Assay Rescue, experimental-feedback dataset audit and context-local summaries, authoritative Batch Design, benchmark-integrity checks, browser integration, deployment hardening, and release documentation.
 
-- Python scientific/software test programs: **39 passed, 0 failed** (`python run_tests.py --python`).
-- Browser/UI harnesses: **8 passed, 0 failed** (`python run_tests.py --node`).
-- Inline browser handlers audited by the integration harness: **90**.
-- Python byte-compilation: passed (`python -m compileall`).
-- npm dependency audit: **0 known vulnerabilities** after lockfile update.
-- Archive integrity: verify the distributed ZIP with `unzip -t` and the SHA-256 supplied alongside it.
+## Final gate results
 
-## What the offline gate covers
+- Python scientific/software programs: 44 passed, 0 failed.
+- Browser/UI harnesses: 9 passed, 0 failed.
+- Ranking-truth assertions: 41 passed, 0 failed.
+- Evidence/provenance/API assertions: 36 passed, 0 failed.
+- Decision-analysis/API assertions: 25 passed, 0 failed.
+- Manual Design Studio browser assertions: 38 passed, 0 failed.
+- Workbench/report provenance persistence: automatic, batch, direct, manual and rescue candidates retain rank manifests; HTML/CSV and RDML exports surface verified or altered state.
+- Frozen synthetic/adversarial benchmark: passed; 11/11 Top-1 with Wilson 95% interval 74.1%–100%.
+- Frozen Plasmodium/Haemoproteus biological regressions: passed.
+- Clean pinned Python environment import and dependency check: passed; 63 routes.
+- Python byte compilation: passed.
+- npm high-severity audit: 0 known vulnerabilities.
+- Feedback records preserve design run ID, application/ranker versions, manifest hash, and reaction-condition snapshot.
+- Benchmark corpus validation rejects split overlap, target-group leakage, invalid expectations, and malformed identifiers.
+- Final staged-copy, file-manifest, and archive-integrity checks are completed during packaging and recorded in `RELEASE_MANIFEST.json`.
 
-Design and ranking, exact coordinates, thermodynamics, LNA/degenerate handling, exon-junction design,
-conservation, ambiguity-aware specificity, offline PCR, Primer-BLAST comparison fixtures, multiplex
-screening, orthogonal graph bounds, Cq/melt/standard-curve analysis, reference genes, MIQE-aligned
-readiness records, RDML/order/report export, hosted isolation, request validation, concurrency,
-performance fixtures, fuzzing, and browser workflows.
+## Release decision
 
-## Deliberately separate integration work
+The release is suitable as a computational ranking-truth, decision-analysis, and evidence-provenance pre-release. It improves the frozen synthetic/adversarial selection benchmark, fixes confirmed candidate-loss and false-confidence pathways, makes missing evidence and close ranks explicit, and provides auditable manual edits, run comparisons, and batch results. It is not a biologically validated assay platform and does not establish rank-1 wet-lab superiority.
 
-Live NCBI retrieval and remote BLAST are not part of the deterministic offline release gate. Enable
-those checks with `OLIGOFORGE_LIVE_NCBI=1` and a real `OLIGOFORGE_EMAIL`; local BLAST additionally
-requires a configured database. These external services can fail independently of OligoForge.
+## Deployment limitation
 
-## Scientific boundary
-
-Passing these gates demonstrates internal consistency against the included models and fixtures. It
-does not validate a primer/probe assay experimentally. Read `VALIDATION_LIMITS.md` before using a
-candidate in a publication, diagnostic workflow, or production laboratory method.
+The actual Render service was not modified or verified because no GitHub repository URL, Render service URL, or deployment credentials were available in the supplied archive.

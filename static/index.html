@@ -507,7 +507,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <header class="topbar">
   <div class="brand">
     <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2c0 4 12 4 12 8s-12 4-12 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M16 2c0 4-12 4-12 8s12 4 12 8" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/><path d="M5.6 5h8.8M5 10h10M5.6 15h8.8" stroke="rgba(255,255,255,.5)" stroke-width="1" stroke-linecap="round"/></svg></span>
-    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.31.1</span>
+    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.34.0</span>
   </div>
   <div class="spacer"></div>
   <div class="toolset">
@@ -602,13 +602,19 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
     <h2>Design from template</h2><p class="hint">Paste a transcript region (or pull one in the NCBI tab). Enumerate → gate → pair → probe → gBlock.</p>
     <div class="row"><div style="flex:1"><label>template (5'→3') <span class="hint">— one sequence, several FASTA records for cross-target conservation, or one sequence with <b>|</b> at exon boundaries for gDNA-aware design</span></label><textarea id="d_tmpl" rows="4" placeholder="paste mRNA / CDS region — raw, &gt;id\nSEQ for multiple targets, or ...exon1|exon2... to mark junctions"></textarea></div></div>
     <div class="row"><div style="flex:1"><label>off-targets <span class="hint">— optional; sequences the assay must NOT amplify (host, paralogs). Runs an offline in-silico PCR + 3′-discrimination check.</span></label><textarea id="d_off" rows="2" placeholder="optional — raw sequence or FASTA of off-target(s)"></textarea></div></div>
-    <div class="row"><div><label>chemistry</label><select id="d_prof" class="profsel"></select></div><button onclick="doDesign()">Design assay</button></div>
+    <div class="row"><div><label>chemistry</label><select id="d_prof" class="profsel"></select></div>
+      <div><label>design objective</label><select id="d_obj"><option value="balanced">balanced</option><option value="single_target_detection">single-target detection</option><option value="broad_inclusivity">broad inclusivity</option><option value="discrimination">species/strain discrimination</option><option value="confirmatory">confirmatory exclusivity</option><option value="screening">screening sensitivity</option><option value="transcript_specific">transcript-specific</option><option value="degraded_template">short degraded template</option><option value="multiplex">multiplex member</option><option value="sybr">SYBR</option></select></div>
+      <button onclick="doDesign()">Design and rank complete assays</button></div>
     <div id="d_out"><div class="ph">Paste a transcript region and Design to see the assay, its metrics, and a to-scale amplicon map.</div></div>
   </div>
   <div class="card">
-    <h2>Batch design</h2><p class="hint">Paste FASTA — one ">name" header per template, sequence on following lines. Designs an assay for each.</p>
+    <h2>Batch design</h2><p class="hint">Paste FASTA — one ">name" header per template, sequence on following lines. Each winner is selected by the same structured ranker used by interactive design.</p>
     <textarea id="b_fasta" rows="4" placeholder=">HMBS (sequence on next lines)  >SDHA ..."></textarea>
-    <div class="row" style="margin-top:8px"><button onclick="doBatch()">Design all</button></div>
+    <div class="row" style="margin-top:8px">
+      <div><label>chemistry</label><select id="bd_prof" class="profsel"></select></div>
+      <div><label>design objective</label><select id="bd_obj"><option value="balanced">balanced</option><option value="single_target_detection">single-target detection</option><option value="broad_inclusivity">broad inclusivity</option><option value="discrimination">species/strain discrimination</option><option value="confirmatory">confirmatory exclusivity</option><option value="screening">screening sensitivity</option><option value="transcript_specific">transcript-specific</option><option value="degraded_template">short degraded template</option><option value="multiplex">multiplex member</option><option value="sybr">SYBR</option></select></div>
+      <button onclick="doBatch()">Design all</button>
+    </div>
     <div id="bd_out"><div class="ph">Paste several name / sequence rows to batch-design assays at once.</div></div>
   </div></section>
 
@@ -656,7 +662,60 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
     </div>
     <div class="hint">Drag across the bases to highlight a region, then assign it as Forward, Reverse, or Probe. Reverse is stored as its reverse-complement; use Erase to remove a region by clicking it.</div>
     <div id="vw_seqview" class="vw-seqview" onmousedown="vwDown(event)" onmousemove="vwMove(event)" onmouseup="vwUp()" onmouseleave="vwLeave()"><div class="hint">load a sequence above to see its bases.</div></div>
-    <div id="vw_sel" class="vw-sel" style="display:none"></div>
+    <div id="vw_sel" class="vw-sel" style="display:none"></div><div id="vw_manual_analysis"></div>
+  </div>
+  <div class="card" id="manual_studio">
+    <h2>Direct assay entry, constrained redesign &amp; rescue</h2>
+    <p class="hint">Enter an existing assay or edit a candidate. Automatic, manual and rescue paths use the same sequence normalization, thermodynamics, all-site mapping, specificity, conservation, condition-robustness and structured ranker. Computational diagnoses are hypotheses, not causal proof.</p>
+    <div class="row"><div style="flex:1"><label>template / intended target sequence</label><textarea id="md_template" rows="3" placeholder="paste the intended template, or load a sequence above and click use loaded sequence"></textarea></div></div>
+    <div class="row"><button class="ghost" onclick="mdUseLoaded()">use loaded sequence</button><span class="hint">Direct entry never silently chooses among multiple placements; all coherent products are reported.</span></div>
+    <div class="row">
+      <div style="flex:1"><label>forward primer</label><input id="md_f" class="seq" style="width:100%"></div>
+      <div style="flex:1"><label>reverse primer</label><input id="md_r" class="seq" style="width:100%"></div>
+      <div style="flex:1"><label>probe (optional for SYBR)</label><input id="md_p" class="seq" style="width:100%"></div>
+    </div>
+    <div class="row">
+      <div><label>chemistry</label><select id="md_profile" class="profsel"></select></div>
+      <div><label>objective</label><select id="md_objective"><option value="balanced">balanced</option><option value="single_target_detection">single-target detection</option><option value="broad_inclusivity">broad inclusivity</option><option value="discrimination">species/strain discrimination</option><option value="confirmatory">confirmatory exclusivity</option><option value="screening">screening sensitivity</option><option value="transcript_specific">transcript-specific</option><option value="degraded_template">short degraded template</option><option value="multiplex">multiplex member</option><option value="sybr">SYBR</option></select></div>
+      <div><label>allowed mismatches</label><input id="md_mm" type="number" min="0" max="4" value="2" style="width:70px"></div>
+      <div><label>amplicon bp</label><div class="row"><input id="md_amp_min" type="number" placeholder="profile" style="width:75px"><span>–</span><input id="md_amp_max" type="number" placeholder="profile" style="width:75px"></div></div>
+      <div><label>max shift nt</label><input id="md_shift" type="number" min="0" placeholder="any" style="width:75px"></div>
+    </div>
+    <div class="row">
+      <label class="vw-chk"><input id="md_lock_f" type="checkbox"> lock forward</label>
+      <label class="vw-chk"><input id="md_lock_r" type="checkbox"> lock reverse</label>
+      <label class="vw-chk"><input id="md_lock_p" type="checkbox"> lock probe</label>
+      <label class="vw-chk"><input id="md_lock_pair" type="checkbox"> lock primer pair</label>
+      <div style="flex:1"><label>excluded coordinate ranges</label><input id="md_excluded" placeholder="e.g. 100-125, 240-260" style="width:100%"></div>
+      <div><label>required region</label><input id="md_required" placeholder="e.g. 175-190" style="width:130px"></div>
+    </div>
+    <details><summary>target/off-target panels and observed bench results</summary>
+      <div class="row" style="margin-top:8px"><div style="flex:1"><label>target sequences (optional FASTA)</label><textarea id="md_targets" rows="3"></textarea></div><div style="flex:1"><label>off-target sequences (optional FASTA)</label><textarea id="md_offs" rows="3"></textarea></div></div>
+      <div class="row">
+        <div><label>efficiency %</label><input id="md_eff" type="number" step="0.1" style="width:90px"></div>
+        <div><label>standard-curve R²</label><input id="md_r2" type="number" step="0.001" style="width:90px"></div>
+        <div><label>melt peaks</label><input id="md_peaks" type="number" min="0" style="width:75px"></div>
+        <label class="vw-chk"><input id="md_probe_problem" type="checkbox"> probe signal problem</label>
+        <label class="vw-chk"><input id="md_multiplex_failure" type="checkbox"> multiplex-only failure</label>
+        <div><label>feedback status</label><select id="md_status"><option value="untested">untested</option><option value="success">success</option><option value="partial">partial</option><option value="failed">failed</option><option value="retired">retired</option></select></div>
+        <div><label>designation</label><select id="md_designation"><option value="none">none</option><option value="locked">locked</option><option value="preferred">preferred</option><option value="experimental">experimental</option><option value="previously_ordered">previously ordered</option><option value="previously_validated">previously validated</option><option value="failed_at_bench">failed at bench</option><option value="retired">retired</option></select></div>
+      </div>
+    </details>
+    <details><summary>experimental-feedback dataset audit</summary>
+      <div class="row" style="margin-top:8px"><div style="flex:1"><label>paste feedback JSON or CSV</label><textarea id="md_feedback_payload" rows="4" placeholder='JSON array/object or CSV with assay_id,target_group,status,ranker_version,objective…'></textarea></div></div>
+      <div class="row"><input id="md_feedback_file" type="file" accept=".json,.csv,text/csv,application/json" onchange="mdReadFeedbackFile(this)"><button class="ghost" onclick="mdImportFeedback()">audit &amp; normalize dataset</button><button class="ghost" onclick="mdSummarizeFeedback()">summarize local evidence</button><button class="ghost" onclick="mdSplitFeedback()">build leakage-safe target-group split</button><button class="ghost" onclick="mdDownloadFeedbackDataset()">download audited JSON</button></div>
+      <div class="hint">Records are deduplicated and validated. Conflicting outcomes are surfaced. Local success/failure summaries never silently alter the ranker. A learned reranker remains disabled unless minimum evidence gates and target-group separation are satisfied.</div>
+      <div id="md_feedback_out"></div>
+    </details>
+    <details><summary>design-run comparison and rank stability</summary>
+      <p class="hint">Compare two complete API/export JSON runs. Candidate identity is based on the normalized forward/reverse/probe triplet, not display names. The comparison separates expected changes in objective, inputs, conditions, models or candidate budgets from unexplained ordering changes.</p>
+      <div class="row"><div style="flex:1"><label>run A JSON</label><textarea id="md_run_left" rows="5" placeholder="paste a design, automatic-design, manual-redesign, or exported run JSON"></textarea></div><div style="flex:1"><label>run B JSON</label><textarea id="md_run_right" rows="5" placeholder="paste the comparison run JSON"></textarea></div></div>
+      <div class="row"><button class="ghost" onclick="mdUseRun('left','automatic')">use current automatic as A</button><button class="ghost" onclick="mdUseRun('right','manual')">use current manual/rescue as B</button><button onclick="mdCompareRuns()">compare runs</button><button class="ghost" onclick="mdDownloadRunComparison()">download comparison</button></div>
+      <div id="md_run_out"></div>
+    </details>
+    <div class="row" style="margin-top:10px"><button onclick="mdRun('analyze')">Analyze exact assay</button><button class="ghost" onclick="mdCompareEdit()">Compare edit to last analysis</button><button onclick="mdRun('redesign')">Optimize unlocked components</button><button class="ghost" onclick="mdRun('rescue')">Diagnose / rescue</button><button class="ghost" onclick="mdFeedback()">Build feedback record</button></div>
+    <div id="md_edit_out"></div>
+    <div id="md_out"><div class="ph">Enter an assay and template. Analysis maps every placement; redesign preserves every checked lock; rescue returns alternatives in increasing order of disruption.</div></div>
   </div>
   <div class="card">
     <h2>Candidates</h2>
@@ -1002,7 +1061,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
 </main>
 </div><!--/shell-->
-<footer>OligoForge v1.31.1</footer>
+<footer>OligoForge v1.34.0 · decision-analysis release</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -1244,12 +1303,14 @@ function ampliconMap(d){
 async function doDesign(){const o=document.getElementById("d_out");o.innerHTML='<div class="working">designing\u2026 <span class="hint">a sleeping demo server can take ~30\u201360s to wake on the first call</span></div><div class="ofbar"></div>';
  const off=(document.getElementById("d_off")||{}).value||"";
  const panel=(typeof PANEL!=="undefined"?PANEL:[]).filter(a=>a&&a.forward&&a.reverse).map(a=>({name:a.name||"assay",dye:a.dye||"",amplicon_tm:a.amplicon_tm,sybr:!a.probe,oligos:[{name:"F",seq:a.forward},{name:"R",seq:a.reverse}].concat(a.probe?[{name:"P",seq:a.probe}]:[])}));
- const d=await api("/api/design",{template:document.getElementById("d_tmpl").value,profile:document.getElementById("d_prof").value,off_targets:off,panel:panel});
+ const d=await api("/api/design",{template:document.getElementById("d_tmpl").value,profile:document.getElementById("d_prof").value,objective:(document.getElementById("d_obj")||{}).value||"balanced",off_targets:off,panel:panel});
  if(d.error){o.innerHTML=err(d.error);return;}
  if(!d.candidates||!d.candidates.length){o.innerHTML=err("no candidate assays were returned for this template.");return;}
  MD={tmpl:d.template||"",cands:d.candidates,profile:d.profile||"",note:d.note,constraint:d.constraint_note,
      n_targets:d.n_targets||1,n_offs:d.n_offs||0,n_panel:d.n_panel||0,off_control:d.off_control||null,
-     junctions:d.junctions||[],n_junctions:d.n_junctions||0,sel:0};
+     junctions:d.junctions||[],n_junctions:d.n_junctions||0,objective:d.objective_profile||null,
+     attrition:d.candidate_attrition||null,manifest:d.ranker_manifest||null,
+     search_status:d.search_status||null,ranking_statement:d.ranking_statement||null,sel:0};
  o.innerHTML=designShell();
  showCand(0);}
 function candVerdict(c){            // worst of off-target specificity + panel fit -> ring/segment colour; null when neither was checked
@@ -1265,10 +1326,33 @@ function designShell(){const n=MD.cands.length;let bub="";
  const ctx=MD.n_targets>1?(MD.n_targets+" targets"):"1 target";
  const octx=(MD.n_offs>0?(" \u00b7 "+MD.n_offs+" off-target"+(MD.n_offs>1?"s":"")):"")+(MD.n_panel>0?(" \u00b7 vs "+MD.n_panel+"-assay panel"):"")+(MD.n_junctions>0?(" \u00b7 "+MD.n_junctions+" exon junction"+(MD.n_junctions>1?"s":"")+" \u2014 gDNA-aware"):"");
  return `<div class="cand-head"><div class="cand-bubbles" role="tablist" aria-label="candidate assays">${bub}</div>`+
-  `<span class="hint">${n} candidate${n>1?"s":""}, best first \u2014 click a number to compare. <b>${esc(MD.profile)}</b> \u00b7 ${ctx}${octx}.</span></div>`+
+  `<span class="hint">${n} candidate${n>1?"s":""}, deterministic order \u2014 click a number to compare; close candidates may share an indistinguishable rank band. <b>${esc(MD.profile)}</b> \u00b7 ${ctx}${octx}.</span></div>`+
   (MD.note?`<small class="note">${esc(MD.note)}</small>`:"")+
   (MD.constraint?`<small class="note">${esc(MD.constraint)}</small>`:"")+
+  (MD.ranking_statement?`<small class="note"><b>Ranking claim:</b> ${esc(MD.ranking_statement)}</small>`:"")+
+  (MD.objective?`<div class="subbox"><div class="sub-h">objective · ${esc(MD.objective.label||MD.objective.key||"")}</div><div class="hint">${esc(MD.objective.description||"")}</div></div>`:"")+
+  attritionPanel(MD.attrition,MD.manifest)+
   `<div id="d_detail"></div>`;}
+function attritionPanel(a,m){if(!a&&!m)return"";
+ const stages=(a&&a.stages)||[];const rows=stages.map(x=>'<tr><td>'+esc(x.stage||"")+'</td><td>'+(x.entered==null?"—":x.entered)+'</td><td>'+(x.retained==null?"—":x.retained)+'</td><td>'+(x.rejected==null?"—":x.rejected)+'</td><td>'+esc(x.reason||((x.hard_gate===true)?"hard gate":(x.reversible?"reversible budget":"full annotation")))+'</td></tr>').join("");
+ return '<details class="subbox"><summary class="sub-h" style="cursor:pointer">candidate attrition and reproducibility</summary>'+
+  (m?'<div class="hint">ranker '+esc(m.ranker_version||"")+" · profile "+esc(m.scoring_profile_version||"")+" · run "+esc(m.run_id||"legacy manifest")+" · deterministic "+(m.deterministic?"yes":"no")+" · external databases "+esc(m.external_database_state||"not recorded")+'</div>':"")+
+  (rows?'<table><tr><th>stage</th><th>entered</th><th>retained</th><th>rejected</th><th>basis</th></tr>'+rows+'</table>':"")+'</details>';}
+function rankPanel(c){const e=c&&c.evidence||{},x=c&&c.rank_explanation||{},eff=e.effective_oligos||{};
+ const hard=e.hard_valid?'<span class="pill b-PASS">hard-valid</span>':'<span class="pill b-FAIL">hard-invalid</span> '+esc((e.hard_failures||[]).join("; "));
+ const cats=(c.finalist_categories||[]).map(z=>'<span class="pill b-ok">'+esc(z.replaceAll("_"," "))+'</span>').join(" ");
+ const cov=e.target_coverage==null?"—":Math.round(1000*e.target_coverage)/10+"%";
+ const rob=e.condition_robustness&&e.condition_robustness.valid_fraction!=null?Math.round(100*e.condition_robustness.valid_fraction)+"%":"—";
+ const useDeg=eff.uses_degeneracy?'<div class="hint"><b>recommended order pool:</b> F <span class="mono">'+esc(eff.forward||"")+'</span> · R <span class="mono">'+esc(eff.reverse||"")+'</span>'+(eff.probe?' · P <span class="mono">'+esc(eff.probe)+'</span>':'')+'; base coverage '+Math.round(1000*(eff.base_target_coverage||0))/10+'% → '+Math.round(1000*(eff.degenerate_target_coverage||0))/10+'%</div>':"";
+ const band=x.equivalence_group&&x.equivalence_group.ranks&&x.equivalence_group.ranks.length>1?(' · indistinguishable band '+x.equivalence_group.ranks.join("–")):"";
+ const complete=x.evidence_completeness||{},missing=(complete.missing_required||[]);
+ return '<div class="subbox"><div class="sub-h">structured rank '+(c.rank||"—")+' · Pareto front '+(c.pareto_front||"—")+band+' · '+hard+'</div>'+ 
+  '<div class="kv"><div><span>coherent target coverage</span><b>'+cov+'</b></div><div><span>signal off-targets</span><b>'+((e.offtarget||{}).signal_subjects||0)+'</b></div><div><span>condition envelope valid</span><b>'+rob+'</b></div><div><span>preference</span><b>'+esc(x.preference_state||"—")+'</b></div></div>'+useDeg+
+  (cats?'<div style="margin-top:5px">'+cats+'</div>':"")+
+  '<div class="hint" style="margin-top:6px"><b>why:</b> '+esc(x.why_ranked||"")+' <b>Strongest:</b> '+esc(x.strongest_feature||"")+' <b>Weakest:</b> '+esc(x.weakest_feature||"")+'</div>'+ 
+  (x.comparison_to_next?'<div class="hint"><b>nearest competitor:</b> '+esc(x.comparison_to_next)+'</div>':"")+
+  '<div class="hint"><b>preference confidence:</b> '+esc(x.preference_confidence||"not assessed")+' · <b>evidence:</b> '+esc(complete.state||"not assessed")+(missing.length?' · missing '+esc(missing.join(", ")):'')+'</div>'+ 
+  '<div class="hint"><b>uncertainty:</b> '+esc(x.ranking_may_reverse_if||"")+'</div></div>';}
 function miniMap(sel){
  if(!MD||!MD.tmpl||!MD.cands.length)return"";
  const L=MD.tmpl.length||1;let segs="";
@@ -1352,7 +1436,7 @@ async function loadAccess(i){const c=MD&&MD.cands[i];if(!c||!c.amp_span||!MD.tmp
 function showCand(i){if(!MD||!MD.cands[i])return;MD.sel=i;
  for(let k=0;k<MD.cands.length;k++){const b=document.getElementById("cb_"+k);if(b)b.classList.toggle("active",k===i);}
  const c=MD.cands[i];
- LAST_DESIGN=Object.assign({profile:MD.profile},c);   // selected candidate feeds designAdd() / doPairSpec()
+ LAST_DESIGN=Object.assign({profile:MD.profile,ranker_manifest:MD.manifest||null,objective_profile:MD.objective||null,search_status:MD.search_status||null,candidate_attrition:MD.attrition||null,candidate_rank:i+1,source_workflow:"direct_design"},c);   // selected candidate feeds designAdd() / doPairSpec() without dropping rank provenance
  const fpos=c.f_span?("pos "+(c.f_span[0]+1)+"\u2013"+c.f_span[1]):"";
  const rpos=c.r_span?("pos "+(c.r_span[0]+1)+"\u2013"+c.r_span[1]+" \u00b7 antisense"):"";
  const ppos=c.probe_span?("pos "+(c.probe_span[0]+1)+"\u2013"+c.probe_span[1]+(c.probe_rc?" \u00b7 antisense":"")):"";
@@ -1362,12 +1446,12 @@ function showCand(i){if(!MD||!MD.cands[i])return;MD.sel=i;
  const sb=c.score_breakdown||{};
  const breakdown=(sb.raw!=null)?`<small class="note">score ${c.score} = raw ${sb.raw} \u2212 quality ${sb.quality||0} \u2212 amplicon ${sb.amplicon||0}</small>`:"";
  const offctrl=MD.off_control?`<label>worst-case off-target control gBlock <span class="hint">(${MD.off_control.identity}% identity to off #${(MD.off_control.off_index!=null?MD.off_control.off_index+1:"?")} \u2014 run beside the standard to prove off-target rejection)</span></label><pre>${esc(MD.off_control.seq)}</pre><div style="margin:4px 0 2px"><button class="ghost" style="padding:2px 9px;font-size:11px" onclick='copyText(${JSON.stringify(MD.off_control.seq)})'>copy control</button> <button class="ghost" style="padding:2px 9px;font-size:11px" onclick='gblockToOrder("offtarget_control",${JSON.stringify(MD.off_control.seq)})'>\u2192 Order as control</button></div>`:"";
- document.getElementById("d_detail").innerHTML=`${miniMap(i)}${seqView(MD.tmpl,c)}${consPanel(c)}${junctionPanel(c)}
+ document.getElementById("d_detail").innerHTML=`${miniMap(i)}${seqView(MD.tmpl,c)}${rankPanel(c)}${consPanel(c)}${junctionPanel(c)}
   <table><tr><th>oligo</th><th>sequence (5\u2032\u21923\u2032)</th><th>Tm</th><th>note</th></tr>
   <tr><td><i class="sw sw-f"></i> Forward</td><td class="mono">${esc(c.forward)}</td><td>${c.f_tm}</td><td>${fpos} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText(${JSON.stringify(c.forward)})'>copy</button></td></tr>
   <tr><td><i class="sw sw-r"></i> Reverse</td><td class="mono">${esc(c.reverse)}</td><td>${c.r_tm}</td><td>${rpos} <button class="ghost" style="padding:0 6px;font-size:11px" onclick='copyText(${JSON.stringify(c.reverse)})'>copy</button></td></tr>
   ${probeRow}</table>
-  <div class="kv"><div><span>amplicon</span><b>${c.amplicon}</b></div><div><span title="Estimated melt Tm of the product \u2014 empirical salt-adjusted formula, not nearest-neighbor.">amplicon Tm \u2248</span><b>${c.amplicon_tm!=null?c.amplicon_tm+" \u00b0C":"\u2014"}</b></div><div><span>pair gap</span><b>${c.pair_tm_gap}</b></div><div><span title="Overall rank score: conservation, sequence quality, amplicon length and dimers (higher is better).">score</span><b>${c.score!=null?c.score:"\u2014"}</b></div><div><span>quality</span>${flags}</div>${probeKv}</div>
+  <div class="kv"><div><span>amplicon</span><b>${c.amplicon}</b></div><div><span title="Estimated melt Tm of the product \u2014 empirical salt-adjusted formula, not nearest-neighbor.">amplicon Tm \u2248</span><b>${c.amplicon_tm!=null?c.amplicon_tm+" \u00b0C":"\u2014"}</b></div><div><span>pair gap</span><b>${c.pair_tm_gap}</b></div><div><span title="Convenience display score only; the structured evidence hierarchy and hard constraints determine rank.">display score</span><b>${c.score!=null?c.score:"\u2014"}</b></div><div><span>quality</span>${flags}</div>${probeKv}</div>
   ${breakdown}
   ${specPanel(c)}
   ${panelPanel(c)}
@@ -1465,12 +1549,15 @@ async function loadPanel(){const name=document.getElementById("panelsel").value;
 refreshPanels();
 async function doBatch(){const o=document.getElementById("bd_out");o.innerHTML="…";
  const txt=document.getElementById("b_fasta").value.trim();const items=[];let name=null,seq="";
- txt.split("\n").forEach(l=>{if(l.startsWith(">")){if(name)items.push({name,template:seq});name=l.slice(1).trim();seq="";}else seq+=l.trim();});
- if(name)items.push({name,template:seq});
+ const profile=(document.getElementById("bd_prof")||{}).value||"idt_taqman";
+ const objective=(document.getElementById("bd_obj")||{}).value||"balanced";
+ txt.split("\n").forEach(l=>{if(l.startsWith(">")){if(name)items.push({name,template:seq,profile,objective});name=l.slice(1).trim();seq="";}else seq+=l.trim();});
+ if(name)items.push({name,template:seq,profile,objective});
  if(!items.length){o.innerHTML=err("paste FASTA — a >name header then sequence");return;}
  const d=await api("/api/batch_design",{items});if(d.error){o.innerHTML=err(d.error);return;}
- o.innerHTML=`<table><tr><th>gene</th><th>F</th><th>R</th><th>probe</th><th>amp</th></tr>`+
-  d.results.map(r=>r.ok?`<tr><td>${r.name}</td><td class="mono">${r.forward}</td><td class="mono">${r.reverse}</td><td class="mono">${r.probe||'—'}</td><td>${r.amplicon}</td></tr>`:`<tr><td>${r.name}</td><td colspan="4" class="FAIL">${r.error}</td></tr>`).join("")+`</table>`;}
+ o.innerHTML=`<table><tr><th>gene</th><th>F</th><th>R</th><th>probe</th><th>amp</th><th>rank evidence</th></tr>`+
+  d.results.map(r=>r.ok?`<tr><td>${esc(r.name)}</td><td class="mono">${esc(r.forward)}</td><td class="mono">${esc(r.reverse)}</td><td class="mono">${esc(r.probe||'—')}</td><td>${Number(r.amplicon)||'—'}</td><td><b>${esc(r.uncertainty||'ranked')}</b><br><small>${esc(r.strongest_feature||r.ranking_statement||'structured retained-pool rank')}</small></td></tr>`:`<tr><td>${esc(r.name)}</td><td colspan="5" class="FAIL">${esc(r.error)}</td></tr>`).join("")+`</table>`+
+  `<p class="hint">${esc(d.policy||'')}</p>`;}
 async function doPairSpec(f,r){const o=document.getElementById("ds_out");o.innerHTML='<div class="working">Remote BLAST queued at NCBI — 30 s to a few minutes…</div><div class="ofbar"></div>';
  const d=await api("/api/pair_specificity",{forward:f,reverse:r,mode:"remote"});
  if(d.error){o.innerHTML=err(d.error);return;}
@@ -1772,17 +1859,22 @@ function importPanel(inp){const f=inp&&inp.files&&inp.files[0];if(!f)return;cons
 function uid(){return "a"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 function addAssay(a){a.id=uid();a.status=a.status||"designed";PANEL.push(a);CURRENT_ID=a.id;savePanel();renderPanel();gotab("work");toast('Added '+(a.name||a.gene||"assay")+' to the Workbench','ok');}
 function autoAddCand(i){if(!LAST_AUTO_FULL||!LAST_AUTO_FULL.candidates||!LAST_AUTO_FULL.candidates[i])return;
- const d=LAST_AUTO_FULL,a=d.candidates[i].assay;
+ const d=LAST_AUTO_FULL,row=d.candidates[i],a=row.assay||row;
  const org=d.resolved_organism||"",gene=d.resolved_gene||(d.target_query||"");
  const lab=((gene||d.target_query||"assay")+(i?" alt"+i:"")).slice(0,28);
  addAssay({name:lab,gene:gene,organism:org,forward:a.forward,reverse:a.reverse,probe:a.probe,
   probe_lna:(a.probe_lna&&a.probe_lna.notation)?a.probe_lna.notation:null,
   amplicon:a.amplicon,amplicon_tm:a.amplicon_tm,f_tm:a.f_tm,r_tm:a.r_tm,
   probe_tm:a.probe_info?a.probe_info.tm:null,chemistry:d.profile_pretty||"",
-  accession:d.source_accession||"",gblock:a.gblock||null,off_query:d.off_query||null});}
+  accession:d.source_accession||"",gblock:a.gblock||null,off_query:d.off_query||null,
+  ranker_manifest:d.ranker_manifest||null,objective_profile:d.objective_profile||null,
+  candidate_attrition:d.candidate_attrition||null,search_status:d.search_status||null,
+  ranking_evidence:row.evidence||row.ranking_evidence_vector||null,rank_trace:row.rank_trace||null,
+  rank_explanation:row.rank_explanation||null,candidate_rank:row.rank||i+1,
+  finalist_categories:row.finalist_categories||row.finalist_category||null,source_workflow:"automatic_design"});}
 function autoAdd(){autoAddCand(0);}
 function gblockToOrder(name,seq){addGbRow(name,seq);gotab("order");toast("gBlock added to the Order tab as a standard.","ok");}
-function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,amplicon_tm:d.amplicon_tm,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||"",gblock:d.gblock});}
+function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,amplicon_tm:d.amplicon_tm,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||"",gblock:d.gblock,ranker_manifest:d.ranker_manifest||null,objective_profile:d.objective_profile||null,candidate_attrition:d.candidate_attrition||null,search_status:d.search_status||null,ranking_evidence:d.evidence||null,rank_trace:d.rank_trace||null,rank_explanation:d.rank_explanation||null,candidate_rank:d.candidate_rank||null,finalist_categories:d.finalist_categories||null,source_workflow:d.source_workflow||"direct_design"});}
 function addManualAssay(){
  const f=(document.getElementById("ma_f").value||"").trim().toUpperCase().replace(/\s+/g,"");
  const r=(document.getElementById("ma_r").value||"").trim().toUpperCase().replace(/\s+/g,"");
@@ -1838,12 +1930,15 @@ function renderPanel(){const o=document.getElementById("wk_out");if(!o)return;
  if(!PANEL.length){o.innerHTML=`<small class="note">No assays yet \u2014 design one in <b>Target \u2192 assay</b> or <b>Design</b> and click \u201c\u2605 add to workbench\u201d, or use <b>Load example (FSJ)</b> below.</small>`;return;}
  o.innerHTML=PANEL.map(a=>{const cur=a.id===CURRENT_ID;
   const chips=[a.chemistry?`<span class="achip">${esc(a.chemistry)}</span>`:"",a.amplicon?`<span class="achip">${a.amplicon} nt</span>`:"",(a.f_tm||a.r_tm)?`<span class="achip">Tm ${a.f_tm||"?"} / ${a.r_tm||"?"}</span>`:"",a.probe?`<span class="achip">probe</span>`:`<span class="achip dim">no probe</span>`].join("");
-  const flags=`${a.checks&&a.checks.specificity?(a.checks.specificity.error?`<span class="achip warn">spec ?</span>`:`<span class="achip ok">spec \u2713</span>`):""}${a.validation&&a.validation.efficiency_pct!=null?`<span class="achip ok">eff ${a.validation.efficiency_pct}%</span>`:""}`;
+  const pm=a.ranker_manifest||{},px=a.rank_explanation||{};
+  const prov=pm.run_id?`<span class="achip" title="rank provenance: ${esc(pm.run_id)} · manifest ${esc(pm.manifest_sha256||"unhashed")}">rank ${a.candidate_rank||"?"} · ${esc(pm.ranker_version||"ranker?")}</span>`:`<span class="achip dim" title="No versioned rank manifest was attached to this manually entered or legacy assay.">unranked / legacy provenance</span>`;
+  const pref=px.preference_state?`<span class="achip ${px.preference_state.indexOf("strong")===0?"ok":(px.preference_state.indexOf("insufficient")===0?"warn":"")}">${esc(px.preference_state)}</span>`:"";
+  const flags=`${a.checks&&a.checks.specificity?(a.checks.specificity.error?`<span class="achip warn">spec ?</span>`:`<span class="achip ok">spec \u2713</span>`):""}${a.validation&&a.validation.efficiency_pct!=null?`<span class="achip ok">eff ${a.validation.efficiency_pct}%</span>`:""}${prov}${pref}`;
   return `<div class="acard${cur?" cur":""}">
     <div class="acard-top">
       <label class="acard-cur"><input type="radio" name="wkcur" ${cur?"checked":""} onclick="setCurrent(\'${a.id}\')"><span>current</span></label>
       <input class="acard-name" value="${esc(a.name)}" oninput="editAssay(\'${a.id}\',\'name\',this.value)" placeholder="assay name">
-      <span class="acard-status" id="wk_status_${a.id}">${esc(a.status)}</span>
+      <select class="acard-status" id="wk_status_${a.id}" onchange="editAssay(\'${a.id}\',\'status\',this.value)" title="assay lifecycle / evidence designation">${["designed","preferred","locked","experimental","previously ordered","previously validated","failed at bench","retired"].map(v=>`<option value="${v}" ${a.status===v?"selected":""}>${v}</option>`).join("")}</select>
       <button class="ghost acard-x" title="remove from workbench" onclick="removeAssay(\'${a.id}\')">\u2715</button>
     </div>
     <div class="acard-meta">
@@ -2525,7 +2620,17 @@ function vwRenderManual(){const box=document.getElementById("vw_manual");if(!box
  h+='</div>';
  if(hasF&&hasR){const f=[...VW.manual].reverse().find(m=>m.role==="f"),r=[...VW.manual].reverse().find(m=>m.role==="r");
   if(f&&r&&r.to>f.from){h+='<div class="vw-amp">Amplicon (F\u2192R): <b>'+(r.to-f.from)+' bp</b></div>';}}
+ if(hasF&&hasR){h+='<div class="row" style="margin-top:8px"><button onclick="vwAnalyzeManual()">Analyze exact placements</button><button class="ghost" onclick="vwRedesignManual(\'pair\')">Keep both primers</button><button class="ghost" onclick="vwRedesignManual(\'forward\')">Keep forward</button><button class="ghost" onclick="vwRedesignManual(\'reverse\')">Keep reverse</button>'+(VW.manual.some(m=>m.role==="p")?'<button class="ghost" onclick="vwRedesignManual(\'probe\')">Keep probe</button>':'')+'<button class="ghost" onclick="vwRescueManual()">Diagnose / rescue</button></div><div class="hint">Every redesign uses the same thermodynamics, specificity, conservation, robustness, and structured ranker as automatic design. Locked components are never silently replaced.</div>'; }
  box.innerHTML=h;}
+function vwManualPayload(){const f=[...VW.manual].reverse().find(m=>m.role==="f"),r=[...VW.manual].reverse().find(m=>m.role==="r"),p=[...VW.manual].reverse().find(m=>m.role==="p");
+ if(!f||!r)return null;return {forward:f.disp,reverse:r.disp,probe:p?p.disp:null,template:VW.seq,profile:p?"idt_taqman":"sybr_generic",objective:p?"balanced":"sybr",max_mm:2};}
+function vwManualResult(d,mode){const box=document.getElementById("vw_manual_analysis");if(!box)return;if(!d||d.error){box.innerHTML=err((d&&d.error)||"analysis failed");return;}
+ if(mode==="analyze"){const c=d.candidate||{},e=c.evidence||{},x=c.rank_explanation||{};const maps=d.mappings||{};box.innerHTML='<div class="subbox"><div class="sub-h">authoritative manual analysis</div><div>'+((e.hard_valid)?'<span class="pill b-PASS">hard-valid</span>':'<span class="pill b-FAIL">review / invalid</span> '+esc((e.hard_failures||[]).join("; ")))+'</div><div class="hint">products '+(d.predicted_products||[]).length+' · F placements '+(maps.forward||[]).length+' · R placements '+(maps.reverse||[]).length+' · probe placements '+(maps.probe||[]).length+'</div><div class="hint"><b>strongest:</b> '+esc(x.strongest_feature||"")+' <b>weakest:</b> '+esc(x.weakest_feature||"")+'</div></div>';return;}
+ if(mode==="rescue"){box.innerHTML='<div class="subbox"><div class="sub-h">assay diagnosis and rescue</div>'+(d.diagnoses||[]).map(z=>'<div class="verdict '+(z.severity==="critical"||z.severity==="high"?'v-risk':'v-warn')+'"><b>'+esc(z.code||"")+'</b> · '+esc(z.computational_evidence||"")+'<div class="hint">'+esc(z.experimental_inference||"")+'</div></div>').join("")+'<div class="hint">'+(d.redesigns||[]).length+' minimally disruptive redesign(s) returned.</div></div>';return;}
+ const rows=(d.candidates||[]).map((z,i)=>{const a=z.assay||{};return '<tr><td>'+(i+1)+'</td><td class="mono">'+esc(a.forward||"")+'</td><td class="mono">'+esc(a.reverse||"")+'</td><td class="mono">'+esc(a.probe||"—")+'</td><td>'+esc((z.components_changed||[]).join(", ")||"none")+'</td></tr>';}).join("");box.innerHTML='<div class="subbox"><div class="sub-h">constrained redesign · locked components preserved</div><table><tr><th>rank</th><th>forward</th><th>reverse</th><th>probe</th><th>changed</th></tr>'+rows+'</table><div class="hint">'+esc(d.note||"")+'</div></div>';}
+async function vwAnalyzeManual(){const b=vwManualPayload();if(!b){toast("Tag both primers first.","warn");return;}const box=document.getElementById("vw_manual_analysis");if(box)box.innerHTML='<div class="working">analyzing every placement and product…</div>';vwManualResult(await api("/api/manual-design/analyze",b),"analyze");}
+async function vwRedesignManual(mode){const b=vwManualPayload();if(!b){toast("Tag both primers first.","warn");return;}b.locks=mode==="pair"?{primer_pair:true}:mode==="forward"?{forward:true}:mode==="reverse"?{reverse:true}:{probe:true};b.max_results=6;const box=document.getElementById("vw_manual_analysis");if(box)box.innerHTML='<div class="working">jointly optimizing unlocked components…</div>';vwManualResult(await api("/api/manual-design/redesign",b),"redesign");}
+async function vwRescueManual(){const b=vwManualPayload();if(!b){toast("Tag both primers first.","warn");return;}b.observed={};b.max_results=4;const box=document.getElementById("vw_manual_analysis");if(box)box.innerHTML='<div class="working">diagnosing and generating minimally disruptive alternatives…</div>';vwManualResult(await api("/api/assay-rescue",b),"rescue");}
 function vwRemoveManual(id){VW.manual=(VW.manual||[]).filter(m=>m.id!==id);vwRepaintLayers();vwRenderManual();}
 function vwSrcName(){const s=(VW.gene||VW.src||"manual").split("·")[0].trim();return (s||"manual").slice(0,24);}
 function vwToWorkbench(k){const c=VW.cands[k];if(!c){toast("No candidate selected.","warn");return;}
@@ -2537,6 +2642,82 @@ function vwManualToWorkbench(){const f=[...VW.manual].reverse().find(m=>m.role==
  const amp=(f&&r&&r.to>f.from)?Math.max(0,r.to-f.from):null;
  addAssay({name:vwSrcName()+" (manual)",gene:VW.gene||"",organism:VW.org||"",forward:f?f.disp:"",reverse:r?r.disp:"",probe:p?p.disp:null,
   amplicon:amp,amplicon_tm:null,f_tm:f?f.tm:null,r_tm:r?r.tm:null,probe_tm:p?p.tm:null,chemistry:"viewer (manual pick)",gblock:null});}
+
+
+/* ===== v1.34 direct Manual Design / Rescue Studio ===== */
+let MDIRECT=null;
+let MFEEDBACK=null;
+let MFEEDBACK_DATASET=null;
+let MFEEDBACK_SPLIT=null;
+let MRUN_COMPARE=null;
+let MLAST_MANIFEST=null,MLAST_OBJECTIVE=null;
+let MLAST_ANALYSIS_PAYLOAD=null;
+function mdVal(id){const e=document.getElementById(id);return e?e.value.trim():"";}
+function mdNum(id){const v=mdVal(id);return v===""?null:Number(v);}
+function mdChecked(id){const e=document.getElementById(id);return !!(e&&e.checked);}
+function mdUseLoaded(){const e=document.getElementById("md_template");if(!e)return;if(!VW||!VW.seq){toast("Load or paste a sequence in the viewer first.","warn");return;}e.value=VW.seq;toast("Loaded the current viewer sequence into Manual Design.","ok");}
+function mdRangeOne(text){const m=(text||"").match(/^\s*(\d+)\s*[-:]\s*(\d+)\s*$/);if(!m)return null;const a=Number(m[1]),b=Number(m[2]);return a<b?[a,b]:null;}
+function mdRanges(text){return (text||"").split(/[,;\n]+/).map(mdRangeOne).filter(Boolean);}
+function mdPayload(){
+ const f=mdVal("md_f"),r=mdVal("md_r"),p=mdVal("md_p"),tmpl=mdVal("md_template");
+ if(!f||!r||!tmpl){toast("Forward, reverse and template are required.","warn");return null;}
+ const targets=parseFasta(mdVal("md_targets")),offs=parseFasta(mdVal("md_offs"));
+ const b={forward:f,reverse:r,probe:p||null,template:tmpl,profile:mdVal("md_profile")||(p?"idt_taqman":"sybr_generic"),objective:mdVal("md_objective")||(p?"balanced":"sybr"),max_mm:Math.max(0,Math.min(4,Number(mdVal("md_mm")||2)))};
+ if(targets.length)b.targets=targets;if(offs.length)b.off_targets=offs;
+ return b;
+}
+function mdObserved(){const o={};const eff=mdNum("md_eff"),r2=mdNum("md_r2"),peaks=mdNum("md_peaks");if(eff!==null)o.efficiency=eff;if(r2!==null)o.r2=r2;if(peaks!==null)o.melt_peaks=peaks;if(mdChecked("md_probe_problem"))o.probe_signal_problem=true;if(mdChecked("md_multiplex_failure"))o.multiplex_only_failure=true;return o;}
+function mdLoadCandidate(i){if(!MDIRECT||!MDIRECT.rows||!MDIRECT.rows[i])return;const row=MDIRECT.rows[i],a=row.assay||row;document.getElementById("md_f").value=a.forward||"";document.getElementById("md_r").value=a.reverse||"";document.getElementById("md_p").value=a.probe||"";toast("Loaded candidate "+(i+1)+" for editing or another constrained redesign.","ok");}
+function mdAddCandidate(i){if(!MDIRECT||!MDIRECT.rows||!MDIRECT.rows[i])return;const row=MDIRECT.rows[i],a=row.assay||row,nm=(MDIRECT.mode==="analyze"?"Manual Studio analyzed assay":"Manual Studio candidate "+(i+1));addAssay({name:nm,forward:a.forward,reverse:a.reverse,probe:a.probe||null,amplicon:a.amplicon||null,amplicon_tm:a.amplicon_tm||null,f_tm:a.f_tm||null,r_tm:a.r_tm||null,probe_tm:(a.probe_info||{}).tm||null,chemistry:mdVal("md_profile")||"manual design",ranker_manifest:MLAST_MANIFEST||null,objective_profile:MLAST_OBJECTIVE||null,ranking_evidence:row.evidence||null,rank_trace:row.rank_trace||null,rank_explanation:row.rank_explanation||null,candidate_rank:row.rank||i+1,source_workflow:(MDIRECT.mode==="rescue"?"assay_rescue":"manual_design")});}
+function mdRender(d,mode){const out=document.getElementById("md_out");if(!out)return;if(!d||d.error){out.innerHTML=err((d&&d.error)||"request failed");return;}
+ MLAST_MANIFEST=d.ranker_manifest||null;
+ MLAST_OBJECTIVE=d.objective_profile||null;
+ if(mode==="analyze"){
+  const c=d.candidate||{},a=c.assay||{},e=c.evidence||{},x=c.rank_explanation||{},maps=d.mappings||{},products=d.predicted_products||[];
+  MDIRECT={mode:mode,rows:[c]};
+  const allmaps=[...(maps.forward||[]).map(z=>Object.assign({role:"F"},z)),...(maps.reverse||[]).map(z=>Object.assign({role:"R"},z)),...(maps.probe||[]).map(z=>Object.assign({role:"P"},z))];
+  const maprows=allmaps.slice(0,100).map(z=>'<tr><td>'+esc(z.role)+'</td><td>'+esc(z.strand)+'</td><td>'+esc((z.start+1)+'–'+z.end)+'</td><td>'+esc(z.mismatches)+'</td><td>'+esc(z.three_prime_status||"not applicable")+'</td><td>'+(z.extension_eligible?'<span class="pill b-ok">extension eligible</span>':'<span class="pill b-warn">not extension eligible</span>')+'</td><td class="mono">'+esc(z.site||"")+'</td></tr>').join("");
+  const reversals=(x.rank_reversal_scenarios||[]).map(z=>'<li><b>'+esc(z.trigger||"")+'</b> — '+esc(z.reason||"")+'</li>').join("");
+  out.innerHTML='<div class="subbox"><div class="sub-h">authoritative manual analysis</div><div>'+(e.hard_valid?'<span class="pill b-PASS">hard-valid for this objective</span>':'<span class="pill b-FAIL">review / invalid</span> '+esc((e.hard_failures||[]).join("; ")))+'</div><div class="hint">coherent products '+products.length+' · F placements '+(maps.forward||[]).length+' · R placements '+(maps.reverse||[]).length+' · probe placements '+(maps.probe||[]).length+'</div><div class="hint"><b>strongest:</b> '+esc(x.strongest_feature||"")+'<br><b>weakest:</b> '+esc(x.weakest_feature||"")+'<br><b>uncertainty:</b> '+esc(x.ranking_may_reverse_if||"")+'</div>'+(reversals?'<details><summary>specific rank-reversal scenarios</summary><ul>'+reversals+'</ul></details>':'')+'<details><summary>all exact and near-match placements</summary><table><tr><th>role</th><th>strand</th><th>coordinates</th><th>mismatches</th><th>3′ status</th><th>PCR status</th><th>template site</th></tr>'+maprows+'</table>'+(allmaps.length>100?'<div class="hint">first 100 of '+allmaps.length+' placements shown</div>':'')+'</details><pre>'+esc(JSON.stringify(c.rank_trace||{},null,2))+'</pre><button class="ghost" onclick="mdAddCandidate(0)">Add analyzed assay to Workbench</button><div class="hint">The exact analyzed sequence, ranking evidence, objective, condition snapshot, and self-verifying run manifest are preserved.</div></div>';return;
+ }
+ if(mode==="rescue"){
+  const rows=(d.redesigns||[]).map(z=>z.candidate||{});MDIRECT={mode:mode,rows:rows};
+  let h='<div class="subbox"><div class="sub-h">assay diagnosis</div>'+(d.diagnoses||[]).map(z=>'<div class="verdict '+((z.severity==="critical"||z.severity==="high")?'v-risk':'v-warn')+'"><b>'+esc(z.code||"")+'</b> · '+esc(z.computational_evidence||"")+'<div class="hint">'+esc(z.experimental_inference||"")+'</div></div>').join("")+'</div>';
+  h+='<div class="subbox"><div class="sub-h">redesigns by disruption level</div><table><tr><th>#</th><th>level</th><th>changed</th><th>predicted support</th><th></th></tr>'+(d.redesigns||[]).map((z,i)=>{const c=z.candidate||{},e=c.evidence||{};return '<tr><td>'+(i+1)+'</td><td>'+esc(z.disruption_level||"")+'</td><td>'+esc((z.components_changed||[]).join(", ")||"none")+'</td><td>'+(e.hard_valid?'hard-valid':'review')+' · '+esc(((c.rank_explanation||{}).strongest_feature)||"")+'</td><td><button class="ghost" onclick="mdLoadCandidate('+i+')">load</button><button class="ghost" onclick="mdAddCandidate('+i+')">Workbench</button></td></tr>';}).join("")+'</table><div class="hint">'+esc(d.caveat||"")+'</div></div>';out.innerHTML=h;return;
+ }
+ const rows=d.candidates||[];MDIRECT={mode:mode,rows:rows};
+ out.innerHTML='<div class="subbox"><div class="sub-h">constrained redesign · locked components preserved</div><table><tr><th>rank</th><th>forward</th><th>reverse</th><th>probe</th><th>changed</th><th>support</th><th></th></tr>'+rows.map((z,i)=>{const a=z.assay||{},e=z.evidence||{},x=z.rank_explanation||{};return '<tr><td>'+esc(z.rank||i+1)+'</td><td class="mono">'+esc(a.forward||"")+'</td><td class="mono">'+esc(a.reverse||"")+'</td><td class="mono">'+esc(a.probe||"—")+'</td><td>'+esc((z.components_changed||[]).join(", ")||"none")+'</td><td>'+(e.hard_valid?'hard-valid':'review')+' · '+esc(x.preference_state||"")+'</td><td><button class="ghost" onclick="mdLoadCandidate('+i+')">load</button><button class="ghost" onclick="mdAddCandidate('+i+')">Workbench</button></td></tr>';}).join("")+'</table><div class="hint">'+esc(d.note||"")+'</div><details><summary>search ledger</summary><pre>'+esc(JSON.stringify(d.search_ledger||{},null,2))+'</pre></details></div>';
+}
+async function mdRun(mode){const b=mdPayload();if(!b)return;const out=document.getElementById("md_out");if(out)out.innerHTML='<div class="working">'+(mode==="analyze"?'mapping every placement and product…':mode==="rescue"?'diagnosing and generating minimally disruptive alternatives…':'jointly optimizing unlocked components…')+'</div>';
+ let path="/api/manual-design/analyze";
+ if(mode==="redesign"){
+  path="/api/manual-design/redesign";b.locks={forward:mdChecked("md_lock_f"),reverse:mdChecked("md_lock_r"),probe:mdChecked("md_lock_p"),primer_pair:mdChecked("md_lock_pair")};b.max_results=8;
+  const sh=mdNum("md_shift"),lo=mdNum("md_amp_min"),hi=mdNum("md_amp_max");if(sh!==null)b.max_shift=sh;if(lo!==null)b.amp_min=lo;if(hi!==null)b.amp_max=hi;
+  const ex=mdRanges(mdVal("md_excluded")),req=mdRangeOne(mdVal("md_required"));if(ex.length)b.excluded_regions=ex;if(req)b.required_region=req;
+ } else if(mode==="rescue") {path="/api/assay-rescue";b.observed=mdObserved();b.max_results=5;}
+ const d=await api(path,b);mdRender(d,mode);if(mode==="analyze"&&d&&!d.error){MLAST_ANALYSIS_PAYLOAD=JSON.parse(JSON.stringify(b));const e=document.getElementById("md_edit_out");if(e)e.innerHTML='<div class="hint">Edit any oligo, then use <b>Compare edit to last analysis</b> to recalculate and show what improved, worsened, or broke.</div>';}
+}
+
+function mdEditRows(rows,kind){return (rows||[]).map(z=>'<tr><td>'+esc(z.metric||"")+'</td><td><pre>'+esc(JSON.stringify(z.before,null,1))+'</pre></td><td><pre>'+esc(JSON.stringify(z.after,null,1))+'</pre></td><td>'+esc(z.delta==null?"—":z.delta)+'</td><td>'+esc(z.interpretation||kind||"")+'</td></tr>').join("");}
+function mdRenderEditComparison(d){const out=document.getElementById("md_edit_out");if(!out)return;if(!d||d.error){out.innerHTML=err((d&&d.error)||"edit comparison failed");return;}const edits=(d.sequence_edits||[]).map(z=>'<div><b>'+esc(z.component||"")+'</b>: <span class="mono">'+esc(z.old||"—")+'</span> → <span class="mono">'+esc(z.new||"—")+'</span> · '+esc((z.operations||[]).length)+' edit operation(s)</div>').join("");const pref=d.preference_detail||{};const added=(d.hard_failures_introduced||[]),resolved=(d.hard_failures_resolved||[]);out.innerHTML='<div class="subbox"><div class="sub-h">manual edit comparison · '+esc(d.preference||"")+'</div><div class="hint">'+esc(pref.basis||"")+' · '+esc(pref.confidence||"")+'</div>'+edits+(resolved.length?'<div class="verdict v-ok"><b>resolved hard failures:</b> '+esc(resolved.join("; "))+'</div>':'')+(added.length?'<div class="verdict v-risk"><b>new hard failures:</b> '+esc(added.join("; "))+'</div>':'')+'<div class="hint"><b>edited assay maps uniquely:</b> '+esc(d.edited_maps_to_intended_target?"yes":"no")+'</div><details open><summary>improvements</summary><table><tr><th>metric</th><th>before</th><th>after</th><th>Δ</th><th>interpretation</th></tr>'+mdEditRows(d.improvements,"improved")+'</table></details><details><summary>worsenings</summary><table><tr><th>metric</th><th>before</th><th>after</th><th>Δ</th><th>interpretation</th></tr>'+mdEditRows(d.worsenings,"worsened")+'</table></details><details><summary>all recalculated metrics</summary><table><tr><th>metric</th><th>before</th><th>after</th><th>Δ</th><th>interpretation</th></tr>'+mdEditRows(d.metric_changes,"changed")+'</table></details><div class="hint">'+esc(d.interpretation||"")+'</div></div>';}
+async function mdCompareEdit(){const now=mdPayload();if(!now)return;if(!MLAST_ANALYSIS_PAYLOAD){toast("Analyze the baseline assay first, then edit an oligo.","warn");return;}const base=MLAST_ANALYSIS_PAYLOAD;if(now.template!==base.template){toast("The template changed. Analyze again to establish a new baseline before comparing edits.","warn");return;}if(now.profile!==base.profile||now.objective!==base.objective){toast("Chemistry or objective changed. Analyze again so the comparison uses one scientific context.","warn");return;}const body={baseline_forward:base.forward,baseline_reverse:base.reverse,baseline_probe:base.probe||null,edited_forward:now.forward,edited_reverse:now.reverse,edited_probe:now.probe||null,template:base.template,profile:base.profile,objective:base.objective,max_mm:base.max_mm};if(base.targets)body.targets=base.targets;if(base.off_targets)body.off_targets=base.off_targets;const out=document.getElementById("md_edit_out");if(out)out.innerHTML='<div class="working">recalculating baseline and edited assay under identical evidence…</div>';mdRenderEditComparison(await api("/api/manual-design/compare-edit",body));}
+
+function mdReadFeedbackFile(inp){const f=inp&&inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{const e=document.getElementById("md_feedback_payload");if(e)e.value=String(rd.result||"");toast("Loaded "+f.name+" for dataset audit.","ok");};rd.onerror=()=>toast("Could not read feedback file.","err");rd.readAsText(f);}
+function mdFeedbackFormat(payload){const t=String(payload||"").trim();return (t.startsWith("[")||t.startsWith("{"))?"json":"csv";}
+function mdRenderFeedbackDataset(d){const out=document.getElementById("md_feedback_out");if(!out)return;if(!d||d.error){out.innerHTML=err((d&&d.error)||"feedback audit failed");return;}const conflicts=d.conflicts||[],rej=d.rejected||[];out.innerHTML='<div class="subbox"><div class="sub-h">feedback dataset audit</div><div class="kv"><div><span>input</span><b>'+esc(d.n_input||0)+'</b></div><div><span>unique</span><b>'+esc(d.n_unique||0)+'</b></div><div><span>duplicates</span><b>'+esc(d.n_duplicates||0)+'</b></div><div><span>conflicts</span><b>'+esc(d.n_conflicts||0)+'</b></div></div>'+(rej.length?'<div class="verdict v-risk">'+esc(rej.length)+' rejected row(s)</div>':'<div class="verdict v-ok">all rows valid</div>')+(conflicts.length?'<details><summary>conflicting outcomes</summary><pre>'+esc(JSON.stringify(conflicts,null,2))+'</pre></details>':'')+'<details><summary>missingness &amp; quantitative completeness</summary><pre>'+esc(JSON.stringify({missingness_labeled:d.missingness_labeled,quantitative_completeness:d.quantitative_completeness,outcomes:d.outcomes},null,2))+'</pre></details></div>';}
+async function mdImportFeedback(){const payload=mdVal("md_feedback_payload");if(!payload){toast("Paste or load feedback JSON/CSV first.","warn");return;}const d=await api("/api/experimental-feedback/import",{payload:payload,format_hint:mdFeedbackFormat(payload)});if(!d||d.error){mdRenderFeedbackDataset(d);return;}MFEEDBACK_DATASET=d;MFEEDBACK_SPLIT=null;mdRenderFeedbackDataset(d);}
+async function mdSplitFeedback(){if(!MFEEDBACK_DATASET){await mdImportFeedback();if(!MFEEDBACK_DATASET)return;}const records=MFEEDBACK_DATASET.normalized_records||[];if(!records.length){toast("No valid feedback records to split.","warn");return;}const d=await api("/api/experimental-feedback/split",{records:records,train_fraction:0.70,validation_fraction:0.15});const out=document.getElementById("md_feedback_out");if(!d||d.error){if(out)out.innerHTML=err((d&&d.error)||"split failed");return;}MFEEDBACK_SPLIT=d;if(out)out.innerHTML+=( '<div class="subbox"><div class="sub-h">target-group split</div><pre>'+esc(JSON.stringify({policy:d.policy,fractions:d.fractions,n_groups:d.n_groups,group_leakage:d.group_leakage},null,2))+'</pre></div>');}
+async function mdSummarizeFeedback(){if(!MFEEDBACK_DATASET){await mdImportFeedback();if(!MFEEDBACK_DATASET)return;}const records=MFEEDBACK_DATASET.normalized_records||[];const d=await api("/api/experimental-feedback/summary",{records:records});const out=document.getElementById("md_feedback_out");if(!d||d.error){if(out)out.innerHTML=err((d&&d.error)||"feedback summary failed");return;}const rows=(d.assays||[]).map(z=>'<tr><td class="mono">'+esc(z.assay_id||"")+'</td><td>'+esc(z.evidence_state||"")+'</td><td>'+esc(z.n_records||0)+'</td><td>'+esc(z.success_fraction_decisive==null?"—":Math.round(100*z.success_fraction_decisive)+"%")+'</td><td>'+esc(z.median_efficiency==null?"—":Math.round(10*z.median_efficiency)/10+"%")+'</td></tr>').join("");if(out)out.innerHTML+='<div class="subbox"><div class="sub-h">local experimental evidence summary</div><table><tr><th>assay</th><th>state</th><th>records</th><th>decisive success</th><th>median efficiency</th></tr>'+rows+'</table><div class="hint">'+esc(d.ranker_policy||"")+'</div><details><summary>pairwise local preferences</summary><pre>'+esc(JSON.stringify(d.pairwise_preferences||[],null,2))+'</pre></details></div>';}
+function mdRunObject(source){if(source==="automatic"){if(MD&&MD.cands)return {candidates:MD.cands,ranker_manifest:MD.manifest||null,objective_profile:MD.objective||null,candidate_attrition:MD.attrition||null,search_status:MD.search_status||null};if(LAST_AUTO_FULL)return LAST_AUTO_FULL;}if(source==="manual"&&MDIRECT&&MDIRECT.rows)return {candidates:MDIRECT.rows,ranker_manifest:MLAST_MANIFEST||null,objective_profile:MLAST_OBJECTIVE||null};return null;}
+function mdUseRun(side,source){const d=mdRunObject(source),e=document.getElementById(side==="left"?"md_run_left":"md_run_right");if(!d||!e){toast("No current "+source+" run is available.","warn");return;}e.value=JSON.stringify(d,null,2);toast("Loaded current "+source+" run into comparison "+(side==="left"?"A":"B")+".","ok");}
+function mdParseRun(id){const t=mdVal(id);if(!t)throw new Error("both run JSON fields are required");let d;try{d=JSON.parse(t);}catch(e){throw new Error("invalid JSON in "+id);}return d;}
+function mdRenderRunComparison(d){const out=document.getElementById("md_run_out");if(!out)return;if(!d||d.error){out.innerHTML=err((d&&d.error)||"run comparison failed");return;}MRUN_COMPARE=d;const st=d.ranking_stability||{},cs=d.candidate_set||{},w=d.winner||{},rep=d.reproducibility||{};const ctx=(d.context_differences||[]).map(z=>'<tr><td>'+esc(z.field||"")+'</td><td><pre>'+esc(JSON.stringify(z.left,null,1))+'</pre></td><td><pre>'+esc(JSON.stringify(z.right,null,1))+'</pre></td></tr>').join("");const moved=(d.shared_candidate_changes||[]).slice(0,20).map(z=>'<tr><td class="mono">'+esc(z.candidate_id||"")+'</td><td>'+esc(z.left_rank)+'</td><td>'+esc(z.right_rank)+'</td><td>'+esc(z.rank_shift)+'</td><td>'+esc((z.hard_failures_added||[]).join("; ")||"—")+'</td></tr>').join("");out.innerHTML='<div class="subbox"><div class="sub-h">design-run comparison · '+esc(rep.state||"")+'</div><div class="hint">'+esc(rep.reason||"")+'</div><div class="kv"><div><span>shared candidates</span><b>'+esc(cs.n_shared||0)+'</b></div><div><span>added / removed</span><b>'+esc((cs.n_added||0)+" / "+(cs.n_removed||0))+'</b></div><div><span>top-'+esc(st.top_k||10)+' overlap</span><b>'+esc(st.top_k_overlap||0)+'</b></div><div><span>Spearman shared</span><b>'+esc(st.spearman_shared==null?"—":st.spearman_shared)+'</b></div><div><span>pair order reversals</span><b>'+esc(st.n_reversed_pairs||0)+'</b></div><div><span>winner changed</span><b>'+esc(w.changed?"yes":"no")+'</b></div></div><div class="hint"><b>winner interpretation:</b> '+esc(w.explanation||"")+'</div>'+(ctx?'<details><summary>scientific-context differences</summary><table><tr><th>field</th><th>run A</th><th>run B</th></tr>'+ctx+'</table></details>':'<div class="verdict v-ok">no declared scientific-context differences</div>')+'<details><summary>largest shared-candidate rank shifts</summary><table><tr><th>candidate</th><th>A</th><th>B</th><th>shift toward B</th><th>new hard failures</th></tr>'+moved+'</table></details><div class="hint">'+esc(d.interpretation||"")+'</div></div>';}
+async function mdCompareRuns(){let left,right;try{left=mdParseRun("md_run_left");right=mdParseRun("md_run_right");}catch(e){toast(e.message,"warn");return;}const out=document.getElementById("md_run_out");if(out)out.innerHTML='<div class="working">comparing manifests, candidates, evidence and rank order…</div>';mdRenderRunComparison(await api("/api/design-runs/compare",{left:left,right:right,top_k:10}));}
+function mdDownloadRunComparison(){if(!MRUN_COMPARE){toast("Compare two runs first.","warn");return;}download("oligoforge-design-run-comparison.json",JSON.stringify(MRUN_COMPARE,null,2));}
+function mdDownloadFeedbackDataset(){if(!MFEEDBACK_DATASET){toast("Audit a feedback dataset first.","warn");return;}download("oligoforge-feedback-dataset-audited.json",JSON.stringify({dataset:MFEEDBACK_DATASET,split:MFEEDBACK_SPLIT},null,2));}
+
+function mdDownloadFeedback(){if(!MFEEDBACK){toast("Build a feedback record first.","warn");return;}download("oligoforge-feedback.json",JSON.stringify(MFEEDBACK,null,2));}
+async function mdFeedback(){const b=mdPayload();if(!b)return;const obs=mdObserved(),m=MLAST_MANIFEST||{},ms=(m.scientific_models||{}).reaction_condition_snapshot;const rec={assay_id:(b.forward+"|"+b.reverse+"|"+(b.probe||"")),target_group:mdVal("vw_gene")||"manual",design_run_id:m.run_id||null,oligoforge_version:m.application_version||null,ranker_version:m.ranker_version||null,input_hash:m.manifest_sha256||null,status:mdVal("md_status")||"untested",designation:mdVal("md_designation")||"none",objective:b.objective,conditions:ms||(typeof COND!=="undefined"?COND:null),efficiency:obs.efficiency,r2:obs.r2,melt_peak_count:obs.melt_peaks,probe_signal_quality:obs.probe_signal_problem?"poor":null,multiplex_failure:!!obs.multiplex_only_failure,notes:"Generated in Manual Design Studio; retain failures as well as successes."};const d=await api("/api/experimental-feedback/status",{records:[rec]});const out=document.getElementById("md_out");if(!d||d.error){if(out)out.innerHTML=err((d&&d.error)||"feedback record failed");return;}MFEEDBACK=(d.normalized_records||[])[0]||{};if(out)out.innerHTML='<div class="subbox"><div class="sub-h">versioned experimental feedback record</div><pre>'+esc(JSON.stringify(MFEEDBACK,null,2))+'</pre><button class="ghost" onclick="mdDownloadFeedback()">download JSON</button><div class="hint">'+esc(d.reason||"")+'</div></div>';}
 
 /* ===== v1.19.0 command palette (Ctrl/Cmd-K) - mirrors the live nav, no hardcoded ids ===== */
 (function(){
