@@ -1,4 +1,4 @@
-"""RDML 1.2 export gate. Offline. Run from repo root:  python tests/test_rdml.py"""
+"""RDML 1.3 export gate. Offline. Run from repo root:  python tests/test_rdml.py"""
 import base64, io, sys, zipfile
 import xml.etree.ElementTree as ET
 sys.path.insert(0, ".")
@@ -16,13 +16,13 @@ def check(name, cond, detail=""):
 panel = [
     dict(name="FSJ IFNG", gene="IFNG", organism="Aphelocoma coerulescens",
          forward="AGTCATTCTGATGTCGCTGATG", reverse="ACCTGTCAGTGTTTTCAAGCA",
-         probe="TCATTTCTCTCTGTCCAGCCTGATAGCTTCTCT", amplicon=136,
+         probe="TCATTTCTCTCTGTCCAGCCTGATAGCTTCTCT", amplicon=136, dye="FAM",
          chemistry="IDT PrimeTime (ZEN/FAM)", validation=dict(efficiency_pct=99.2, r2=0.998)),
-    dict(name="FSJ RPL13", gene="RPL13", organism="Aphelocoma coerulescens",
+    dict(name="FSJ RPL13", gene="RPL13", organism="Aphelocoma coerulescens", target_type="ref",
          forward="TCGCTGGCATCAACAAGAAG", reverse="TCGGGAAGAGGATGAGCTTG",
-         probe="AACAAGTCCACCGAGTCCCTGCA", amplicon=138, chemistry="ZEN/FAM"),
-    dict(name="FSJ YWHAZ", gene="YWHAZ", forward="CCGTTACTTGGCTGAGGTTG",
-         reverse="GATGGGATGTGTTGGTTGCA", probe="CCACTATCCCTTTCTTGTCATCTCCAGCAG"),
+         probe="AACAAGTCCACCGAGTCCCTGCA", amplicon=138, dye="FAM", chemistry="ZEN/FAM"),
+    dict(name="FSJ YWHAZ", gene="YWHAZ", target_type="ref", forward="CCGTTACTTGGCTGAGGTTG",
+         reverse="GATGGGATGTGTTGGTTGCA", probe="CCACTATCCCTTTCTTGTCATCTCCAGCAG", dye="FAM"),
     dict(name="Plas cytb", gene="Plasmodium cytb", forward="TACCTGGACTWGTTTCATGG",
          reverse="AAAGGATTTGTGCTACCTTG", chemistry="low-Tm SYBR"),   # no probe -> SYBR dye
 ]
@@ -41,7 +41,7 @@ except ET.ParseError as e:
     check("XML is well-formed", False, str(e))
 
 if root is not None:
-    check("root is rdml v1.2", root.tag == NS + "rdml" and root.get("version") == "1.2",
+    check("root is rdml v1.3", root.tag == NS + "rdml" and root.get("version") == "1.3",
           (root.tag, root.get("version")))
     targets = root.findall(NS + "target")
     dyes = root.findall(NS + "dye")

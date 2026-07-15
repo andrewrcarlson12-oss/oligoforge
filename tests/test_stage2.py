@@ -1,27 +1,46 @@
-import sys, time; sys.path.insert(0, ".")
-from oligoforge import thermo as T, ncbi, specificity as SP
-from oligoforge import profiles as P
-ncbi.Entrez.email = SP.Entrez.email = "fsj.qpcr.design@gmail.com"
+"""Stage-2 smoke checks.
 
-print("="*72, "\n1) MULTI-VENDOR LINT (HMBS forward primer + probe)\n", "="*72)
-F="GAGCTATACCCCGACCTCTG"; Pr="ATCTTGTCCCCAGTTGTTGACATGGCC"
-for prof in ("idt_taqman","thermo_taqman","sybr_generic"):
-    print(f"\n  [{P.PROFILES[prof]['name']}]  forward primer:")
-    for n,s,d in P.lint_oligo(F,"forward",P.PROFILES[prof]):
-        print(f"     {s:4} {n:32} {d}")
-print("\n  [IDT PrimeTime] probe:")
-for n,s,d in P.lint_oligo(Pr,"probe",P.PROFILES["idt_taqman"]):
-    print(f"     {s:4} {n:32} {d}")
+The default release gate is deterministic and offline. Set
+OLIGOFORGE_LIVE_NCBI=1 to additionally exercise live NCBI retrieval.
+"""
+import os
+import sys
+sys.path.insert(0, ".")
 
-print("\n"+"="*72, "\n2) NCBI FETCH + ISOFORM-COMMON REGION (HMBS)\n", "="*72)
-recs, q = ncbi.fetch_isoforms("HMBS","Aphelocoma coerulescens")
-print(f"  query: {q}\n  isoforms: {[r.id for r in recs]}  lengths {[len(r.seq) for r in recs]}")
-common = ncbi.common_region([r.seq for r in recs])
-print(f"  common-to-all block: {len(common)} bp")
+from oligoforge import ncbi, profiles as P
 
-print("\n"+"="*72, "\n3) gene_table raw head (to confirm exon-parse format)\n", "="*72)
-gid = ncbi.gene_id("HMBS","Aphelocoma coerulescens")
-print(f"  gene id: {gid}")
-h=ncbi.Entrez.efetch(db="gene", id=gid, rettype="gene_table", retmode="text"); raw=h.read(); h.close()
-print("  ---- first 1200 chars ----")
-print(raw[:1200])
+F = "GAGCTATACCCCGACCTCTG"
+PR = "ATCTTGTCCCCAGTTGTTGACATGGCC"
+
+print("=" * 72, "\n1) MULTI-VENDOR LINT\n", "=" * 72)
+for prof in ("idt_taqman", "thermo_taqman", "sybr_generic"):
+    findings = P.lint_oligo(F, "forward", P.PROFILES[prof])
+    assert isinstance(findings, list)
+    print(f"  {prof}: {len(findings)} finding(s)")
+probe_findings = P.lint_oligo(PR, "probe", P.PROFILES["idt_taqman"])
+assert isinstance(probe_findings, list)
+print(f"  IDT probe: {len(probe_findings)} finding(s)")
+
+print("\n" + "=" * 72, "\n2) ISOFORM-COMMON REGION (OFFLINE)\n", "=" * 72)
+seqs = [
+    "TTTT" + "ACGT" * 30 + "AAAA",
+    "GGGG" + "ACGT" * 30 + "CCCC",
+    "NNNN" + "ACGT" * 30 + "TTTT",
+]
+common = ncbi.common_region(seqs)
+assert common and common in seqs[0] and common in seqs[1] and common in seqs[2]
+print(f"  common block: {len(common)} bp")
+
+if os.environ.get("OLIGOFORGE_LIVE_NCBI") == "1":
+    ncbi.Entrez.email = os.environ.get("OLIGOFORGE_EMAIL", "ci@example.com")
+    print("\n" + "=" * 72, "\n3) LIVE NCBI OPTIONAL CHECK\n", "=" * 72)
+    recs, query = ncbi.fetch_isoforms("HMBS", "Aphelocoma coerulescens")
+    assert recs
+    print(f"  query: {query}\n  isoforms: {len(recs)}")
+    gid = ncbi.gene_id("HMBS", "Aphelocoma coerulescens")
+    assert gid
+    print(f"  gene id: {gid}")
+else:
+    print("\nSKIP live NCBI checks (set OLIGOFORGE_LIVE_NCBI=1 to enable).")
+
+print("ALL STAGE-2 ASSERTS PASS")

@@ -34,7 +34,7 @@ function fakeFetch(url, opts) {
     "/api/conditions": { mv_conc: 50, dv_conc: 3, dntp_conc: 0.8, dna_conc: 200 },
     "/api/project/list": { projects: [] },
     "/api/panel/list": { panels: [] },
-    "/api/rdml": { xml: "<rdml/>", rdml_b64: "PHJkbWwvPg==", n_assays: 1, n_dyes: 1, dyes: ["FAM"], version: "RDML 1.2", filename: "oligoforge_panel.rdml" },
+    "/api/rdml": { xml: "<rdml/>", rdml_b64: "PHJkbWwvPg==", n_assays: 1, n_dyes: 1, dyes: ["FAM"], version: "RDML 1.3", filename: "oligoforge_panel.rdml" },
     "/api/report": { html: "<html>r</html>", csv: "a,b\n1,2", n_assays: 1 },
   };
   let body = {};

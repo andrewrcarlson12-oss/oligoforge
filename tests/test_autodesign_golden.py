@@ -42,7 +42,9 @@ d = AD.design_from_sequences(plas, prof, offs=haem, n_candidates=5)
 check("disc design returns candidates", not d.get("error") and d.get("candidates"), d.get("error"))
 if d.get("candidates"):
     check("disc n_targets/n_offs", d["n_targets"] == 11 and d["n_offs"] == 12, (d["n_targets"], d["n_offs"]))
-    check("disc enumerates 10 candidates", d["n_candidates"] == 10, d["n_candidates"])
+    check("disc returns the requested 5 globally ranked candidates", d["n_candidates"] == 5, d["n_candidates"])
+    check("disc screened at least the returned pool", d.get("n_candidates_screened", 0) >= 5,
+          d.get("n_candidates_screened"))
     w = d["candidates"][0]["assay"]
     check("disc winner F", w["forward"] == "TTTCCATTTATAGCCTTATGTATTG", w["forward"])
     check("disc winner R", w["reverse"] == "TTTTAAAGCTGTATCATACCCT", w["reverse"])

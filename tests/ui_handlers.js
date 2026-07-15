@@ -60,6 +60,22 @@ const R={
  auto_err:{error:"NCBI returned nothing"},
  pairspec:{forward:{n_hits:1,hits:[{title:"X",evalue:1e-5}]},reverse:{error:"blastn not on PATH"}},
 };
+const orthoUnsafe = '<img src=x onerror=alert(1)>';
+const orthoHtml = ctx.renderOrthoPanel({
+  panel_size:1, upper_bound:1, gap:0, certified:true, bound_source:'exact_bnb',
+  panel:[{name:orthoUnsafe,seq:'ACGT',hairpin_dg:0,homodimer_dg:0}],
+  edges:[{i:0,j:1,a:orthoUnsafe,b:'safe',dg:-7}], n_edges:1,
+  nodes:[{id:0,name:orthoUnsafe,in_panel:true},{id:1,name:'safe',in_panel:false}],
+  dropped_self_structure:[{name:orthoUnsafe,reason:orthoUnsafe}],
+  rejects:[{name:orthoUnsafe,reason:orthoUnsafe}],
+  duplicates:[{names:[orthoUnsafe,'safe'],count:2}],
+  split_pool:{k:2,theta_pow_k:2.2,naive_mis_pow_k:1,note:orthoUnsafe}
+});
+if (orthoHtml.includes(orthoUnsafe)) {
+  console.log('ORTHOPANEL ESCAPE FAILURE');
+  process.exit(1);
+}
+
 const cases=[
  ["doQC",R.qc],["doPair",R.pair],
  ["doMatrix",R.matrix],["doMatrix(error)",R.matrix,"matrix",{error:"network drop"}],

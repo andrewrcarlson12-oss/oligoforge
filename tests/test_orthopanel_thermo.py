@@ -3,8 +3,7 @@ these are deterministic. Run from repo root:  python tests/test_orthopanel_therm
 
 Covers intake (dedup / IUPAC / RNA->DNA / modification-strip / rejects), the self-structure filter,
 confusability-graph construction (revcomp cross-check, ΔG symmetry), and full certify_panel behavior
-including a GOLDEN oligo panel whose cross-reactions form a 5-cycle — the case only θ can certify
-(clique-cover = 3, θ = √5 -> ⌊θ⌋ = 2). Edge cases: empty, single, all-cross, none-cross, duplicates,
+including a GOLDEN oligo panel whose cross-reactions form a 5-cycle. Exact branch-and-bound proves the optimum; theta remains a diagnostic. Edge cases: empty, single, all-cross, none-cross, duplicates,
 degenerate/IUPAC, RNA, very short/long, and the SDP size guard.
 """
 import os, sys
@@ -73,10 +72,10 @@ check("real pool: panel size 4", r["panel_size"] == 4, r["panel_size"])
 check("real pool: panel keeps exactly one of the cross-reacting pair",
       len({"FwdA", "ProbeA_rc"} & panel_names) == 1)
 check("real pool: certified maximum (gap 0)", r["certified"] and r["gap"] == 0)
-check("real pool: certified by the free clique-cover bound (θ not needed)",
-      r["bound_source"] == "clique_cover")
+check("real pool: certified by exact branch-and-bound",
+      r["bound_source"] == "exact_bnb")
 
-# ---------------- GOLDEN: oligo panel whose cross-reactions form a C5 (only θ certifies) ----------------
+# ---------------- GOLDEN: oligo panel whose cross-reactions form a C5 ----------------
 # Cyclically overlapping 13-bp complementary blocks: each oligo cross-reacts with its two cycle
 # neighbours and no one else. clique-cover(C5)=3 cannot certify; θ=√5 -> ⌊θ⌋=2 does.
 C5_POOL = [
@@ -96,17 +95,17 @@ check("golden C5: clique-cover bound is 3 (too loose to certify)", g["clique_cov
       g["clique_cover_bound"])
 if HAVE_THETA:
     check("golden C5: θ ≈ √5 (2.236)", g["theta"] is not None and abs(g["theta"] - 2.2361) < 3e-2, g["theta"])
-    check("golden C5: θ tightens the upper bound to 2", g["upper_bound"] == 2, g["upper_bound"])
-    check("golden C5: certified maximum via θ (the gap clique-cover left open)",
-          g["certified"] and g["bound_source"] == "lovasz_theta")
+    check("golden C5: exact search proves upper bound 2", g["upper_bound"] == 2, g["upper_bound"])
+    check("golden C5: certified by exact branch-and-bound, not theta",
+          g["certified"] and g["bound_source"] == "exact_bnb" and not g.get("theta_certifying"))
     sp = g["split_pool"]
-    check("golden C5: split-pool reports θ^k ceiling", sp.get("theta_pow_k") is not None
-          and abs(sp["theta_pow_k"] - 5.0) < 0.2, sp.get("theta_pow_k"))
+    check("golden C5: split-pool reports theta only as diagnostic", sp.get("theta_pow_k") is not None
+          and abs(sp["theta_pow_k"] - 5.0) < 0.2 and sp.get("theta_diagnostic_only"), sp)
     check("golden C5: θ^k ceiling exceeds naive |MIS|^k (distance reasoning undercounts)",
           sp["theta_pow_k"] > sp["naive_mis_pow_k"])
 else:
-    check("golden C5: without θ, upper bound stays 3 and is NOT certified (shows θ's value)",
-          g["upper_bound"] == 3 and not g["certified"])
+    check("golden C5: exact search certifies even without theta",
+          g["upper_bound"] == 2 and g["certified"] and g["bound_source"] == "exact_bnb")
 
 # ---------------- edge cases ----------------
 e_empty = OP.certify_panel([], k=1)

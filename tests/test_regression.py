@@ -235,8 +235,13 @@ check("salt: selection Tm is near-Mg-insensitive by design (3->6 mM, <0.4 C)",
 check("salt: reported Tm reads above selection Tm (Owczarzy-2008 vs primer3, ~1-2 C)",
       1.0 <= _acc_mg3 - _sel_mg3 <= 2.5, (_sel_mg3, _acc_mg3))
 
-# ---- v1.27.0: intron_check returns a 'verdict' on EVERY path (graceful degradation) ----
-_ir = SP.intron_check("NOSUCHGENE___", "Nonexistent organism", 1, 100)   # offline None-path
+# ---- intron_check returns a verdict on the no-record path without requiring live NCBI ----
+_orig_exons = SP.exon_junctions_mrna
+try:
+    SP.exon_junctions_mrna = lambda *a, **k: (None, "offline fixture: no exon structure", None)
+    _ir = SP.intron_check("NOSUCHGENE___", "Nonexistent organism", 1, 100)
+finally:
+    SP.exon_junctions_mrna = _orig_exons
 check("intron: 'verdict' present on the degraded path (no KeyError)", "verdict" in _ir, sorted(_ir))
 check("intron: degraded verdict is a non-empty string", isinstance(_ir.get("verdict"), str) and _ir["verdict"], _ir.get("verdict"))
 

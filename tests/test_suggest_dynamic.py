@@ -61,8 +61,9 @@ check("discovered gene tagged source=ncbi_gene",
       [m for m in res if m["gene"] == "msp1"][0].get("source") == "ncbi_gene")
 
 # --- 3) suggest_dynamic falls back to the curated list when GenBank is unreachable ---
-_orig_count, _orig_genes = N.count_hits, N.genes_for_organism
+_orig_count, _orig_genes, _orig_tax = N.count_hits, N.genes_for_organism, N.taxonomy_lineage
 try:
+    N.taxonomy_lineage = lambda o: (o, "species", "Eukaryota; Apicomplexa; Plasmodium")
     N.count_hits = lambda q: None              # every count call fails
     N.genes_for_organism = lambda o, n=18: []  # no discovery
     d = RM.suggest_dynamic("Plasmodium", None, "any")
@@ -70,10 +71,11 @@ try:
     check("fallback: still returns curated markers", bool(d.get("markers")))
     check("fallback: note is honest about not reaching GenBank", "curated" in (d.get("note") or "").lower())
 finally:
-    N.count_hits, N.genes_for_organism = _orig_count, _orig_genes
+    N.count_hits, N.genes_for_organism, N.taxonomy_lineage = _orig_count, _orig_genes, _orig_tax
 
 # --- 4) suggest_dynamic uses live counts when available (still injected, no network) ---
 try:
+    N.taxonomy_lineage = lambda o: (o, "species", "Eukaryota; Apicomplexa; Plasmodium")
     N.genes_for_organism = lambda o, n=18: [{"symbol": "msp1", "name": "merozoite surface protein 1"}]
     N.count_hits = lambda q: 500 if "msp1" in q or "cytochrome" in q else 0
     d = RM.suggest_dynamic("Plasmodium", None, "any")
@@ -81,7 +83,7 @@ try:
     check("dynamic flag set", d.get("dynamic") is True)
     check("discovered gene present in markers", any(m.get("gene") == "msp1" for m in d.get("markers", [])))
 finally:
-    N.count_hits, N.genes_for_organism = _orig_count, _orig_genes
+    N.count_hits, N.genes_for_organism, N.taxonomy_lineage = _orig_count, _orig_genes, _orig_tax
 
 print("RESULT:", "ALL PASS" if fail == 0 else ("%d FAILED" % fail))
 sys.exit(1 if fail else 0)
