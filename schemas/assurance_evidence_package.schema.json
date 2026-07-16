@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oligoforge.local/schemas/assurance_evidence_package.schema.json",
+  "title": "OligoForge Assurance evidence package v1",
+  "type": "object",
+  "required": ["schema_version", "package_id", "package_sha256", "artifacts", "manifest"],
+  "properties": {
+    "schema_version": {"const": "oligoforge-assurance-evidence-package/v1"},
+    "package_id": {"type": "string", "pattern": "^ofpkg_[0-9a-f]{24}$"},
+    "package_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "artifacts": {"type": "object"},
+    "manifest": {"type": "array", "items": {"type": "object", "required": ["category", "index", "sha256"]}}
+  }
+}

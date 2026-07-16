@@ -394,7 +394,10 @@ def design_assay(template, c, objective=None):
         assays, ledger = CSEARCH.search(
             template, c, window=440, step=145, budget_s=15.0,
             pair_limit=6, probes_per_pair=(1 if c.get("no_probe") else 2),
-            triplets_per_window=12, retained_limit=48, max_windows=14)
+            # Three target-spanning windows are a deterministic bounded work
+            # corpus (5', 3', midpoint).  Interactive target-wide searches use
+            # design_candidates/autodesign with broader explicit budgets.
+            triplets_per_window=12, retained_limit=48, max_windows=3)
     ranked = _rank_single_target_assays(assays, template, c, objective=objective,
                                          search_ledger=ledger, annotation_limit=10)
     winner = next((x for x in ranked if (x.get("evidence") or {}).get("hard_valid")), None)

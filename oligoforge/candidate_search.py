@@ -3,7 +3,7 @@ import time
 from . import design as D
 from .candidate_retention import retain_diverse, identity_key
 
-SEARCH_VERSION = "2.1.0"
+SEARCH_VERSION = "2.1.1"
 
 
 def _spread_order(starts):
@@ -51,7 +51,11 @@ def search(reference, profile, *, window=420, step=140, budget_s=35.0,
     raw, window_rows = [], []
     expired = False
     for wi, start in enumerate(starts):
-        if wi and time.monotonic() - t0 >= float(budget_s):
+        # Always evaluate the first three target-spanning work units.  This is
+        # a deterministic minimum (5', 3', midpoint in the spread ordering),
+        # so cold/warm cache state cannot change the minimal candidate corpus.
+        # Larger searches retain the declared soft runtime ceiling.
+        if wi >= 3 and time.monotonic() - t0 >= float(budget_s):
             expired = True
             break
         sub = ref[start:start + window]
@@ -136,6 +140,7 @@ def search(reference, profile, *, window=420, step=140, budget_s=35.0,
         "windows_evaluated": len(window_rows),
         "runtime_budget_seconds": float(budget_s),
         "runtime_budget_expired": expired,
+        "deterministic_minimum_windows": min(3, len(starts)),
         "candidate_limits": {
             "pair_limit_per_window": pair_limit,
             "probes_per_pair": probes_per_pair,

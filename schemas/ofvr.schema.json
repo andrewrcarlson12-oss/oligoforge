@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oligoforge.local/schemas/ofvr.schema.json",
+  "title": "OligoForge Molecular Vulnerability Record v1",
+  "type": "object",
+  "required": ["schema_version", "ofvr_id", "record_sha256", "assay_id", "detecting_scan_id", "reason_code", "predicted_consequence", "review_status", "standard_status"],
+  "properties": {
+    "schema_version": {"const": "oligoforge-ofvr/v1"},
+    "ofvr_id": {"type": "string", "pattern": "^OFVR-[0-9]{4}-[0-9A-F]{12}$"},
+    "record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "review_status": {"type": "string"},
+    "linked_repairs": {"type": "array"},
+    "disposition_history": {"type": "array"}
+  }
+}

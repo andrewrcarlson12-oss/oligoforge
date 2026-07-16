@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oligoforge.local/schemas/drift_scan.schema.json",
+  "title": "OligoForge DriftGuard scan v1",
+  "type": "object",
+  "required": ["schema_version", "scan_id", "scan_sha256", "assaysbom_id", "state", "declared_model", "assay_results", "reason_records"],
+  "properties": {
+    "schema_version": {"const": "oligoforge-drift-scan/v1"},
+    "scan_id": {"type": "string", "pattern": "^ofscan_[0-9a-f]{24}$"},
+    "state": {"enum": ["Stable", "Stable with new variation", "Watch", "Redundancy degraded", "Possible target dropout", "Possible signal-generating off-target", "Interpretation ambiguity", "Action review recommended", "Evidence insufficient", "Scan incomplete"]},
+    "scan_complete": {"type": "boolean"},
+    "reason_records": {"type": "array"}
+  }
+}

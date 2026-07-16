@@ -1,0 +1,4 @@
+portfolio_name,portfolio_version,assay_id,assay_name,assay_type,chemistry,component_id,role,order_sequence,locked_legacy_component,multiplex_group,internal_control,channel,dye,quencher,vendor,scale,purification,notes
+Example portfolio,1,assay-1,Example probe assay,probe,idt_taqman,assay-1-F,forward_primer,ACGTACGTACGTACGTACGT,false,panel-a,false,,,,,,,Replace this example row
+Example portfolio,1,assay-1,Example probe assay,probe,idt_taqman,assay-1-R,reverse_primer,TGCATGCATGCATGCATGCA,false,panel-a,false,,,,,,,Replace this example row
+Example portfolio,1,assay-1,Example probe assay,probe,idt_taqman,assay-1-P,probe,/56-FAM/CGTACGTACGTACGTACGTA/3IABkFQ/,false,panel-a,false,FAM,FAM,Iowa Black FQ,,,,Order notation is preserved

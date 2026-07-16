@@ -856,16 +856,15 @@ def design_nested(reference, profile, inner_assay, outer_flank_max=600, min_gap=
     return dict(outer=best) if best else None
 
 
-def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=20,
-                      min_ident=0.6, run_blast=False, blast_mode="remote",
-                      blast_db="nt", blast_db_path=None, organism=None, prefer_junction=False,
-                      nested=False, objective="balanced"):
+def resolve_and_fetch_query(target_query, off_query=None, n_fetch=20):
+    """Resolve a query and fetch the target/off-target sequence corpora.
 
-    """Fetch -> design -> (optional) in-silico-PCR the winning pair.
-
-    profile_key may be a specific profile, or "auto": Auto tries the IDT-orderable
-    chemistries in order and returns the first that yields a clean assay, so an
-    AT-rich parasite target lands on the low-Tm TaqMan instead of just failing."""
+    The returned mapping is an *internal stage value*: it intentionally contains
+    the fetched sequences needed by the later design stage and must not be used as
+    a public job-status payload.  Splitting this stage out lets the asynchronous
+    runner record retrieval separately and, importantly, avoids fetching again
+    when only optional specificity analysis is retried.
+    """
     target_query = (target_query or "").strip()
     if not target_query:
         return dict(error='enter a target: an organism plus a gene or marker (e.g. "Plasmodium cytochrome b"), or paste sequences in the Design tab')
@@ -898,6 +897,22 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
     _off_pairs = N.search_fetch_fasta(off_query, max(8, n_fetch // 2)) if off_query else []
     off = [seq for _, seq in _off_pairs] if off_query else None
 
+    return dict(target_query=target_query, off_query=off_query,
+                organism_name=_org, gene_name=_gene, resolved=_resolved,
+                fetch_query=_fetch_q, target_pairs=_pairs, off_pairs=_off_pairs,
+                targets=tg, offs=off)
+
+
+def design_query_corpus(query_context, profile_key="auto", min_ident=0.6,
+                        objective="balanced"):
+    """Run profile selection and fully rank a previously fetched query corpus."""
+    if query_context.get("error"):
+        return dict(error=query_context["error"])
+    target_query = query_context["target_query"]
+    off_query = query_context.get("off_query")
+    tg = query_context.get("targets") or []
+    off = query_context.get("offs")
+
     if profile_key == "auto":
         out, tried = None, []
         _refseq = _reference([t for t in tg if t and len(t) > 60] or tg)
@@ -926,6 +941,30 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
             out["off_query"] = off_query
             return out
         out["profile_used"] = profile_key
+
+    return out
+
+
+def enrich_query_design(out, query_context, min_ident=0.6,
+                        prefer_junction=False, nested=False,
+                        objective="balanced"):
+    """Attach query provenance, structure/junction data, controls, and nesting.
+
+    This is the final required stage of automatic design.  Remote/local BLAST is
+    deliberately excluded so a valid primary assay remains independently usable
+    when that optional external stage is unavailable.
+    """
+    if out.get("error"):
+        return out
+    target_query = query_context["target_query"]
+    off_query = query_context.get("off_query")
+    _org = query_context.get("organism_name") or ""
+    _gene = query_context.get("gene_name") or ""
+    _resolved = query_context.get("resolved")
+    _pairs = query_context.get("target_pairs") or []
+    _off_pairs = query_context.get("off_pairs") or []
+    tg = query_context.get("targets") or []
+    off = query_context.get("offs")
 
     out["profile_pretty"] = _PRETTY.get(out.get("profile_used"), out.get("profile_used"))
     out["target_query"] = target_query
@@ -1015,11 +1054,56 @@ def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=
                 out["nested"] = dict(note="couldn't place a flanking outer pair — the reference needs "
                                           "roughly 150+ bp of usable sequence beyond the inner amplicon "
                                           "on each side. The inner assay above runs fine on its own.")
-    if run_blast and out.get("candidates"):
+
+    return out
+
+
+def blast_winner(out, blast_mode="remote", blast_db="nt", blast_db_path=None,
+                 organism=None, suppress_errors=False):
+    """Run optional in-silico PCR for the lead assay without redoing design.
+
+    ``suppress_errors`` exists solely for the legacy synchronous API contract,
+    which historically encoded BLAST failure in ``specificity.error``.  The job
+    runner leaves it false so it can mark the optional stage failed/timed out,
+    retain the primary result, and expose an explicit warning.
+    """
+    if out.get("candidates"):
         a = out["candidates"][0]["assay"]
         try:
             out["specificity"] = SP.in_silico_pcr(a["forward"], a["reverse"], mode=blast_mode,
                                                   db=blast_db, db_path=blast_db_path, organism=organism)
         except Exception as e:
+            if not suppress_errors:
+                raise
             out["specificity"] = dict(error=f"in-silico PCR could not run: {e}")
+    return out
+
+
+def design_from_query(target_query, profile_key="auto", off_query=None, n_fetch=20,
+                      min_ident=0.6, run_blast=False, blast_mode="remote",
+                      blast_db="nt", blast_db_path=None, organism=None, prefer_junction=False,
+                      nested=False, objective="balanced"):
+
+    """Fetch -> design -> enrich -> (optional) in-silico-PCR the winning pair.
+
+    profile_key may be a specific profile, or "auto": Auto tries the IDT-orderable
+    chemistries in order and returns the first that yields a clean assay, so an
+    AT-rich parasite target lands on the low-Tm TaqMan instead of just failing.
+
+    The synchronous compatibility entry point now composes the same reusable
+    stages as the job runner; its result and error behavior remain unchanged.
+    """
+    context = resolve_and_fetch_query(target_query, off_query, n_fetch)
+    if context.get("error"):
+        return context
+    out = design_query_corpus(context, profile_key, min_ident, objective)
+    if out.get("error"):
+        return out
+    out = enrich_query_design(out, context, min_ident=min_ident,
+                              prefer_junction=prefer_junction, nested=nested,
+                              objective=objective)
+    if run_blast:
+        out = blast_winner(out, blast_mode=blast_mode, blast_db=blast_db,
+                           blast_db_path=blast_db_path, organism=organism,
+                           suppress_errors=True)
     return out

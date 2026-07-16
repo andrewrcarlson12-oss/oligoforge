@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oligoforge.local/schemas/sequence_snapshot.schema.json",
+  "title": "OligoForge immutable sequence snapshot v1",
+  "type": "object",
+  "required": ["schema_version", "snapshot_id", "content_sha256", "role", "accepted_records", "unique_records", "metrics"],
+  "properties": {
+    "schema_version": {"const": "oligoforge-sequence-snapshot/v1"},
+    "snapshot_id": {"type": "string", "pattern": "^ofsnap_[0-9a-f]{24}$"},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "role": {"enum": ["target", "off_target", "background"]},
+    "accepted_records": {"type": "array", "maxItems": 10000},
+    "rejected_records": {"type": "array"},
+    "unique_records": {"type": "array", "maxItems": 10000},
+    "immutable": {"const": true}
+  }
+}

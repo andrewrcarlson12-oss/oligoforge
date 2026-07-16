@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oligoforge.local/schemas/validation_plan.schema.json",
+  "title": "OligoForge Validation Studio plan v1",
+  "type": "object",
+  "required": ["schema_version", "plan_sha256", "candidates", "selected_cases", "plate_layout", "limitations"],
+  "properties": {
+    "schema_version": {"const": "oligoforge-validation-plan/v1"},
+    "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "candidates": {"type": "array", "minItems": 2, "maxItems": 16},
+    "selected_cases": {"type": "array", "minItems": 1},
+    "plate_layout": {"type": "object"}
+  }
+}
