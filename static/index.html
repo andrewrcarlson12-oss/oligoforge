@@ -411,6 +411,29 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 .md-code-label{font-family:var(--mono);font-size:10px;color:var(--dim)}
 @media(max-width:720px){.md-evidence-grid{grid-template-columns:1fr}.md-req-grid{grid-template-columns:1fr}.md-evidence-table{display:block;overflow:auto}}
 
+/* lifecycle workspaces: Validation Studio + Assurance */
+.lc-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:18px 20px;border:1px solid var(--line2);border-radius:14px;background:linear-gradient(135deg,var(--panel),color-mix(in srgb,var(--acc) 7%,var(--panel2)));margin-bottom:12px}
+.lc-hero h2{margin:0 0 5px;font-size:20px}.lc-hero p{max-width:760px;margin:0;color:var(--ink2);font-size:12.5px;line-height:1.55}
+.lc-kicker{font:700 9.5px var(--display);letter-spacing:.16em;text-transform:uppercase;color:var(--acc);margin-bottom:5px}
+.lc-privacy{display:flex;align-items:center;gap:7px;border:1px solid var(--line2);border-radius:999px;padding:6px 10px;color:var(--ink2);font-size:10.5px;white-space:nowrap;background:var(--panel)}
+.lc-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:7px;margin:10px 0 14px}
+.lc-step{border:1px solid var(--line2);border-radius:9px;padding:8px 9px;background:var(--panel);color:var(--dim);font-size:10.5px;min-height:47px}
+.lc-step b{display:block;color:var(--ink2);font:700 10.5px var(--display);margin-bottom:2px}.lc-step.done{border-color:color-mix(in srgb,var(--pass) 45%,var(--line2));background:color-mix(in srgb,var(--pass) 7%,var(--panel))}.lc-step.done b{color:var(--pass)}.lc-step.now{border-color:var(--acc);background:var(--acc-soft)}.lc-step.now b{color:var(--acc)}
+.lc-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:11px}.lc-col-4{grid-column:span 4}.lc-col-5{grid-column:span 5}.lc-col-6{grid-column:span 6}.lc-col-7{grid-column:span 7}.lc-col-8{grid-column:span 8}.lc-col-12{grid-column:1/-1}
+.lc-card{border:1px solid var(--line2);border-radius:12px;background:var(--panel);padding:13px 14px;min-width:0}.lc-card h3{margin:0 0 4px;font-size:13px}.lc-card .hint{line-height:1.45}
+.lc-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:9px;margin-bottom:9px}.lc-num{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:50%;background:var(--acc-soft);color:var(--acc);font:700 10px var(--mono);margin-right:6px}
+.lc-input-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px}.lc-input-grid label{margin-bottom:3px}.lc-input-grid input,.lc-input-grid select{width:100%}
+.lc-status{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line2);border-radius:999px;padding:3px 7px;font:600 9.5px var(--display);color:var(--dim);background:var(--panel2)}.lc-status.ok{color:var(--pass);border-color:color-mix(in srgb,var(--pass) 35%,var(--line2))}.lc-status.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 35%,var(--line2))}.lc-status.risk{color:var(--fail);border-color:color-mix(in srgb,var(--fail) 35%,var(--line2))}
+.lc-seqbox{min-height:104px;font-family:var(--mono);font-size:10.5px;text-transform:none;line-height:1.4}.lc-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:9px}
+.lc-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:7px;margin:9px 0}.lc-summary>div{border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:8px}.lc-summary span{display:block;color:var(--dim);font-size:9.5px;margin-bottom:2px}.lc-summary b{display:block;color:var(--ink);font:650 12px var(--mono);overflow-wrap:anywhere}
+.lc-table-wrap{width:100%;overflow:auto}.lc-table{font-size:10.5px;min-width:620px}.lc-table td{vertical-align:top}.lc-state{font-weight:700;color:var(--ink)}
+.lc-plate-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:9px;margin-top:8px}.lc-plate{display:grid;gap:3px;min-width:720px}.lc-well{min-width:38px;height:34px;border:1px solid var(--line2);border-radius:6px;background:var(--panel);display:flex;align-items:center;justify-content:center;text-align:center;font:700 8.5px var(--mono);color:var(--ink2);padding:2px}.lc-well.control{background:color-mix(in srgb,var(--warn) 13%,var(--panel));color:var(--warn)}.lc-well.edge{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 45%,transparent)}.lc-well.c0{background:color-mix(in srgb,var(--acc) 15%,var(--panel))}.lc-well.c1{background:color-mix(in srgb,var(--acc2) 15%,var(--panel))}.lc-well.c2{background:color-mix(in srgb,var(--fam) 16%,var(--panel))}.lc-well.c3{background:color-mix(in srgb,var(--vic) 18%,var(--panel))}.lc-well.c4{background:color-mix(in srgb,var(--rox) 16%,var(--panel))}.lc-well.c5{background:color-mix(in srgb,var(--cy5) 16%,var(--panel))}.lc-plate-label{font:700 8px var(--mono);color:var(--dim);display:flex;align-items:center;justify-content:center}
+.lc-finding{border:1px solid var(--line2);border-left:3px solid var(--warn);border-radius:9px;padding:9px 10px;margin:7px 0;background:var(--panel2)}.lc-finding.risk{border-left-color:var(--fail)}.lc-finding.ok{border-left-color:var(--pass)}.lc-finding h4{margin:0 0 4px;font-size:11.5px}.lc-finding p{margin:2px 0;color:var(--ink2);font-size:10.5px;line-height:1.45}
+.lc-artifacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:7px;margin-top:8px}.lc-artifact{border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--panel2);min-width:0}.lc-artifact b{font-size:10.5px;color:var(--ink)}.lc-artifact code{display:block;color:var(--dim);font-size:8.5px;margin-top:3px;overflow-wrap:anywhere}
+.lc-empty{border:1px dashed var(--line2);border-radius:9px;background:var(--panel2);padding:14px;color:var(--ink2);font-size:11.5px;text-align:center}
+@media(max-width:940px){.lc-col-4,.lc-col-5,.lc-col-6,.lc-col-7,.lc-col-8{grid-column:1/-1}}
+@media(max-width:720px){.lc-hero{padding:14px}.lc-steps{grid-template-columns:repeat(2,1fr)}.lc-grid{display:block}.lc-card{margin-bottom:10px}.lc-privacy{white-space:normal}}
+
 /* ---- intro splash (calm) ---- */
 #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg);opacity:1;transition:opacity .5s ease,visibility .5s ease}
 #splash.gone{opacity:0;visibility:hidden;pointer-events:none}
@@ -536,7 +559,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <header class="topbar">
   <div class="brand">
     <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2c0 4 12 4 12 8s-12 4-12 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M16 2c0 4-12 4-12 8s12 4 12 8" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/><path d="M5.6 5h8.8M5 10h10M5.6 15h8.8" stroke="rgba(255,255,255,.5)" stroke-width="1" stroke-linecap="round"/></svg></span>
-    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.35.0</span>
+    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.36.0</span>
   </div>
   <div class="spacer"></div>
   <div class="toolset">
@@ -989,6 +1012,136 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
     <div class="row" style="margin-top:10px;align-items:center"><button onclick="runExpression()">Compute fold change</button><a class="lnk" style="cursor:pointer" onclick="exprExample()">load example</a><span id="ex_stat" class="hint"></span></div>
     <div id="ex_out"><div class="ph">Paste a Cq table (or load the example) to get per-group fold changes vs the control.</div></div>
   </div></section>
+
+  <!-- VALIDATION STUDIO -->
+  <section id="validation">
+    <div class="lc-hero">
+      <div><div class="lc-kicker">Decision-focused bench planning</div><h2>Validation Studio</h2>
+        <p>Turn disagreements between leading assay candidates into a bounded, reproducible comparison experiment. OligoForge selects informative target and near-neighbor cases, interleaves candidates across a 96- or 384-well plate, records the randomization seed, and interprets completed results without silently changing the ranker.</p></div>
+      <div class="lc-privacy">Local inputs · explicit download · no hidden retraining</div>
+    </div>
+    <div class="lc-steps" id="vs_steps" role="list" aria-label="Validation Studio workflow">
+      <div class="lc-step now" role="listitem" aria-current="step"><b>1 · Candidates</b>Choose at least two assays</div>
+      <div class="lc-step" role="listitem"><b>2 · Cases</b>Supply targets and near neighbors</div>
+      <div class="lc-step" role="listitem"><b>3 · Plan</b>Select informative disagreements</div>
+      <div class="lc-step" role="listitem"><b>4 · Plate</b>Interleave tests and controls</div>
+      <div class="lc-step" role="listitem"><b>5 · Results</b>Import observations</div>
+      <div class="lc-step" role="listitem"><b>6 · Interpret</b>Report support and uncertainty</div>
+    </div>
+    <div class="lc-grid">
+      <div class="lc-card lc-col-6">
+        <div class="lc-card-head"><div><h3><span class="lc-num">1</span>Candidate assays</h3><div class="hint">One line per candidate: name | forward | reverse | probe | chemistry. Probe may be blank.</div></div><span class="lc-status" id="vs_candidate_status" role="status" aria-live="polite">not loaded</span></div>
+        <label class="sr-only" for="vs_candidates">Candidate assay definitions</label><textarea id="vs_candidates" class="lc-seqbox" rows="7" placeholder="Candidate A | ACGT... | TGCA... | GATT... | probe&#10;Candidate B | ACGT... | TGCA... | GACT... | probe"></textarea>
+        <div class="lc-actions"><button class="ghost" onclick="vsUseWorkbench()">Use Workbench candidates</button><button class="ghost" onclick="vsLoadExample()">Load worked example</button></div>
+      </div>
+      <div class="lc-card lc-col-6">
+        <div class="lc-card-head"><div><h3><span class="lc-num">2</span>Target and near-neighbor cases</h3><div class="hint">FASTA headers: case ID | target or off_target | group | natural, synthetic, or computational.</div></div><span class="lc-status" id="vs_case_status" role="status" aria-live="polite">not loaded</span></div>
+        <label class="sr-only" for="vs_cases">Target and near-neighbor FASTA cases</label><textarea id="vs_cases" class="lc-seqbox" rows="7" placeholder=">isolate-1|target|lineage-A|natural&#10;ACGT...&#10;>neighbor-1|off_target|related-species|natural&#10;TGCA..."></textarea>
+        <div class="hint">Only supplied cases are evaluated; case selection does not imply population representativeness.</div>
+      </div>
+      <div class="lc-card lc-col-12">
+        <div class="lc-card-head"><div><h3><span class="lc-num">3</span>Experiment definition</h3><div class="hint">Declare the comparison objective, plate constraints, controls, and bounded product model.</div></div></div>
+        <div class="lc-input-grid">
+          <div><label for="vs_objective">Comparison objective</label><input id="vs_objective" value="Distinguish leading candidate assays"></div>
+          <div><label for="vs_plate">Plate format</label><select id="vs_plate"><option value="96">96 wells</option><option value="384">384 wells</option></select></div>
+          <div><label for="vs_reps">Replicates per assay/case</label><input id="vs_reps" type="number" min="1" max="12" value="3"></div>
+          <div><label for="vs_max_cases">Maximum informative cases</label><input id="vs_max_cases" type="number" min="1" max="48" value="12"></div>
+          <div><label for="vs_seed">Randomization seed</label><input id="vs_seed" type="number" value="2026"></div>
+          <div><label for="vs_ntc">No-template controls per candidate</label><input id="vs_ntc" type="number" min="0" max="12" value="2"></div>
+          <div><label for="vs_positive">Positive-control identifiers</label><input id="vs_positive" placeholder="PC-1, PC-2"></div>
+          <div><label for="vs_mm">Maximum primer mismatches</label><input id="vs_mm" type="number" min="0" max="10" value="5"></div>
+          <div><label for="vs_probe_ident">Minimum probe identity (%)</label><input id="vs_probe_ident" type="number" min="0" max="100" value="85"></div>
+          <div><label for="vs_cq_sd">Maximum acceptable Cq SD</label><input id="vs_cq_sd" type="number" min="0" step="0.1" value="0.5"></div>
+          <div><label>Expected efficiency range (%)</label><div class="row"><label class="sr-only" for="vs_eff_lo">Minimum expected efficiency percent</label><input id="vs_eff_lo" type="number" value="90"><span aria-hidden="true">–</span><label class="sr-only" for="vs_eff_hi">Maximum expected efficiency percent</label><input id="vs_eff_hi" type="number" value="110"></div></div>
+          <div><label class="vw-chk" style="margin-top:20px"><input id="vs_edges" type="checkbox" checked> Permit edge wells with warnings</label></div>
+        </div>
+        <div class="lc-actions"><button onclick="vsBuildPlan()">Build validation plan</button><span class="hint">Selection is deterministic and diversity-aware, not claimed globally optimal.</span></div>
+      </div>
+      <div class="lc-card lc-col-12" id="vs_plan_card">
+        <div class="lc-card-head"><div><h3><span class="lc-num">4</span>Selected experiment and plate</h3></div><span class="lc-status" id="vs_plan_status" role="status" aria-live="polite">awaiting plan</span></div>
+        <div id="vs_out" class="lc-empty" aria-live="polite">Load candidates and cases, then build a plan to see the candidate-disagreement evidence and plate map.</div>
+      </div>
+      <div class="lc-card lc-col-12">
+        <div class="lc-card-head"><div><h3><span class="lc-num">5</span>Completed observations</h3><div class="hint">Download the fillable plate CSV, enter observed outcomes and optional Cq/efficiency fields, then import it here.</div></div><span class="lc-status" id="vs_result_status" role="status" aria-live="polite">no results</span></div>
+        <div class="lc-actions"><button class="ghost" onclick="vsDownloadPlate()">Download fillable plate CSV</button><button class="ghost" onclick="document.getElementById('vs_results_file').click()">Import completed CSV</button><input id="vs_results_file" type="file" accept=".csv,text/csv" style="display:none" onchange="vsImportResults(this)"><span id="vs_results_name" class="hint"></span></div>
+        <details style="margin-top:8px"><summary>Paste completed CSV instead</summary><label class="sr-only" for="vs_results_csv">Completed plate CSV</label><textarea id="vs_results_csv" rows="6" class="lc-seqbox" style="width:100%;margin-top:7px" placeholder="well,well_type,candidate_id,...,observed,cq,..."></textarea></details>
+        <div class="lc-actions"><button onclick="vsInterpret()">Interpret declared experiment</button></div>
+        <div id="vs_interpret_out" style="margin-top:8px" aria-live="polite"><div class="lc-empty">No completed result set has been interpreted.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OLIGOFORGE ASSURANCE -->
+  <section id="assurance">
+    <div class="lc-hero">
+      <div><div class="lc-kicker">Assay lifecycle evidence</div><h2>OligoForge Assurance</h2>
+        <p>Register an exact assay, freeze its target and near-neighbor evidence, compare a later sequence snapshot, identify complete-product drift concerns, issue local Molecular Vulnerability Records, and export a self-verifying review package.</p></div>
+      <div class="lc-privacy">Session-local workflow · immutable hashes · no biological risk score</div>
+    </div>
+    <div class="lc-steps" id="as_steps" role="list" aria-label="Assurance workflow">
+      <div class="lc-step now" role="listitem" aria-current="step" data-as-step="register"><b>1 · Register</b>Exact molecular specification</div>
+      <div class="lc-step" role="listitem" data-as-step="baseline"><b>2 · Baseline</b>Freeze sequence evidence</div>
+      <div class="lc-step" role="listitem" data-as-step="followup"><b>3 · Follow-up</b>Record later evidence</div>
+      <div class="lc-step" role="listitem" data-as-step="scan"><b>4 · DriftGuard</b>Reconstruct complete products</div>
+      <div class="lc-step" role="listitem" data-as-step="ofvr"><b>5 · Vulnerabilities</b>Reason-coded local records</div>
+      <div class="lc-step" role="listitem" data-as-step="package"><b>6 · Package</b>Verify and export</div>
+    </div>
+    <div class="lc-grid">
+      <div class="lc-card lc-col-12">
+        <div class="lc-card-head"><div><h3><span class="lc-num">1</span>Assay Registry and AssaySBOM</h3><div class="hint">The AssaySBOM is a molecular and computational bill of materials—not proof of performance.</div></div><span class="lc-status" id="as_sbom_status" role="status" aria-live="polite">not registered</span></div>
+        <div class="lc-input-grid">
+          <div><label for="as_portfolio">Portfolio name</label><input id="as_portfolio" value="Assay lifecycle review"></div>
+          <div><label for="as_portfolio_version">Portfolio version</label><input id="as_portfolio_version" value="1"></div>
+          <div><label for="as_assay_id">Assay identifier</label><input id="as_assay_id" value="assay-1"></div>
+          <div><label for="as_assay_name">Assay name</label><input id="as_assay_name" value="Primary assay"></div>
+          <div><label for="as_chemistry">Chemistry</label><select id="as_chemistry" class="profsel"></select></div>
+          <div><label for="as_target_groups">Intended target groups</label><input id="as_target_groups" placeholder="target lineage"></div>
+          <div><label for="as_neighbor_groups">Near-neighbor groups</label><input id="as_neighbor_groups" placeholder="related species"></div>
+          <div><label for="as_review">Review state</label><select id="as_review"><option value="unreviewed">Unreviewed</option><option value="scientific_review">Scientific review</option><option value="approved_for_validation">Approved for validation</option></select></div>
+        </div>
+        <div class="row" style="margin-top:8px"><div style="flex:1"><label for="as_f">Forward primer (order sequence)</label><input id="as_f" class="seq" style="width:100%"></div><div style="flex:1"><label for="as_r">Reverse primer (order sequence)</label><input id="as_r" class="seq" style="width:100%"></div><div style="flex:1"><label for="as_p">Probe (optional)</label><input id="as_p" class="seq" style="width:100%"></div></div>
+        <div class="lc-actions"><button class="ghost" onclick="asUseWorkbench()">Use current Workbench assay</button><button class="ghost" onclick="asLoadExample()">Load worked drift example</button><button onclick="asRegister(false)">Register displayed assay</button><button class="ghost" onclick="asRegister(true)">Register entire Workbench</button><button class="ghost" onclick="asReset()">Clear lifecycle session</button></div>
+        <div id="as_sbom_out" style="margin-top:8px" aria-live="polite"><div class="lc-empty">Register an assay to establish the exact versioned molecular baseline.</div></div>
+      </div>
+
+      <div class="lc-card lc-col-6">
+        <div class="lc-card-head"><div><h3><span class="lc-num">2</span>Baseline target snapshot</h3><div class="hint">FASTA plus optional record metadata. The accepted/rejected ledger and immutable hash are preserved.</div></div><span class="lc-status" id="as_bt_status" role="status" aria-live="polite">not frozen</span></div>
+        <label for="as_bt_fasta">Baseline target FASTA</label><textarea id="as_bt_fasta" class="lc-seqbox" rows="6" placeholder=">target-1&#10;ACGT..."></textarea>
+        <label for="as_bt_meta">Metadata CSV/TSV (record_id, group)</label><textarea id="as_bt_meta" rows="3" placeholder="record_id,group&#10;target-1,lineage-A"></textarea>
+        <div class="lc-actions"><button class="ghost" onclick="asCreateSnapshot('baseline_target')">Freeze baseline target</button></div>
+      </div>
+      <div class="lc-card lc-col-6">
+        <div class="lc-card-head"><div><h3><span class="lc-num">3</span>Follow-up target snapshot</h3><div class="hint">A later, independently hashed corpus linked to the frozen target baseline.</div></div><span class="lc-status" id="as_ct_status" role="status" aria-live="polite">not created</span></div>
+        <label for="as_ct_fasta">Follow-up target FASTA</label><textarea id="as_ct_fasta" class="lc-seqbox" rows="6" placeholder=">target-1&#10;ACGT...&#10;>target-2&#10;ACGA..."></textarea>
+        <label for="as_ct_meta">Metadata CSV/TSV</label><textarea id="as_ct_meta" rows="3" placeholder="record_id,group&#10;target-1,lineage-A&#10;target-2,lineage-B"></textarea>
+        <div class="lc-actions"><button class="ghost" onclick="asCreateSnapshot('current_target')">Create follow-up target</button></div>
+      </div>
+
+      <div class="lc-card lc-col-12">
+        <details><summary>Optional near-neighbor / off-target evidence</summary>
+          <div class="lc-grid" style="margin-top:10px">
+            <div class="lc-col-6"><div class="lc-card-head"><div><h3>Baseline off-target snapshot</h3></div><span class="lc-status" id="as_bo_status" role="status" aria-live="polite">not supplied</span></div><label class="sr-only" for="as_bo_fasta">Baseline off-target FASTA</label><textarea id="as_bo_fasta" class="lc-seqbox" rows="5" placeholder=">neighbor-1&#10;ACGT..."></textarea><label for="as_bo_meta">Metadata CSV/TSV</label><textarea id="as_bo_meta" rows="2"></textarea><div class="lc-actions"><button class="ghost" onclick="asCreateSnapshot('baseline_offtarget')">Freeze off-target baseline</button></div></div>
+            <div class="lc-col-6"><div class="lc-card-head"><div><h3>Follow-up off-target snapshot</h3></div><span class="lc-status" id="as_co_status" role="status" aria-live="polite">not supplied</span></div><label class="sr-only" for="as_co_fasta">Follow-up off-target FASTA</label><textarea id="as_co_fasta" class="lc-seqbox" rows="5" placeholder=">neighbor-1&#10;ACGT...&#10;>neighbor-2&#10;TGCA..."></textarea><label for="as_co_meta">Metadata CSV/TSV</label><textarea id="as_co_meta" rows="2"></textarea><div class="lc-actions"><button class="ghost" onclick="asCreateSnapshot('current_offtarget')">Create off-target follow-up</button></div></div>
+          </div>
+        </details>
+        <div id="as_snapshot_out" style="margin-top:8px" aria-live="polite"><div class="lc-empty">Snapshot IDs, record disposition, deduplication, groups, and deltas will appear here.</div></div>
+      </div>
+
+      <div class="lc-card lc-col-12">
+        <div class="lc-card-head"><div><h3><span class="lc-num">4</span>DriftGuard complete-product scan</h3><div class="hint">Primer geometry and probe recognition are reconstructed against every unique supplied record.</div></div><span class="lc-status" id="as_scan_status" role="status" aria-live="polite">not run</span></div>
+        <div class="lc-input-grid"><div><label for="as_mm">Maximum primer mismatches</label><input id="as_mm" type="number" min="0" max="10" value="5"></div><div><label for="as_clamp">3′ clamp length</label><input id="as_clamp" type="number" min="1" max="8" value="2"></div><div><label for="as_probe_ident">Minimum probe identity (%)</label><input id="as_probe_ident" type="number" min="0" max="100" value="85"></div><div><label class="vw-chk" style="margin-top:20px"><input id="as_complete" type="checkbox" checked> Declare supplied scan complete</label></div></div>
+        <div class="lc-actions"><button onclick="asRunDrift()">Run DriftGuard and issue vulnerability records</button><span class="hint">No numeric biological risk probability is calculated.</span></div>
+        <div id="as_drift_out" style="margin-top:8px" aria-live="polite"><div class="lc-empty">Complete the assay registration and target snapshots before running DriftGuard.</div></div>
+      </div>
+
+      <div class="lc-card lc-col-12">
+        <div class="lc-card-head"><div><h3><span class="lc-num">5</span>Reviewable evidence package</h3><div class="hint">Bundles the AssaySBOM, snapshots, deltas, DriftGuard scan, OFVRs, and any Validation Studio plan into one tamper-evident record.</div></div><span class="lc-status" id="as_package_status" role="status" aria-live="polite">not built</span></div>
+        <div class="lc-actions"><button onclick="asBuildPackage()">Build and verify evidence package</button><button class="ghost" onclick="asDownload('sbom')">Download AssaySBOM</button><button class="ghost" onclick="asDownload('scan')">Download drift scan</button><button class="ghost" onclick="asDownload('ofvr')">Download vulnerability records</button><button class="ghost" onclick="asDownload('package')">Download package JSON</button><button class="ghost" onclick="asDownload('html')">Download review HTML</button></div>
+        <div id="as_package_out" style="margin-top:8px" aria-live="polite"><div class="lc-empty">The package becomes available after a completed DriftGuard scan.</div></div>
+      </div>
+    </div>
+  </section>
+
   <section id="work"><div class="card">
     <h3 style="margin:0 0 6px">Workbench &mdash; your panel</h3>
     <small class="note">Assays you add from Design or Target &rarr; assay collect here and carry across tabs. You can also paste an existing or published assay below. Pick one (radio) to make it current, then attach a standard curve to it from the Std-curve tab. Edit name/gene/organism/dye inline. Stored in this browser.</small>
@@ -1106,11 +1259,12 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
 </main>
 </div><!--/shell-->
-<footer>OligoForge v1.35.0 · assay assurance release</footer>
+<footer>OligoForge v1.36.0 · lifecycle workspace release</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
  ["auto","Target → assay","Create"],["work","Workbench","Create"],["design","Design","Create"],["viewer","Manual design","Create"],["ncbi","NCBI fetch","Create"],
+ ["validation","Validation Studio","Lifecycle"],["assurance","Assurance","Lifecycle"],
  ["qc","QC","Check"],["pair","Pair","Check"],["matrix","Panel matrix","Check"],["orthopanel","Orthogonal panel","Check"],["cons","Conservation","Check"],["epcr","in-silico PCR","Check"],["iso","Isolate panel","Check"],["intron","Intron check","Check"],["blast","BLAST","Check"],
  ["quant","Quant","Quantify"],["std","Std curve","Quantify"],["refgenes","Ref genes","Quantify"],["expr","Expression","Quantify"],
  ["order","Order","Finish"],["ref","Reference","Finish"],["help","Help","Finish"]];
@@ -2977,6 +3131,215 @@ function mdDownloadFeedbackDataset(){if(!MFEEDBACK_DATASET){toast("Audit a feedb
 
 function mdDownloadFeedback(){if(!MFEEDBACK){toast("Build a feedback record first.","warn");return;}download("oligoforge-feedback.json",JSON.stringify(MFEEDBACK,null,2));}
 async function mdFeedback(){const b=mdPayload();if(!b)return;const exact=MLAST_ANALYSIS_RESULT;if(!exact||mdFingerprint(b)!==mdFingerprint(exact.request)){toast("Analyze this exact assay after its latest edits before building a feedback record.","warn");return;}const obs=mdObserved(),m=exact.manifest||{},ms=(m.scientific_models||{}).reaction_condition_snapshot;const rec={assay_id:(b.forward+"|"+b.reverse+"|"+(b.probe||"")),target_group:mdVal("vw_gene")||"manual",design_run_id:m.run_id||null,oligoforge_version:m.application_version||null,ranker_version:m.ranker_version||null,input_hash:m.manifest_sha256||null,status:mdVal("md_status")||"untested",designation:mdVal("md_designation")||"none",objective:b.objective,conditions:ms||(typeof COND!=="undefined"?COND:null),efficiency:obs.efficiency,r2:obs.r2,melt_peak_count:obs.melt_peaks,probe_signal_quality:obs.probe_signal_problem?"poor":null,multiplex_failure:!!obs.multiplex_only_failure,notes:"Generated in Manual Design Studio; retain failures as well as successes."};const d=await api("/api/experimental-feedback/status",{records:[rec]});const out=document.getElementById("md_out");if(!d||d.error){if(out)out.innerHTML=err((d&&d.error)||"feedback record failed");return;}MFEEDBACK=(d.normalized_records||[])[0]||{};const r=MFEEDBACK,conditions=r.conditions||rec.conditions||{};if(out)out.innerHTML=`<div class="subbox"><div class="sub-h">Versioned experimental feedback record</div><div class="md-stat-grid"><div class="md-stat"><span>Bench status</span><b>${esc(mdLabel(r.status||rec.status))}</b></div><div class="md-stat"><span>Designation</span><b>${esc(mdLabel(r.designation||rec.designation))}</b></div><div class="md-stat"><span>Target group</span><b>${esc(r.target_group||rec.target_group)}</b></div><div class="md-stat"><span>Design run</span><b>${esc(r.design_run_id||rec.design_run_id||"Not recorded")}</b></div><div class="md-stat"><span>Ranker version</span><b>${esc(r.ranker_version||rec.ranker_version||"Not recorded")}</b></div><div class="md-stat"><span>Objective</span><b>${esc(mdLabel(r.objective||rec.objective))}</b></div></div><table class="md-evidence-table"><tr><th>Observed measure</th><th>Recorded value</th></tr><tr><td>Amplification efficiency</td><td>${r.efficiency==null&&rec.efficiency==null?"Not reported":esc(mdNumber(r.efficiency==null?rec.efficiency:r.efficiency,"%"))}</td></tr><tr><td>Standard-curve R²</td><td>${r.r2==null&&rec.r2==null?"Not reported":esc(mdNumber(r.r2==null?rec.r2:r.r2))}</td></tr><tr><td>Melt peaks</td><td>${r.melt_peak_count==null&&rec.melt_peak_count==null?"Not reported":esc(r.melt_peak_count==null?rec.melt_peak_count:r.melt_peak_count)}</td></tr><tr><td>Probe signal quality</td><td>${esc(mdLabel(r.probe_signal_quality||rec.probe_signal_quality||"Not reported"))}</td></tr><tr><td>Multiplex-only failure</td><td>${mdBool(!!(r.multiplex_failure==null?rec.multiplex_failure:r.multiplex_failure))}</td></tr></table><div class="hint"><b>Recorded reaction conditions:</b> ${esc(mdDisplayValue(conditions,"conditions"))}</div><div class="md-code-label">Evidence record SHA-256: ${esc(r.record_sha256||"Assigned in the downloaded record")}</div><div class="hint">${esc(d.reason||"The record is versioned evidence and does not silently modify the computational ranker.")}</div><div class="row"><button class="ghost" onclick="mdDownloadFeedback()">Download feedback record</button><button class="ghost" onclick="mdCopyEvidence('feedback')">Copy machine-readable record</button></div></div>`;}
+
+/* ===== Validation Studio: visible candidate-disagreement workflow ===== */
+let VSTUDIO_PLAN=null,VSTUDIO_PLATE_CSV="",VSTUDIO_INTERPRETATION=null;
+function lcInt(id,fallback){const e=document.getElementById(id),n=parseInt((e||{}).value,10);return Number.isFinite(n)?n:fallback;}
+function lcFloat(id,fallback){const e=document.getElementById(id),n=parseFloat((e||{}).value);return Number.isFinite(n)?n:fallback;}
+function lcCsvList(value){return String(value||"").split(",").map(x=>x.trim()).filter(Boolean);}
+function lcSlug(value,fallback){const s=String(value||"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");return s||fallback;}
+function lcBackground(n,seed){let x=(seed||1)>>>0,out="",a="ACGT";for(let i=0;i<n;i++){x=(1664525*x+1013904223)>>>0;out+=a[x%4];}return out;}
+function vsSetStatus(id,text,kind){const e=document.getElementById(id);if(!e)return;e.textContent=text;e.className="lc-status"+(kind?" "+kind:"");}
+function vsSetStep(n){const box=document.getElementById("vs_steps");if(!box)return;[...box.children].forEach((e,i)=>{e.classList.remove("done","now");e.removeAttribute("aria-current");if(i<n-1)e.classList.add("done");else if(i===n-1){e.classList.add("now");e.setAttribute("aria-current","step");}});}
+function vsParseCandidates(){
+ const lines=(document.getElementById("vs_candidates").value||"").split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!x.startsWith("#"));
+ const out=[],ids=new Set();
+ lines.forEach((line,i)=>{
+  const p=(line.includes("\t")?line.split("\t"):line.split("|")).map(x=>x.trim());
+  if(p.length<3)throw new Error("Candidate line "+(i+1)+" needs name, forward primer, and reverse primer.");
+  const name=p[0]||("Candidate "+(i+1)),f=(p[1]||"").replace(/\s+/g,"").toUpperCase(),r=(p[2]||"").replace(/\s+/g,"").toUpperCase(),probe=(p[3]||"").replace(/\s+/g,"").toUpperCase();
+  if(!f||!r)throw new Error("Candidate "+name+" is missing a forward or reverse primer.");
+  let id=lcSlug(name,"candidate-"+(i+1)),base=id,k=2;while(ids.has(id)){id=base+"-"+k;k++;}ids.add(id);
+  out.push({candidate_id:id,name:name,chemistry:p[4]||"unspecified",assay:{forward:f,reverse:r,probe:probe||null}});
+ });
+ if(out.length<2)throw new Error("Enter at least two distinct candidate assays.");
+ return out;
+}
+function vsParseCases(){
+ const text=(document.getElementById("vs_cases").value||"").trim();if(!text)throw new Error("Paste at least one target or off-target FASTA record.");
+ const out=[];let head=null,seq=[];
+ function finish(){if(head==null)return;const parts=head.split("|").map(x=>x.trim()),id=parts[0]||("case-"+(out.length+1)),s=seq.join("").replace(/[^A-Za-z]/g,"").toUpperCase();if(!s)throw new Error("Case "+id+" has no sequence.");out.push({case_id:id,name:id,role:(parts[1]||"target").toLowerCase().replace("-","_"),group:parts[2]||"ungrouped",source_type:(parts[3]||"natural").toLowerCase(),sequence:s});}
+ text.split(/\r?\n/).forEach(line=>{line=line.trim();if(!line)return;if(line.startsWith(">")){finish();head=line.slice(1).trim();seq=[];}else{if(head==null)head="case-1|target|ungrouped|natural";seq.push(line);}});finish();
+ if(!out.length)throw new Error("No usable cases were found.");return out;
+}
+function vsUseWorkbench(){
+ if(typeof PANEL==="undefined"||PANEL.length<2){toast("Add at least two assays to the Workbench first.","warn");return;}
+ document.getElementById("vs_candidates").value=PANEL.map((a,i)=>[(a.name||a.gene||("Candidate "+(i+1))),a.forward||"",a.reverse||"",a.probe||"",a.chemistry||a.profile||"unspecified"].join(" | ")).join("\n");
+ vsSetStatus("vs_candidate_status",PANEL.length+" loaded","ok");vsSetStep(2);toast("Loaded "+PANEL.length+" Workbench assays as validation candidates.","ok");
+}
+function vsLoadExample(){
+ const f="ACGTACGTACGTACGTACGT",f2=f.slice(0,-1)+"A",r="TTTTGGGGCCCCAAAATTTT",p="GATTACAGATTACAGATTAC";
+ const t1=lcBackground(30,11)+f+lcBackground(40,12)+p+lcBackground(40,13)+_rc(r)+lcBackground(30,14);
+ const t2=lcBackground(30,21)+f2+lcBackground(40,22)+p+lcBackground(40,23)+_rc(r)+lcBackground(30,24);
+ document.getElementById("vs_candidates").value="Candidate A | "+f+" | "+r+" | "+p+" | probe\nCandidate B | "+f2+" | "+r+" | "+p+" | probe";
+ document.getElementById("vs_cases").value=">target-A|target|lineage-A|synthetic\n"+t1+"\n>target-B|target|lineage-B|synthetic\n"+t2;
+ document.getElementById("vs_mm").value="2";document.getElementById("vs_reps").value="2";document.getElementById("vs_positive").value="positive-control";
+ vsSetStatus("vs_candidate_status","2 loaded","ok");vsSetStatus("vs_case_status","2 loaded","ok");vsSetStep(3);toast("Loaded a synthetic software demonstration with candidate-specific terminal-primer cases.","ok");
+}
+async function vsBuildPlan(){
+ let candidates,cases;try{candidates=vsParseCandidates();cases=vsParseCases();}catch(e){toast(e.message,"warn");return;}
+ vsSetStatus("vs_candidate_status",candidates.length+" ready","ok");vsSetStatus("vs_case_status",cases.length+" ready","ok");vsSetStatus("vs_plan_status","building…","warn");vsSetStep(3);
+ const positives=lcCsvList(document.getElementById("vs_positive").value).map(x=>({control_id:x}));
+ const payload={candidates:candidates,cases:cases,objective:document.getElementById("vs_objective").value||"candidate comparison",reaction_conditions:(typeof COND!=="undefined"?COND:{}),plate_format:lcInt("vs_plate",96),replicates:lcInt("vs_reps",3),controls:{ntc_replicates:lcInt("vs_ntc",2),positive_controls:positives},acceptance_criteria:{maximum_cq_sd:lcFloat("vs_cq_sd",.5),efficiency_range:[lcFloat("vs_eff_lo",90),lcFloat("vs_eff_hi",110)]},model:{max_mm:lcInt("vs_mm",5),min_probe_ident:lcFloat("vs_probe_ident",85)},max_cases:lcInt("vs_max_cases",12),seed:lcInt("vs_seed",0),use_edge_wells:!!document.getElementById("vs_edges").checked,existing_evidence:[]};
+ const d=await api("/api/validation-studio/plan",payload);if(!d||d.error){vsSetStatus("vs_plan_status","plan failed","risk");document.getElementById("vs_out").innerHTML=err((d&&d.error)||"Validation plan generation failed.");return;}
+ VSTUDIO_PLAN=d.plan;VSTUDIO_PLATE_CSV=d.plate_csv||"";VSTUDIO_INTERPRETATION=null;document.getElementById("vs_results_csv").value="";vsRenderPlan(d.plan);vsSetStatus("vs_plan_status","plan verified","ok");vsSetStatus("vs_result_status","awaiting observations","");vsSetStep(5);
+}
+function vsStateLabel(value){return mdLabel?mdLabel(value):String(value||"").replace(/_/g," ");}
+function vsPlateHtml(layout,candidates){
+ const fmt=Number(layout.plate_format||96),rowNames=fmt===384?"ABCDEFGHIJKLMNOP":"ABCDEFGH",cols=fmt===384?24:12,byWell={},ci={};
+ (candidates||[]).forEach((c,i)=>ci[c.candidate_id]=i%6);(layout.wells||[]).forEach(w=>byWell[w.well]=w);
+ let h='<div class="lc-plate-wrap"><div class="lc-plate" style="grid-template-columns:32px repeat('+cols+',minmax(38px,1fr))"><div></div>';
+ for(let c=1;c<=cols;c++)h+='<div class="lc-plate-label">'+c+'</div>';
+ for(const row of rowNames){h+='<div class="lc-plate-label">'+row+'</div>';for(let c=1;c<=cols;c++){const name=row+c,w=byWell[name];if(!w){h+='<div class="lc-well" title="Unused '+name+'">·</div>';continue;}const control=w.well_type!=="test",klass=control?" control":(" c"+(ci[w.candidate_id]||0)),edge=w.edge_well?" edge":"",short=control?(w.well_type==="no_template_control"?"NTC":"CTRL"):String(w.candidate_id||"").slice(0,7);const title=name+" · "+vsStateLabel(w.well_type)+" · "+(w.candidate_id||"")+" · "+(w.case_id||"")+" · replicate "+(w.replicate||"");h+='<div class="lc-well'+klass+edge+'" title="'+esc(title)+'">'+esc(short)+'</div>';}}h+='</div></div>';return h;
+}
+function vsRenderPlan(plan){
+ const out=document.getElementById("vs_out"),sel=plan.selection_status||{},layout=plan.plate_layout||{},cands=plan.candidates||[],cases=plan.selected_cases||[];
+ const candRows=cands.map(c=>'<tr><td><b>'+esc(c.name||c.candidate_id)+'</b><br><span class="md-code-label">'+esc(c.candidate_id)+'</span></td><td>'+esc(c.chemistry||"unspecified")+'</td><td class="md-seq">'+esc((c.assay||{}).forward||"")+'</td><td class="md-seq">'+esc((c.assay||{}).reverse||"")+'</td><td class="md-seq">'+esc((c.assay||{}).probe||"—")+'</td></tr>').join("");
+ const caseRows=cases.map(x=>'<tr><td><b>'+esc(x.name||x.case_id)+'</b><br><span class="md-code-label">'+esc(x.case_id)+'</span></td><td>'+esc(vsStateLabel(x.role))+'</td><td>'+esc(x.group||"ungrouped")+'</td><td>'+esc(vsStateLabel(x.source_type))+'</td><td>'+esc(x.selection_rationale||"Candidate-specific modeled disagreement")+'</td><td>'+esc((x.distinguishes_candidate_pairs||[]).map(p=>p.join(" vs ")).join("; "))+'</td></tr>').join("");
+ let predHead='<th>Case</th>',predRows="";cands.forEach(c=>predHead+='<th>'+esc(c.name||c.candidate_id)+'</th>');cases.forEach(x=>{predRows+='<tr><td><b>'+esc(x.case_id)+'</b></td>';cands.forEach(c=>{const s=(x.modeled_states||{})[c.candidate_id]||{};predRows+='<td><span class="lc-state">'+esc(vsStateLabel(s.state||"not evaluated"))+'</span><br><span class="hint">'+esc(s.basis||"")+'</span></td>';});predRows+='</tr>';});
+ const warnings=(layout.warnings||[]).map(w=>'<div class="verdict v-warn">'+esc(w)+'</div>').join("");
+ out.innerHTML='<div class="lc-summary"><div><span>Cases evaluated</span><b>'+esc(sel.n_evaluated||0)+'</b></div><div><span>Informative cases</span><b>'+esc(sel.n_informative||0)+'</b></div><div><span>Cases selected</span><b>'+esc(sel.n_selected||0)+'</b></div><div><span>Planned wells</span><b>'+esc(layout.n_wells||0)+'</b></div><div><span>Plate</span><b>'+esc(layout.plate_format||"—")+' wells</b></div><div><span>Recorded seed</span><b>'+esc(layout.randomization_seed==null?"—":layout.randomization_seed)+'</b></div></div>'+
+  '<div class="verdict v-ok"><b>Bounded plan created.</b> Candidates are interleaved and the exact plan is identified by '+esc((plan.plan_sha256||"").slice(0,16))+'…</div>'+warnings+
+  '<details open><summary>Candidate identities</summary><div class="lc-table-wrap"><table class="lc-table"><tr><th>Candidate</th><th>Chemistry</th><th>Forward</th><th>Reverse</th><th>Probe</th></tr>'+candRows+'</table></div></details>'+
+  '<details open><summary>Why these cases were selected</summary><div class="lc-table-wrap"><table class="lc-table"><tr><th>Case</th><th>Role</th><th>Group</th><th>Source</th><th>Selection rationale</th><th>Candidates distinguished</th></tr>'+caseRows+'</table></div></details>'+
+  '<details><summary>Modeled candidate disagreements</summary><div class="lc-table-wrap"><table class="lc-table"><tr>'+predHead+'</tr>'+predRows+'</table></div></details>'+
+  '<h3 style="margin-top:13px">Interleaved plate map</h3><div class="hint">Cells show candidate IDs; NTC and control wells are labeled separately. Outlined edge wells carry an edge-effect warning.</div>'+vsPlateHtml(layout,cands)+
+  '<div class="lc-actions"><button class="ghost" onclick="vsDownloadPlan()">Download plan JSON</button><button class="ghost" onclick="vsDownloadPlate()">Download fillable plate CSV</button><button class="ghost" onclick="vsCopyPlanHash()">Copy plan identifier</button></div>'+
+  '<div class="hint" style="margin-top:8px">'+esc((plan.limitations||[]).join(" "))+'</div>';
+}
+function vsDownloadPlan(){if(!VSTUDIO_PLAN){toast("Build a validation plan first.","warn");return;}download("oligoforge_validation_plan.json",JSON.stringify(VSTUDIO_PLAN,null,2));}
+function vsDownloadPlate(){if(!VSTUDIO_PLATE_CSV){toast("Build a validation plan first.","warn");return;}download("oligoforge_validation_plate.csv",VSTUDIO_PLATE_CSV);}
+function vsCopyPlanHash(){if(!VSTUDIO_PLAN)return;copyText(VSTUDIO_PLAN.plan_sha256||"");toast("Plan identifier copied.","ok");}
+function vsImportResults(input){const f=input&&input.files&&input.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{document.getElementById("vs_results_csv").value=String(rd.result||"");document.getElementById("vs_results_name").textContent=f.name;vsSetStatus("vs_result_status","CSV loaded","ok");vsSetStep(6);};rd.onerror=()=>toast("Could not read that CSV.","err");rd.readAsText(f);}
+async function vsInterpret(){
+ if(!VSTUDIO_PLAN){toast("Build the plan before importing results.","warn");return;}const csv=(document.getElementById("vs_results_csv").value||"").trim();if(!csv){toast("Import or paste the completed plate CSV first.","warn");return;}
+ vsSetStatus("vs_result_status","interpreting…","warn");const d=await api("/api/validation-studio/interpret",{plan:VSTUDIO_PLAN,results_csv:csv});if(!d||d.error){vsSetStatus("vs_result_status","results invalid","risk");document.getElementById("vs_interpret_out").innerHTML=err((d&&d.error)||"Result interpretation failed.");return;}VSTUDIO_INTERPRETATION=d;vsRenderInterpretation(d);vsSetStatus("vs_result_status",d.controls_valid?"interpreted":"invalid controls",d.controls_valid?"ok":"risk");vsSetStep(6);
+}
+function vsRenderInterpretation(d){
+ const out=document.getElementById("vs_interpret_out"),kind=!d.controls_valid?"v-risk":d.conclusion_strength==="inconclusive"?"v-warn":"v-ok";
+ const scores=(d.candidate_summary||[]).map(x=>'<tr><td><b>'+esc(x.candidate_id)+'</b></td><td>'+esc(x.supported||0)+'</td><td>'+esc(x.contradicted||0)+'</td><td>'+esc(x.missing||0)+'</td></tr>').join("");
+ const contrad=(d.predictions_contradicted||[]).map(x=>'<tr><td>'+esc(x.candidate_id)+'</td><td>'+esc(x.case_id)+'</td><td>'+esc(vsStateLabel(x.prediction))+'</td><td>'+esc(x.n_amplified)+'</td><td>'+esc(x.n_not_amplified)+'</td><td>'+esc(x.mean_cq==null?"—":x.mean_cq)+'</td></tr>').join("");
+ const remain=(d.uncertainties_remaining||[]).map(x=>'<tr><td>'+esc(x.candidate_id)+'</td><td>'+esc(x.case_id)+'</td><td>'+esc(vsStateLabel(x.prediction_agreement))+'</td><td>'+esc(x.n_observed)+' of '+esc(x.n_replicates)+'</td></tr>').join("");
+ const invalid=(d.invalid_control_reasons||[]).map(x=>'<li>'+esc(x)+'</li>').join("");
+ out.innerHTML='<div class="verdict '+kind+'"><b>'+esc(vsStateLabel(d.conclusion_strength||"complete"))+'.</b> '+esc(d.conclusion||"Interpretation complete.")+'</div>'+
+  (invalid?'<div class="lc-finding risk"><h4>Control failure</h4><ul class="md-note-list">'+invalid+'</ul><p>Do not compare candidates until the declared controls are valid.</p></div>':"")+
+  '<div class="lc-table-wrap"><table class="lc-table"><tr><th>Candidate</th><th>Predictions supported</th><th>Contradicted</th><th>Missing or mixed</th></tr>'+scores+'</table></div>'+
+  (contrad?'<details open><summary>Predictions contradicted by this experiment</summary><table class="lc-table"><tr><th>Candidate</th><th>Case</th><th>Predicted</th><th>Amplified reps</th><th>Not amplified</th><th>Mean Cq</th></tr>'+contrad+'</table></details>':'<div class="lc-finding ok"><h4>No complete prediction contradictions recorded</h4><p>This does not establish global assay performance.</p></div>')+
+  (remain?'<details open><summary>Uncertainties still unresolved</summary><table class="lc-table"><tr><th>Candidate</th><th>Case</th><th>State</th><th>Usable observations</th></tr>'+remain+'</table></details>':"")+
+  '<div class="lc-actions"><button class="ghost" onclick="vsDownloadInterpretation()">Download interpretation</button></div><div class="hint">'+esc((d.limitations||[]).join(" "))+'</div>';
+}
+function vsDownloadInterpretation(){if(!VSTUDIO_INTERPRETATION){toast("Interpret completed observations first.","warn");return;}download("oligoforge_validation_interpretation.json",JSON.stringify(VSTUDIO_INTERPRETATION,null,2));}
+
+/* ===== OligoForge Assurance: visible register-to-evidence workflow ===== */
+const ASSURANCE_STATE={sbom:null,baseline_target:null,current_target:null,baseline_offtarget:null,current_offtarget:null,target_delta:null,offtarget_delta:null,scan:null,ofvrs:null,package:null,package_html:null,verification:null};
+function asStatus(id,text,kind){const e=document.getElementById(id);if(!e)return;e.textContent=text;e.className="lc-status"+(kind?" "+kind:"");}
+function asSetSteps(){
+ const states=[!!ASSURANCE_STATE.sbom,!!ASSURANCE_STATE.baseline_target,!!ASSURANCE_STATE.current_target,!!ASSURANCE_STATE.scan,ASSURANCE_STATE.ofvrs!==null,!!ASSURANCE_STATE.package],box=document.getElementById("as_steps");if(!box)return;let first=states.findIndex(x=>!x);if(first<0)first=states.length;
+ [...box.children].forEach((e,i)=>{e.classList.remove("done","now");e.removeAttribute("aria-current");if(states[i])e.classList.add("done");else if(i===first){e.classList.add("now");e.setAttribute("aria-current","step");}});
+}
+function asGroups(id){return lcCsvList((document.getElementById(id)||{}).value);}
+function asFromPanel(a,index){
+ return {assay_id:lcSlug(a.id||a.name||a.gene,"assay-"+(index+1)),name:a.name||a.gene||("Assay "+(index+1)),chemistry:a.profile||a.chemistry||"unspecified",forward:a.forward||"",reverse:a.reverse||"",probe:a.probe_lna||a.probe||null,intended_target_groups:a.intended_target_groups||asGroups("as_target_groups"),near_neighbor_groups:a.near_neighbor_groups||asGroups("as_neighbor_groups"),reaction_conditions:(a.ranker_manifest&&a.ranker_manifest.scientific_models&&a.ranker_manifest.scientific_models.reaction_condition_snapshot)||(typeof COND!=="undefined"?COND:{}),status:"draft",review_state:document.getElementById("as_review").value||"unreviewed"};
+}
+function asDisplayedAssay(){
+ return {assay_id:(document.getElementById("as_assay_id").value||"assay-1").trim(),name:(document.getElementById("as_assay_name").value||"Primary assay").trim(),chemistry:document.getElementById("as_chemistry").value||"unspecified",forward:(document.getElementById("as_f").value||"").trim(),reverse:(document.getElementById("as_r").value||"").trim(),probe:(document.getElementById("as_p").value||"").trim()||null,intended_target_groups:asGroups("as_target_groups"),near_neighbor_groups:asGroups("as_neighbor_groups"),reaction_conditions:(typeof COND!=="undefined"?COND:{}),status:"draft",review_state:document.getElementById("as_review").value||"unreviewed"};
+}
+function asUseWorkbench(){
+ const a=(typeof curAssay==="function"&&curAssay())||(typeof PANEL!=="undefined"&&PANEL[0]);if(!a){toast("Add or select an assay in the Workbench first.","warn");return;}
+ document.getElementById("as_assay_id").value=lcSlug(a.id||a.name||a.gene,"assay-1");document.getElementById("as_assay_name").value=a.name||a.gene||"Workbench assay";document.getElementById("as_f").value=a.forward||"";document.getElementById("as_r").value=a.reverse||"";document.getElementById("as_p").value=a.probe_lna||a.probe||"";
+ const prof=a.profile||a.chemistry;if(prof&&[...document.getElementById("as_chemistry").options].some(o=>o.value===prof))document.getElementById("as_chemistry").value=prof;
+ document.getElementById("as_target_groups").value=a.organism||a.gene||"";toast("Loaded the current Workbench assay into Assurance.","ok");
+}
+function asLoadExample(){
+ const f="ACGTACGTACGTACGTACGT",r="TTTTGGGGCCCCAAAATTTT",p="GATTACAGATTACAGATTAC",mut=f.slice(0,-1)+(f.endsWith("A")?"C":"A");
+ const clean=lcBackground(25,101)+f+lcBackground(45,102)+p+lcBackground(45,103)+_rc(r)+lcBackground(25,104);
+ const dropout=lcBackground(25,201)+mut+lcBackground(45,202)+p+lcBackground(45,203)+_rc(r)+lcBackground(25,204);
+ const offClean=lcBackground(220,301),offSignal=lcBackground(25,401)+f+lcBackground(45,402)+p+lcBackground(45,403)+_rc(r)+lcBackground(25,404);
+ document.getElementById("as_portfolio").value="Worked drift example";document.getElementById("as_assay_id").value="assay-A";document.getElementById("as_assay_name").value="Synthetic probe assay";document.getElementById("as_f").value=f;document.getElementById("as_r").value=r;document.getElementById("as_p").value=p;document.getElementById("as_target_groups").value="target";document.getElementById("as_neighbor_groups").value="near-neighbor";document.getElementById("as_mm").value="2";
+ document.getElementById("as_bt_fasta").value=">target-1 baseline\n"+clean;document.getElementById("as_bt_meta").value="record_id,group\ntarget-1,lineage-1";
+ document.getElementById("as_ct_fasta").value=">target-1 unchanged\n"+clean+"\n>target-2 new-terminal-variant\n"+dropout;document.getElementById("as_ct_meta").value="record_id,group\ntarget-1,lineage-1\ntarget-2,lineage-2";
+ document.getElementById("as_bo_fasta").value=">neighbor-1 baseline\n"+offClean;document.getElementById("as_co_fasta").value=">neighbor-1 unchanged\n"+offClean+"\n>neighbor-2 new-signal-product\n"+offSignal;
+ toast("Loaded a synthetic software demonstration. Register it, freeze all four snapshots, then run DriftGuard.","ok");
+}
+function asInvalidateAfter(level){
+ if(level==="sbom"){ASSURANCE_STATE.scan=null;ASSURANCE_STATE.ofvrs=null;ASSURANCE_STATE.package=null;}
+ if(level==="baseline_target"){ASSURANCE_STATE.current_target=null;ASSURANCE_STATE.target_delta=null;ASSURANCE_STATE.scan=null;ASSURANCE_STATE.ofvrs=null;ASSURANCE_STATE.package=null;asStatus("as_ct_status","not created","");}
+ if(level==="current_target"){ASSURANCE_STATE.target_delta=null;ASSURANCE_STATE.scan=null;ASSURANCE_STATE.ofvrs=null;ASSURANCE_STATE.package=null;}
+ if(level==="baseline_offtarget"){ASSURANCE_STATE.current_offtarget=null;ASSURANCE_STATE.offtarget_delta=null;ASSURANCE_STATE.scan=null;ASSURANCE_STATE.ofvrs=null;ASSURANCE_STATE.package=null;asStatus("as_co_status","not supplied","");}
+ if(level==="current_offtarget"){ASSURANCE_STATE.offtarget_delta=null;ASSURANCE_STATE.scan=null;ASSURANCE_STATE.ofvrs=null;ASSURANCE_STATE.package=null;}
+}
+async function asRegister(usePanel){
+ let assays;if(usePanel){if(typeof PANEL==="undefined"||!PANEL.length){toast("The Workbench is empty.","warn");return;}assays=PANEL.map(asFromPanel);}else{const a=asDisplayedAssay();if(!a.forward||!a.reverse){toast("Enter a forward and reverse primer first.","warn");return;}assays=[a];}
+ asStatus("as_sbom_status","registering…","warn");const payload={name:document.getElementById("as_portfolio").value||"Assay portfolio",version:document.getElementById("as_portfolio_version").value||"1",status:"draft",review_state:document.getElementById("as_review").value||"unreviewed",assays:assays};
+ const d=await api("/api/assurance/assaysbom",{assay:payload});if(!d||d.error){asStatus("as_sbom_status","registration failed","risk");document.getElementById("as_sbom_out").innerHTML=err((d&&d.error)||"Assay registration failed.");return;}asInvalidateAfter("sbom");ASSURANCE_STATE.sbom=d;asStatus("as_sbom_status",d.assays.length+" assay"+(d.assays.length===1?"":"s")+" registered","ok");asRenderSbom();asSetSteps();
+}
+function asRenderSbom(){
+ const d=ASSURANCE_STATE.sbom;if(!d)return;let rows="";(d.assays||[]).forEach(a=>(a.components||[]).forEach(c=>{rows+='<tr><td><b>'+esc(a.name||a.assay_id)+'</b><br><span class="md-code-label">'+esc(a.assay_id)+'</span></td><td>'+esc(vsStateLabel(a.assay_type))+'</td><td>'+esc(vsStateLabel(c.role))+'</td><td class="md-seq">'+esc(c.order_sequence||c.sequence)+'</td><td>'+esc(c.locked_legacy_component?"Locked":"Editable")+'</td></tr>';}));
+ document.getElementById("as_sbom_out").innerHTML='<div class="lc-summary"><div><span>AssaySBOM identifier</span><b>'+esc(d.assaysbom_id)+'</b></div><div><span>Portfolio version</span><b>'+esc(d.portfolio_version)+'</b></div><div><span>Assays</span><b>'+esc((d.assays||[]).length)+'</b></div><div><span>Review state</span><b>'+esc(vsStateLabel(d.review_state))+'</b></div></div><div class="verdict v-ok"><b>Exact molecular record frozen.</b> Content SHA-256 '+esc((d.content_sha256||"").slice(0,20))+'…</div><div class="lc-table-wrap"><table class="lc-table"><tr><th>Assay</th><th>Type</th><th>Component</th><th>Order sequence</th><th>Legacy lock</th></tr>'+rows+'</table></div><div class="hint">'+esc(d.scope_statement||"Molecular bill of materials; not performance proof.")+'</div>';
+}
+const AS_SLOTS={
+ baseline_target:{fasta:"as_bt_fasta",meta:"as_bt_meta",status:"as_bt_status",role:"target",name:"Baseline target snapshot",baseline:null},
+ current_target:{fasta:"as_ct_fasta",meta:"as_ct_meta",status:"as_ct_status",role:"target",name:"Follow-up target snapshot",baseline:"baseline_target"},
+ baseline_offtarget:{fasta:"as_bo_fasta",meta:"as_bo_meta",status:"as_bo_status",role:"off_target",name:"Baseline off-target snapshot",baseline:null},
+ current_offtarget:{fasta:"as_co_fasta",meta:"as_co_meta",status:"as_co_status",role:"off_target",name:"Follow-up off-target snapshot",baseline:"baseline_offtarget"}
+};
+async function asCreateSnapshot(slot){
+ const cfg=AS_SLOTS[slot];if(!cfg)return;const fasta=(document.getElementById(cfg.fasta).value||"").trim();if(!fasta){toast("Paste "+cfg.name.toLowerCase()+" FASTA first.","warn");return;}if(cfg.baseline&&!ASSURANCE_STATE[cfg.baseline]){toast("Freeze the linked baseline snapshot first.","warn");return;}
+ asStatus(cfg.status,"hashing…","warn");asInvalidateAfter(slot);const base=cfg.baseline?ASSURANCE_STATE[cfg.baseline]:null;
+ const body={fasta:fasta,name:cfg.name,role:cfg.role,metadata:(document.getElementById(cfg.meta).value||"").trim()||null,source:{type:"user_supplied_offline_fasta",workflow:"browser_assurance"},baseline_snapshot_id:base?base.snapshot_id:null,retrieval:{mode:"offline_user_supplied",network_used:false}};
+ const d=await api("/api/assurance/snapshots",body);if(!d||d.error){asStatus(cfg.status,"snapshot failed","risk");toast((d&&d.error)||"Snapshot creation failed.","err");return;}ASSURANCE_STATE[slot]=d;asStatus(cfg.status,(d.metrics||{}).unique_sequence_count+" unique / "+(d.metrics||{}).raw_record_count+" records","ok");
+ if(slot==="current_target")await asBuildDelta("target");if(slot==="current_offtarget")await asBuildDelta("offtarget");asRenderSnapshots();asSetSteps();
+}
+async function asBuildDelta(kind){
+ const b=ASSURANCE_STATE[kind==="target"?"baseline_target":"baseline_offtarget"],f=ASSURANCE_STATE[kind==="target"?"current_target":"current_offtarget"];if(!b||!f)return;
+ const d=await api("/api/assurance/snapshots/delta",{baseline:b,followup:f});if(!d||d.error){toast((d&&d.error)||"Snapshot delta failed.","err");return;}ASSURANCE_STATE[kind==="target"?"target_delta":"offtarget_delta"]=d;
+}
+function asSnapshotCard(key,label){
+ const s=ASSURANCE_STATE[key];if(!s)return "";const m=s.metrics||{};return '<div class="lc-artifact"><b>'+esc(label)+'</b><code>'+esc(s.snapshot_id)+'</code><div class="hint">'+esc(m.raw_record_count||0)+' accepted · '+esc(m.unique_sequence_count||0)+' unique · '+esc(m.exact_duplicate_count||0)+' duplicates · '+esc(m.rejected_record_count||0)+' rejected</div><button class="ghost" style="margin-top:5px;padding:3px 7px;font-size:9px" onclick="asDownloadSnapshot(\''+key+'\')">download</button></div>';
+}
+function asRenderSnapshots(){
+ const cards=asSnapshotCard("baseline_target","Baseline target")+asSnapshotCard("current_target","Follow-up target")+asSnapshotCard("baseline_offtarget","Baseline off-target")+asSnapshotCard("current_offtarget","Follow-up off-target");let deltas="";
+ [["target_delta","Target"],["offtarget_delta","Off-target"]].forEach(x=>{const d=ASSURANCE_STATE[x[0]];if(d){const c=d.counts||{};deltas+='<div class="lc-finding"><h4>'+x[1]+' snapshot delta</h4><p><b>'+esc(c.added||0)+'</b> added · <b>'+esc(c.removed||0)+'</b> removed · <b>'+esc(c.unchanged||0)+'</b> unchanged unique sequence(s)</p><p class="md-code-label">'+esc(d.delta_sha256||"")+'</p></div>';}});
+ document.getElementById("as_snapshot_out").innerHTML=(cards?'<div class="lc-artifacts">'+cards+'</div>':"")+deltas+'<div class="hint">Raw-record, exact-haplotype, and metadata-group counts remain separate; no sampling representativeness is assumed.</div>';
+}
+function asDownloadSnapshot(key){const s=ASSURANCE_STATE[key];if(!s){toast("That snapshot has not been created.","warn");return;}download("oligoforge_"+key+"_snapshot.json",JSON.stringify(s,null,2));}
+async function asRunDrift(){
+ if(!ASSURANCE_STATE.sbom||!ASSURANCE_STATE.baseline_target||!ASSURANCE_STATE.current_target){toast("Register the assay and create both target snapshots first.","warn");return;}const bo=ASSURANCE_STATE.baseline_offtarget,co=ASSURANCE_STATE.current_offtarget;if(!!bo!==!!co){toast("Supply both off-target snapshots or neither.","warn");return;}
+ asStatus("as_scan_status","reconstructing products…","warn");ASSURANCE_STATE.scan=null;ASSURANCE_STATE.ofvrs=null;ASSURANCE_STATE.package=null;
+ const body={assaysbom:ASSURANCE_STATE.sbom,baseline_target:ASSURANCE_STATE.baseline_target,current_target:ASSURANCE_STATE.current_target,baseline_offtarget:bo||null,current_offtarget:co||null,model:{max_mm:lcInt("as_mm",5),clamp_n:lcInt("as_clamp",2),min_probe_ident:lcFloat("as_probe_ident",85)},scan_complete:!!document.getElementById("as_complete").checked};
+ const d=await api("/api/assurance/drift-scan",body);if(!d||d.error){asStatus("as_scan_status","scan failed","risk");document.getElementById("as_drift_out").innerHTML=err((d&&d.error)||"DriftGuard scan failed.");return;}ASSURANCE_STATE.scan=d;
+ const v=await api("/api/assurance/ofvr",{drift_scan:d});if(!v||v.error){ASSURANCE_STATE.ofvrs=[];toast((v&&v.error)||"Vulnerability records could not be generated.","warn");}else ASSURANCE_STATE.ofvrs=v.records||[];
+ const risky=String(d.state||"").toLowerCase().includes("possible")||d.action_review_recommended;asStatus("as_scan_status",d.state||"complete",risky?"risk":"ok");asRenderDrift();asSetSteps();
+}
+function asRenderDrift(){
+ const d=ASSURANCE_STATE.scan;if(!d)return;const risky=String(d.state||"").toLowerCase().includes("possible")||d.action_review_recommended,kind=risky?"v-risk":d.state==="Stable"?"v-ok":"v-warn";
+ const reasons=(d.reason_records||[]).map(x=>{const r=x.record||{},aff=(r.affected_components||[]).join(", ")||"No single component isolated";return '<div class="lc-finding risk"><h4>'+esc(vsStateLabel(x.code))+'</h4><p><b>Assay:</b> '+esc(x.assay_id)+' · <b>Record:</b> '+esc(r.record_id||"not recorded")+' · <b>Group:</b> '+esc(r.group||"ungrouped")+'</p><p><b>Affected components:</b> '+esc(aff)+'</p><p>'+esc(x.predicted_consequence||"Sequence-level modeled concern")+'</p><p class="md-code-label">Evidence: complete-product reconstruction within the declared supplied-corpus model</p></div>';}).join("");
+ const assayRows=(d.assay_results||[]).map(x=>{const b=x.baseline_target||{},c=x.current_target||{},bo=x.baseline_off_target||{},co=x.current_off_target||{};return '<tr><td><b>'+esc(x.assay_id)+'</b></td><td>'+esc(b.signal_products||0)+' / '+esc(b.n_records||0)+'</td><td>'+esc(c.signal_products||0)+' / '+esc(c.n_records||0)+'</td><td>'+(x.baseline_off_target?esc(bo.signal_products||0)+' / '+esc(bo.n_records||0):"not supplied")+'</td><td>'+(x.current_off_target?esc(co.signal_products||0)+' / '+esc(co.n_records||0):"not supplied")+'</td></tr>';}).join("");
+ const vrs=(ASSURANCE_STATE.ofvrs||[]).map(v=>'<div class="lc-artifact"><b>'+esc(v.ofvr_id)+'</b><code>'+esc(v.reason_code)+'</code><div class="hint">'+esc(v.predicted_consequence||"")+'</div><div class="hint">Status: '+esc(vsStateLabel(v.review_status))+' · '+esc(v.evidence_strength||"")+'</div></div>').join("");
+ document.getElementById("as_drift_out").innerHTML='<div class="verdict '+kind+'"><b>'+esc(d.state||"Scan complete")+'.</b> '+(d.action_review_recommended?"Expert review is recommended.":"No new modeled vulnerability was identified in the supplied evidence.")+'</div><div class="lc-summary"><div><span>Scan identifier</span><b>'+esc(d.scan_id)+'</b></div><div><span>Reason records</span><b>'+esc((d.reason_records||[]).length)+'</b></div><div><span>Search status</span><b>'+esc(vsStateLabel((d.search_completeness||{}).status))+'</b></div><div><span>Product model</span><b>'+esc(d.model_version||"not recorded")+'</b></div></div>'+
+  (reasons||'<div class="lc-finding ok"><h4>No new reason-coded concerns</h4><p>The supplied current records remain supported under the declared complete-product model.</p></div>')+
+  '<details open><summary>Assay-level complete-product support</summary><div class="lc-table-wrap"><table class="lc-table"><tr><th>Assay</th><th>Baseline target signal</th><th>Current target signal</th><th>Baseline off-target signal</th><th>Current off-target signal</th></tr>'+assayRows+'</table></div></details>'+
+  '<h3 style="margin-top:12px">Molecular Vulnerability Records</h3>'+(vrs?'<div class="lc-artifacts">'+vrs+'</div>':'<div class="lc-empty">No OFVR was issued because the scan produced no deduplicated vulnerability reason record.</div>')+
+  '<div class="hint" style="margin-top:8px">'+esc((d.limitations||[]).join(" "))+'</div>';
+}
+async function asBuildPackage(){
+ if(!ASSURANCE_STATE.sbom||!ASSURANCE_STATE.scan||ASSURANCE_STATE.ofvrs===null){toast("Complete DriftGuard before building the evidence package.","warn");return;}asStatus("as_package_status","assembling…","warn");
+ const snapshots=["baseline_target","current_target","baseline_offtarget","current_offtarget"].map(k=>ASSURANCE_STATE[k]).filter(Boolean),deltas=[ASSURANCE_STATE.target_delta,ASSURANCE_STATE.offtarget_delta].filter(Boolean);
+ const body={assaysbom:ASSURANCE_STATE.sbom,snapshots:snapshots,deltas:deltas,drift_scans:[ASSURANCE_STATE.scan],vulnerabilities:ASSURANCE_STATE.ofvrs||[],validation_plans:VSTUDIO_PLAN?[VSTUDIO_PLAN]:[],repairs:[]};
+ const d=await api("/api/assurance/package",body);if(!d||d.error){asStatus("as_package_status","package failed","risk");document.getElementById("as_package_out").innerHTML=err((d&&d.error)||"Evidence package failed.");return;}ASSURANCE_STATE.package=d.package;ASSURANCE_STATE.package_html=d.html||"";ASSURANCE_STATE.verification=d.verification||{};asStatus("as_package_status",ASSURANCE_STATE.verification.valid?"verified":"verification failed",ASSURANCE_STATE.verification.valid?"ok":"risk");asRenderPackage();asSetSteps();
+}
+function asRenderPackage(){
+ const p=ASSURANCE_STATE.package,v=ASSURANCE_STATE.verification||{};if(!p)return;const rows=(p.manifest||[]).map(x=>'<tr><td>'+esc(vsStateLabel(x.category))+'</td><td>'+esc(x.index)+'</td><td>'+esc(x.schema_version||"not declared")+'</td><td class="md-code-label">'+esc(x.sha256)+'</td></tr>').join("");
+ document.getElementById("as_package_out").innerHTML='<div class="verdict '+(v.valid?"v-ok":"v-risk")+'"><b>'+(v.valid?"Package verified.":"Package verification failed.")+'</b> '+esc(p.scope_statement||"")+'</div><div class="lc-summary"><div><span>Package identifier</span><b>'+esc(p.package_id)+'</b></div><div><span>Artifacts</span><b>'+esc((p.manifest||[]).length)+'</b></div><div><span>Package digest</span><b>'+esc((p.package_sha256||"").slice(0,20))+'…</b></div><div><span>Artifact checks</span><b>'+esc((v.artifact_checks||[]).filter(x=>x.valid).length)+' / '+esc((v.artifact_checks||[]).length)+'</b></div></div><div class="lc-table-wrap"><table class="lc-table"><tr><th>Artifact type</th><th>Index</th><th>Schema</th><th>SHA-256</th></tr>'+rows+'</table></div><div class="hint">Hash verification detects changes; it does not prove authenticity, corpus representativeness, wet-lab validity, or regulatory compliance.</div>';
+}
+function asDownload(kind){
+ let value=null,name="oligoforge_assurance.json";if(kind==="sbom"){value=ASSURANCE_STATE.sbom;name="oligoforge_assaysbom.json";}else if(kind==="scan"){value=ASSURANCE_STATE.scan;name="oligoforge_drift_scan.json";}else if(kind==="ofvr"){value=ASSURANCE_STATE.ofvrs;name="oligoforge_vulnerability_records.json";}else if(kind==="package"){value=ASSURANCE_STATE.package;name="oligoforge_assurance_evidence_package.json";}else if(kind==="html"){if(!ASSURANCE_STATE.package_html){toast("Build the evidence package first.","warn");return;}download("oligoforge_assurance_review.html",ASSURANCE_STATE.package_html);return;}if(value==null){toast("That artifact is not available yet.","warn");return;}download(name,JSON.stringify(value,null,2));
+}
+function asReset(){
+ if(!confirm("Clear the in-browser Assurance lifecycle state? Download any artifacts you want to keep first."))return;Object.keys(ASSURANCE_STATE).forEach(k=>{ASSURANCE_STATE[k]=(k==="ofvrs"?null:null);});
+ [["as_sbom_status","not registered"],["as_bt_status","not frozen"],["as_ct_status","not created"],["as_bo_status","not supplied"],["as_co_status","not supplied"],["as_scan_status","not run"],["as_package_status","not built"]].forEach(x=>asStatus(x[0],x[1],""));
+ document.getElementById("as_sbom_out").innerHTML='<div class="lc-empty">Register an assay to establish the exact versioned molecular baseline.</div>';document.getElementById("as_snapshot_out").innerHTML='<div class="lc-empty">Snapshot IDs, record disposition, deduplication, groups, and deltas will appear here.</div>';document.getElementById("as_drift_out").innerHTML='<div class="lc-empty">Complete the assay registration and target snapshots before running DriftGuard.</div>';document.getElementById("as_package_out").innerHTML='<div class="lc-empty">The package becomes available after a completed DriftGuard scan.</div>';asSetSteps();toast("Assurance lifecycle session cleared.","ok");
+}
 
 /* ===== v1.19.0 command palette (Ctrl/Cmd-K) - mirrors the live nav, no hardcoded ids ===== */
 (function(){
