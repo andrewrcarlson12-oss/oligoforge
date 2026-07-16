@@ -98,6 +98,7 @@ const fnOf={doMatrix:"doMatrix",doDesign:"doDesign",doFetch:"doFetch",doIntron:"
  for(const [label,resp] of cases){
    const fn=label.replace(/\(.*/,"");
    ctx.api=async()=>resp;
+   if(fn==="doAuto")ctx.runAutoDesignJob=async()=>resp;
    try{ const r=ctx[fn]==null?(()=>{throw new Error("handler "+fn+" not defined")})():await ctx[fn](fn==="doPairSpec"?"AAA":undefined, "CCC"); pass++; }
    catch(e){ fail.push(label+" -> "+e.message); }
  }

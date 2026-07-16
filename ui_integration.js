@@ -26,9 +26,18 @@ const html = fs.readFileSync("static/index.html", "utf8");
 
 // fetch stub: record calls, return shapes the init code + handlers can parse without throwing
 const fetchCalls = [];
+const fetchRecords = [];
 function fakeFetch(url, opts) {
   fetchCalls.push(String(url));
+  fetchRecords.push({ url: String(url), method: (opts && opts.method) || "GET", headers: (opts && opts.headers) || {}, body: opts && opts.body });
   const path = String(url);
+  if (path === "/api/autodesign/limits") {
+    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ queue_capacity: 8, primary_timeout_seconds: 240, blast_timeout_seconds: 360, max_records_to_fetch: 30, terminal_ttl_seconds: 1800 }) });
+  }
+  if (path === "/api/autodesign/jobs" && opts && opts.method === "POST") {
+    const result = { target_query: "Synthetic marker", n_targets: 1, n_offs: 0, reference_len: 120, n_candidates: 1, profile_used: "sybr_generic", profile_pretty: "SYBR generic", target_subjects: [], off_subjects: [], candidates: [{ score: 1, assay: { forward: "ACGTACGTACGTACGTACGT", reverse: "TGCATGCATGCATGCATGCA", probe: null, amplicon: 80, f_tm: 60, r_tm: 60, pair_tm_gap: 0, f_xy: [0,20], r_xy: [60,80], amplicon_xy: [0,80] }, conservation: { F: { mean_ident: 100, worst_3prime: 100 }, R: { mean_ident: 100, worst_3prime: 100 } }, discrimination: null }] };
+    return Promise.resolve({ ok: true, status: 202, json: () => Promise.resolve({ job_id: "job-integration", status: "succeeded", stages: [{ name: "resolve_fetch", status: "complete" }, { name: "design", status: "complete" }, { name: "enrich", status: "complete" }, { name: "blast", status: "skipped" }], warnings: [], result }) });
+  }
   const RESP = {
     "/api/profiles": { idt_taqman: { name: "IDT PrimeTime", no_probe: false, notes: "" } },
     "/api/conditions": { mv_conc: 50, dv_conc: 3, dntp_conc: 0.8, dna_conc: 200 },
@@ -131,6 +140,19 @@ function T(label, fn) {
     if (!fetchCalls.some((u) => u.indexOf("/api/rdml") >= 0)) {
       throw new Error("no fetch to /api/rdml after click; calls=" + JSON.stringify(fetchCalls));
     }
+  });
+
+  await T_async("automatic design submits a capability job and preserves the form", async () => {
+    fetchRecords.length = 0;
+    document.getElementById("au_q").value = "Synthetic marker";
+    document.getElementById("au_run").click();
+    await new Promise((r) => setTimeout(r, 100));
+    const submitted = fetchRecords.find((x) => x.url === "/api/autodesign/jobs" && x.method === "POST");
+    if (!submitted) throw new Error("no POST to /api/autodesign/jobs");
+    if (!submitted.headers["Idempotency-Key"]) throw new Error("submission omitted Idempotency-Key");
+    if (fetchRecords.some((x) => x.url === "/api/autodesign")) throw new Error("legacy monolithic endpoint was used");
+    if (document.getElementById("au_q").value !== "Synthetic marker") throw new Error("target input was not preserved");
+    if (!/best/i.test(document.getElementById("au_out").textContent || "")) throw new Error("completed job result was not rendered");
   });
 
   console.log("");
