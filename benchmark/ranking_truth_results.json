@@ -63,7 +63,7 @@
       "mean_top1_probe_coverage": 0.990909090909091,
       "mean_top1_condition_robustness": 0.9090909090909091,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.0047,
+      "runtime_seconds": 0.000293,
       "records": [
         {
           "case": "hard_gate",
@@ -314,7 +314,7 @@
       "mean_top1_probe_coverage": 0.9881818181818182,
       "mean_top1_condition_robustness": 0.8789090909090909,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.026533,
+      "runtime_seconds": 0.001621,
       "records": [
         {
           "case": "hard_gate",
@@ -565,7 +565,7 @@
         "mean_top1_probe_coverage": 1.0,
         "mean_top1_condition_robustness": 1.0,
         "mean_top3_regions": 1.5,
-        "runtime_seconds": 0.000166,
+        "runtime_seconds": 7.1e-05,
         "records": [
           {
             "case": "hard_gate",
@@ -648,7 +648,7 @@
         "mean_top1_probe_coverage": 0.99,
         "mean_top1_condition_robustness": 1.0,
         "mean_top3_regions": 1.5,
-        "runtime_seconds": 0.000447,
+        "runtime_seconds": 0.000177,
         "records": [
           {
             "case": "hard_gate",
@@ -733,7 +733,7 @@
         "mean_top1_probe_coverage": 0.9666666666666667,
         "mean_top1_condition_robustness": 0.7776666666666667,
         "mean_top3_regions": 2.0,
-        "runtime_seconds": 0.000127,
+        "runtime_seconds": 5.4e-05,
         "records": [
           {
             "case": "specificity_reversal",
@@ -834,7 +834,7 @@
         "mean_top1_probe_coverage": 0.9833333333333334,
         "mean_top1_condition_robustness": 0.778,
         "mean_top3_regions": 2.0,
-        "runtime_seconds": 0.000678,
+        "runtime_seconds": 0.000407,
         "records": [
           {
             "case": "specificity_reversal",
@@ -937,7 +937,7 @@
         "mean_top1_probe_coverage": 1.0,
         "mean_top1_condition_robustness": 0.91675,
         "mean_top3_regions": 2.0,
-        "runtime_seconds": 0.000152,
+        "runtime_seconds": 0.000124,
         "records": [
           {
             "case": "junction_requirement",
@@ -1057,7 +1057,7 @@
         "mean_top1_probe_coverage": 0.985,
         "mean_top1_condition_robustness": 0.8335,
         "mean_top3_regions": 2.0,
-        "runtime_seconds": 0.009109,
+        "runtime_seconds": 0.000571,
         "records": [
           {
             "case": "junction_requirement",
@@ -1179,7 +1179,7 @@
         "mean_top1_probe_coverage": 1.0,
         "mean_top1_condition_robustness": 1.0,
         "mean_top3_regions": 2.0,
-        "runtime_seconds": 0.000143,
+        "runtime_seconds": 8.7e-05,
         "records": [
           {
             "case": "near_equivalent",
@@ -1263,7 +1263,7 @@
         "mean_top1_probe_coverage": 1.0,
         "mean_top1_condition_robustness": 1.0,
         "mean_top3_regions": 2.0,
-        "runtime_seconds": 0.00071,
+        "runtime_seconds": 0.000192,
         "records": [
           {
             "case": "near_equivalent",
@@ -1350,7 +1350,7 @@
       "mean_top1_probe_coverage": 0.9954545454545454,
       "mean_top1_condition_robustness": 0.9394545454545454,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.00308,
+      "runtime_seconds": 0.001433,
       "records": [
         {
           "case": "hard_gate",
@@ -1597,7 +1597,7 @@
       "mean_top1_probe_coverage": 1.0,
       "mean_top1_condition_robustness": 0.9091818181818181,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.014155,
+      "runtime_seconds": 0.001261,
       "records": [
         {
           "case": "hard_gate",
@@ -1844,7 +1844,7 @@
       "mean_top1_probe_coverage": 0.9881818181818182,
       "mean_top1_condition_robustness": 0.8789090909090909,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.001916,
+      "runtime_seconds": 0.001067,
       "records": [
         {
           "case": "hard_gate",
@@ -2091,7 +2091,7 @@
       "mean_top1_probe_coverage": 1.0,
       "mean_top1_condition_robustness": 0.8789090909090909,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.009313,
+      "runtime_seconds": 0.001319,
       "records": [
         {
           "case": "hard_gate",
@@ -2338,7 +2338,7 @@
       "mean_top1_probe_coverage": 0.9881818181818182,
       "mean_top1_condition_robustness": 1.0,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.002075,
+      "runtime_seconds": 0.001048,
       "records": [
         {
           "case": "hard_gate",
@@ -2585,7 +2585,7 @@
       "mean_top1_probe_coverage": 0.9881818181818182,
       "mean_top1_condition_robustness": 0.8789090909090909,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.003394,
+      "runtime_seconds": 0.001141,
       "records": [
         {
           "case": "hard_gate",
@@ -2832,7 +2832,7 @@
       "mean_top1_probe_coverage": 0.9881818181818182,
       "mean_top1_condition_robustness": 0.8789090909090909,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.005505,
+      "runtime_seconds": 0.001028,
       "records": [
         {
           "case": "hard_gate",
@@ -3079,7 +3079,7 @@
       "mean_top1_probe_coverage": 0.989090909090909,
       "mean_top1_condition_robustness": 0.8789090909090909,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.024707,
+      "runtime_seconds": 0.001059,
       "records": [
         {
           "case": "hard_gate",
@@ -3326,7 +3326,7 @@
       "mean_top1_probe_coverage": 0.9900000000000001,
       "mean_top1_condition_robustness": 0.9091818181818181,
       "mean_top3_regions": 1.9090909090909092,
-      "runtime_seconds": 0.002546,
+      "runtime_seconds": 0.001236,
       "records": [
         {
           "case": "hard_gate",
@@ -3601,6 +3601,6 @@
     ],
     "correct": true
   },
-  "runtime_seconds_observed": 0.1754,
+  "runtime_seconds_observed": 0.042,
   "figure_warning": "ModuleNotFoundError"
 }

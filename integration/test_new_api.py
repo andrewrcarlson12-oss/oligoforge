@@ -137,12 +137,19 @@ def main():
                                                                "metadata": "record_id,group\ntarget-1,fixture\n"}).json()
         follow = client.post("/api/assurance/snapshots", json={"fasta": fasta,
                                                                  "name": "follow-up",
-                                                                 "role": "target"}).json()
+                                                                 "role": "target",
+                                                                 "baseline_snapshot_id": base["snapshot_id"],
+                                                                 "retrieval": {"mode": "offline_browser_submission",
+                                                                               "network_used": False}}).json()
         must("sequence snapshots are immutable and distinct by declared metadata",
              base["snapshot_id"].startswith("ofsnap_") and base["snapshot_id"] != follow["snapshot_id"])
         must("snapshot HTTP metadata and source remain structured",
              base["source"]["adapter"] == "offline_fixture" and
              base["unique_records"][0]["metadata"]["group"] == "fixture")
+        must("follow-up snapshot preserves baseline linkage and retrieval provenance",
+             follow["baseline_snapshot_id"] == base["snapshot_id"] and
+             follow["retrieval"]["mode"] == "offline_browser_submission" and
+             follow["retrieval"]["network_used"] is False)
         delta = client.post("/api/assurance/snapshots/delta",
                             json={"baseline": base, "followup": follow}).json()
         must("snapshot delta reports exact unchanged haplotypes", delta["counts"]["unchanged"] == 1)
