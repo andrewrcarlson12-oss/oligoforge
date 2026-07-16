@@ -49,8 +49,8 @@
     },
     {
       "path": "ranking_truth_results.json",
-      "bytes": 98486,
-      "sha256": "4e7b585f42c76b677e105911f9cece0072441bc49298db81884a36492ab9f192"
+      "bytes": 98492,
+      "sha256": "06f399f55ef4018580cbf5da48d35da515f3f8be699f53e88f6f0b9b9e3e48d8"
     },
     {
       "path": "ranking_truth_results.csv",
@@ -69,8 +69,8 @@
     },
     {
       "path": "plasmodium_ranking_trace.json",
-      "bytes": 7343462,
-      "sha256": "253ea53d35bf4dd41a709b8196df0d4654d06642ea0ae6590e27446e002aa60a"
+      "bytes": 6934864,
+      "sha256": "a9e075cb50f5398ec35c7929e86e4f2def99876edb975a5bb50f9369165f40c5"
     }
   ]
 }
