@@ -1,0 +1,48 @@
+{
+  "schema": "oligoforge-release-test-results/v1",
+  "application_version": "1.35.0",
+  "tested_on": "2026-07-16",
+  "source_version": "1.34.0",
+  "scientific_versions": {
+    "ranker": "2.2.0",
+    "search": "2.1.1",
+    "ranking_schema": "1.2.0"
+  },
+  "environment": {
+    "python": "3.12.13",
+    "node": "24.14.0",
+    "npm": "11.9.0",
+    "primer3_py": "2.3.0",
+    "biopython": "1.87",
+    "viennarna": "2.7.2",
+    "fastapi": "0.139.0",
+    "uvicorn": "0.51.0",
+    "pydantic": "2.13.4",
+    "httpx": "0.28.1"
+  },
+  "gates": {
+    "source_python_programs": {"status": "passed", "passed": 49, "failed": 0},
+    "source_node_harnesses": {"status": "passed", "passed": 9, "failed": 0},
+    "reextracted_python_programs": {"status": "passed", "passed": 49, "failed": 0},
+    "reextracted_node_harnesses": {"status": "passed", "passed": 9, "failed": 0},
+    "autodesign_jobs": {"status": "passed", "scenarios": 10, "assertions": 55},
+    "manual_studio": {"status": "passed", "checks": 75},
+    "real_dom_jobs": {"status": "passed", "checks": 8, "registered_handlers": 111},
+    "compileall": {"status": "passed"},
+    "working_pip_check": {"status": "passed"},
+    "clean_install_import_pip_check": {"status": "passed"},
+    "npm_audit": {"status": "passed", "dependencies": 63, "vulnerabilities": 0},
+    "live_uvicorn": {"status": "passed", "http_200_routes": 3},
+    "directory_direct_child_limit": {"status": "passed", "limit": 100, "maximum": 60, "maximum_directory": "tests"},
+    "archive_path_and_symlink_safety": {"status": "passed"},
+    "manifest_hash_verification": {"status": "passed"}
+  },
+  "inventory_against_1_34_0": {
+    "baseline_files": 180,
+    "candidate_files_before_generated_release_records": 217,
+    "added": 37,
+    "removed": 0,
+    "content_changed": 31
+  },
+  "claims_boundary": "Software verification only; no analytical, clinical, regulatory, future-evolution, or rank-1 wet-lab performance claim."
+}

@@ -9,12 +9,16 @@ from typing import Dict, List, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR, nn as NN
 from oligoforge import ranking_profiles as RPROF, manual_design as MDS, assay_rescue as ARES, experimental_feedback as EFB, run_compare as RCOMP
+from oligoforge import validation_studio as VSTUDIO
+from oligoforge import assurance as ASSURE
+from oligoforge.assurance.evidence_package import verify_evidence_package
+from oligoforge.jobs import DesignJobManager, QueueFull as DesignQueueFull, IdempotencyConflict, RetryNotAvailable
 
-app = FastAPI(title="OligoForge", version="1.34.0")
+app = FastAPI(title="OligoForge", version="1.35.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -41,6 +45,23 @@ def _env_flag(name, default=False):
 HOSTED_MODE = _env_flag("OLIGOFORGE_HOSTED", False)
 ALLOW_SERVER_STORAGE = _env_flag("OLIGOFORGE_ALLOW_SERVER_STORAGE", not HOSTED_MODE)
 ALLOW_SHARED_CONDITIONS = _env_flag("OLIGOFORGE_ALLOW_SHARED_CONDITIONS", not HOSTED_MODE)
+
+
+# One scientific worker matches the current one-process deployment and the
+# process-wide Primer3 lock.  This queue is deliberately in-memory: capability
+# IDs expire and jobs are lost on a service restart, while the browser keeps the
+# non-secret form draft so the user can resubmit deliberately.
+DESIGN_JOBS = DesignJobManager(
+    queue_capacity=max(1, int(os.environ.get("OLIGOFORGE_JOB_QUEUE", "8"))),
+    ttl_s=max(60.0, float(os.environ.get("OLIGOFORGE_JOB_TTL_SECONDS", "1800"))),
+    primary_timeout_s=max(30.0, float(os.environ.get("OLIGOFORGE_DESIGN_TIMEOUT_SECONDS", "240"))),
+    blast_timeout_s=max(30.0, float(os.environ.get("OLIGOFORGE_BLAST_TIMEOUT_SECONDS", "360"))),
+)
+
+
+@app.on_event("shutdown")
+def _shutdown_design_jobs():
+    DESIGN_JOBS.shutdown(wait=False)
 
 
 def _shared_feature_disabled(feature):
@@ -211,6 +232,7 @@ def healthz():
                 data_dir_writable=data_ok, hosted_mode=HOSTED_MODE,
                 server_storage_enabled=ALLOW_SERVER_STORAGE,
                 shared_conditions_enabled=ALLOW_SHARED_CONDITIONS,
+                automatic_design_jobs=DESIGN_JOBS.stats(),
                 routes=len([r for r in app.routes if getattr(r, "methods", None)]))
 
 @app.get("/api/profiles")
@@ -1251,10 +1273,128 @@ class AutoDesignReq(BaseModel):
     blast_db: str = "nt"; blast_db_path: Optional[str] = None; organism: Optional[str] = None
     email: Optional[str] = None; ncbi_key: Optional[str] = None; prefer_junction: bool = False; nested: bool = False
     objective: str = "balanced"
+
+
+class BlastRetryReq(BaseModel):
+    blast_mode: Optional[str] = None
+    blast_db: Optional[str] = None
+    blast_db_path: Optional[str] = None
+    organism: Optional[str] = None
+
+
+def _validate_autodesign_request(r):
+    objective = _require_objective(r.objective)
+    target = str(r.target_query or "").strip()
+    if not target:
+        raise ValueError("target is required")
+    if len(target) > 1000 or len(str(r.off_query or "")) > 1000:
+        raise ValueError("target and off-target queries are limited to 1000 characters")
+    if not 1 <= int(r.n_fetch) <= 30:
+        raise ValueError("n_fetch must be between 1 and 30")
+    if not 0.0 <= float(r.min_ident) <= 1.0:
+        raise ValueError("min_ident must be between 0 and 1")
+    if r.profile != "auto":
+        _require_profile(r.profile)
+    if str(r.blast_mode).lower() not in {"remote", "local"}:
+        raise ValueError("blast_mode must be remote or local")
+    r.objective = objective
+    return r
+
+
+def _job_with_links(snapshot):
+    if not snapshot:
+        return None
+    out = dict(snapshot)
+    jid = snapshot.get("job_id") or snapshot.get("id")
+    out["status_url"] = "/api/autodesign/jobs/%s" % jid
+    out["cancel_url"] = "/api/autodesign/jobs/%s" % jid
+    out["blast_retry_url"] = "/api/autodesign/jobs/%s/retry-blast" % jid
+    return out
+
+
+@app.get("/api/autodesign/limits")
+def api_autodesign_limits():
+    stats = DESIGN_JOBS.stats()
+    return {
+        "backend": stats["backend"], "durable": False,
+        "queue_capacity": stats["queue_capacity"],
+        "primary_timeout_seconds": stats["primary_timeout_seconds"],
+        "blast_timeout_seconds": stats["blast_timeout_seconds"],
+        "terminal_ttl_seconds": stats["terminal_ttl_seconds"],
+        "max_records_to_fetch": 30,
+        "stage_order": ["Sequence retrieval", "Candidate design and ranking", "Result enrichment", "Optional specificity analysis"],
+        "privacy": {"remote_blast": "The winning primer pair is sent to NCBI only when explicitly requested.",
+                    "local_blast": "Local BLAST never uploads sequences and is disabled on the public hosted service.",
+                    "retention": "Jobs are held in process memory until expiry and are lost on service restart."},
+        "cancellation_granularity": "Stage-boundary; a native or network call already in progress may drain before the worker accepts another job.",
+    }
+
+
+@app.post("/api/autodesign/jobs")
+def api_autodesign_submit(r: AutoDesignReq, request: Request):
+    try:
+        _validate_autodesign_request(r)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    denied = _local_blast_denied(r.blast_mode, r.blast_db_path) if r.run_blast else None
+    if denied:
+        return denied
+    try:
+        snapshot = DESIGN_JOBS.submit(r.model_dump(), idempotency_key=request.headers.get("Idempotency-Key"))
+        return JSONResponse(_job_with_links(snapshot), status_code=202)
+    except DesignQueueFull:
+        return JSONResponse({"error": "automatic-design queue is full; retry after current work completes",
+                             "code": "queue_full"}, status_code=429, headers={"Retry-After": "10"})
+    except IdempotencyConflict:
+        return JSONResponse({"error": "Idempotency-Key was already used for different inputs",
+                             "code": "idempotency_conflict"}, status_code=409)
+
+
+@app.get("/api/autodesign/jobs/{job_id}")
+def api_autodesign_status(job_id: str):
+    snapshot = DESIGN_JOBS.get(job_id)
+    if snapshot is None:
+        return JSONResponse({"error": "automatic-design job was not found, expired, or was lost on restart",
+                             "code": "job_lost_or_expired"}, status_code=404)
+    return _job_with_links(snapshot)
+
+
+@app.delete("/api/autodesign/jobs/{job_id}")
+def api_autodesign_cancel(job_id: str):
+    snapshot = DESIGN_JOBS.cancel(job_id)
+    if snapshot is None:
+        return JSONResponse({"error": "automatic-design job was not found, expired, or was lost on restart",
+                             "code": "job_lost_or_expired"}, status_code=404)
+    return _job_with_links(snapshot)
+
+
+@app.post("/api/autodesign/jobs/{job_id}/retry-blast")
+def api_autodesign_retry_blast(job_id: str, r: BlastRetryReq, request: Request):
+    values = {k: v for k, v in r.model_dump().items() if v is not None}
+    denied = _local_blast_denied(values.get("blast_mode"), values.get("blast_db_path"))
+    if denied:
+        return denied
+    try:
+        snapshot = DESIGN_JOBS.retry_blast(job_id, idempotency_key=request.headers.get("Idempotency-Key"), **values)
+        if snapshot is None:
+            return JSONResponse({"error": "automatic-design job was not found, expired, or was lost on restart",
+                                 "code": "job_lost_or_expired"}, status_code=404)
+        return JSONResponse(_job_with_links(snapshot), status_code=202)
+    except RetryNotAvailable:
+        return JSONResponse({"error": "a completed primary design is required before retrying specificity",
+                             "code": "primary_result_unavailable"}, status_code=409)
+    except DesignQueueFull:
+        return JSONResponse({"error": "automatic-design queue is full", "code": "queue_full"},
+                            status_code=429, headers={"Retry-After": "10"})
+    except IdempotencyConflict:
+        return JSONResponse({"error": "Idempotency-Key was already used for different inputs",
+                             "code": "idempotency_conflict"}, status_code=409)
+
+
 @app.post("/api/autodesign")
 def api_autodesign(r: AutoDesignReq):
     try:
-        r.objective = _require_objective(r.objective)
+        _validate_autodesign_request(r)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
     _set_email(r.email, r.ncbi_key)
@@ -1640,3 +1780,157 @@ def viewer_design(r: ViewerDesignReq):
             gblock=a.get("gblock")))
     return dict(seq_len=len(seq), tm_window=[tmlo, tmhi], gc_window=[gclo, gchi],
                 candidates=out, note=(" · ".join(notes) if notes else None))
+
+
+# ============ Validation Studio: bounded candidate-comparison experiments ============
+class ValidationPlanReq(BaseModel):
+    candidates: List[Dict]
+    cases: List[Dict]
+    objective: str = "candidate comparison"
+    reaction_conditions: Dict = Field(default_factory=dict)
+    plate_format: int = 96
+    replicates: int = 3
+    controls: Dict = Field(default_factory=dict)
+    acceptance_criteria: Dict = Field(default_factory=dict)
+    model: Dict = Field(default_factory=dict)
+    max_cases: int = 12
+    seed: int = 0
+    use_edge_wells: bool = True
+    existing_evidence: List[Dict] = Field(default_factory=list)
+
+
+@app.post("/api/validation-studio/plan")
+def api_validation_studio_plan(r: ValidationPlanReq):
+    try:
+        plan = VSTUDIO.create_plan(
+            r.candidates, r.cases, objective=r.objective,
+            reaction_conditions=r.reaction_conditions, plate_format=r.plate_format,
+            replicates=r.replicates, controls=r.controls,
+            acceptance_criteria=r.acceptance_criteria, model=r.model,
+            max_cases=r.max_cases, seed=r.seed, use_edge_wells=r.use_edge_wells,
+            existing_evidence=r.existing_evidence,
+        )
+        return {"plan": plan, "plate_csv": VSTUDIO.plate_csv(plan["plate_layout"])}
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    except Exception as exc:
+        return _api_failure("validation-plan generation", exc, status_code=500)
+
+
+class ValidationResultsReq(BaseModel):
+    plan: Dict
+    results_csv: str
+
+
+@app.post("/api/validation-studio/interpret")
+def api_validation_studio_interpret(r: ValidationResultsReq):
+    try:
+        rows = VSTUDIO.parse_results_csv(r.results_csv, r.plan)
+        return VSTUDIO.interpret_results(r.plan, rows)
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    except Exception as exc:
+        return _api_failure("validation-result interpretation", exc, status_code=500)
+
+
+# ============ OligoForge Assurance: reproducible local evidence artifacts ============
+class AssaySBOMReq(BaseModel):
+    assay: Dict
+
+
+@app.post("/api/assurance/assaysbom")
+def api_assurance_assaysbom(r: AssaySBOMReq):
+    try:
+        return ASSURE.build_assaysbom(r.assay)
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+
+
+class SnapshotBuildReq(BaseModel):
+    fasta: str
+    name: str = "Sequence snapshot"
+    source: Optional[Dict] = None
+    metadata: Optional[str] = None
+    role: str = "target"
+
+
+@app.post("/api/assurance/snapshots")
+def api_assurance_snapshot(r: SnapshotBuildReq):
+    try:
+        return ASSURE.build_snapshot(r.fasta, name=r.name, source=r.source,
+                                     metadata=r.metadata, role=r.role)
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+
+
+class SnapshotDeltaReq(BaseModel):
+    baseline: Dict
+    followup: Dict
+
+
+@app.post("/api/assurance/snapshots/delta")
+def api_assurance_snapshot_delta(r: SnapshotDeltaReq):
+    try:
+        return ASSURE.snapshot_delta(r.baseline, r.followup)
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+
+
+class DriftScanReq(BaseModel):
+    assaysbom: Dict
+    baseline_target: Dict
+    current_target: Dict
+    baseline_offtarget: Optional[Dict] = None
+    current_offtarget: Optional[Dict] = None
+    model: Dict = Field(default_factory=dict)
+    scan_complete: bool = True
+
+
+@app.post("/api/assurance/drift-scan")
+def api_assurance_drift_scan(r: DriftScanReq):
+    try:
+        return ASSURE.scan_drift(
+            r.assaysbom, r.baseline_target, r.current_target,
+            baseline_offtarget=r.baseline_offtarget,
+            current_offtarget=r.current_offtarget,
+            model=r.model, scan_complete=r.scan_complete,
+        )
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+
+
+class OfvrReq(BaseModel):
+    drift_scan: Dict
+    issuance_year: Optional[int] = None
+
+
+@app.post("/api/assurance/ofvr")
+def api_assurance_ofvr(r: OfvrReq):
+    try:
+        return {"records": ASSURE.generate_ofvrs(r.drift_scan, issuance_year=r.issuance_year)}
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+
+
+class EvidencePackageReq(BaseModel):
+    assaysbom: Dict
+    snapshots: List[Dict] = Field(default_factory=list)
+    deltas: List[Dict] = Field(default_factory=list)
+    drift_scans: List[Dict] = Field(default_factory=list)
+    vulnerabilities: List[Dict] = Field(default_factory=list)
+    validation_plans: List[Dict] = Field(default_factory=list)
+    repairs: List[Dict] = Field(default_factory=list)
+
+
+@app.post("/api/assurance/package")
+def api_assurance_package(r: EvidencePackageReq):
+    try:
+        package = ASSURE.build_evidence_package(
+            assaysbom=r.assaysbom, snapshots=r.snapshots, deltas=r.deltas,
+            drift_scans=r.drift_scans, vulnerabilities=r.vulnerabilities,
+            validation_plans=r.validation_plans, repairs=r.repairs,
+        )
+        return {"package": package, "verification": verify_evidence_package(package),
+                "html": ASSURE.evidence_package_html(package)}
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)

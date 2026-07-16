@@ -1,4 +1,6 @@
-# OligoForge v1.34.0 Ranking Validation Report
+# OligoForge v1.35.0 Ranking Validation Report
+
+Version 1.35.0 retains ranker 2.2.0 and the frozen 1.34 ranking evidence. No rank weights, lexicographic priorities, hard constraints, objective profiles, retention priorities, or benchmark labels were changed. Search 2.1.1 adds an invariant minimum of up to three spread-ordered windows before its soft runtime cutoff, repairing cold-cache/warm-cache corpus variation without making search exhaustive. New Validation Studio and Assurance results remain separate evidence records and do not retrain or silently alter candidate order.
 
 ## 1. Existing ranker description
 
@@ -134,9 +136,11 @@ The benchmark corpus validator rejects duplicate/missing case identifiers, incom
 
 Use target-group-separated assays and compare rank 1 with diverse alternatives from ranks 2–10 under matched conditions. Measure amplification success, efficiency, linearity, Cq at fixed input, replicate precision, LOD/LOQ with adequate replication, product identity, inclusivity, exclusivity, probe signal, inhibition sensitivity, and multiplex performance. Preserve failed assays and redesign history.
 
-## 20. Release recommendation
+## 20. Historical 1.34.0 release recommendation
 
-Release v1.34.0 as a computational ranking-truth and evidence-provenance pre-release. The new ranker measurably improves held-out **synthetic/adversarial selection**, repairs confirmed candidate-loss mechanisms, and exposes its assumptions and attrition. It has not demonstrated improved held-out biological selection performance.
+The 1.34.0 decision was to release a computational ranking-truth and evidence-provenance pre-release. Ranker 2.2.0 measurably improved held-out **synthetic/adversarial selection**, repaired confirmed candidate-loss mechanisms, and exposed its assumptions and attrition. It did not demonstrate improved held-out biological selection performance.
+
+The 1.35.0 release preserves that ranking decision. Its staged orchestration, Validation Studio, and Assurance records add operational and evidence capabilities but do not provide new rank labels or a new biological-accuracy claim. The regenerated biological trace records application 1.35.0 and search 2.1.1 and remains a regression fixture, not a public historical replay.
 
 ## Machine-readable outputs and figures
 
@@ -159,4 +163,3 @@ The release adds independent regressions for exhaustive manual near-match report
 The ranking corpus remains small: 11 frozen synthetic/adversarial preference fixtures. Proportion estimates therefore include Wilson 95% intervals. An observed 11/11 Top-1 recovery has a finite lower confidence bound and must not be described as certainty about unseen biological targets. Published and biological fixtures remain viability/regression references, not labels of universal optimality.
 
 Version 1.34.0 does **not** claim improved held-out biological selection performance. It improves decision traceability, manual repair analysis, path consistency, and honest uncertainty while preserving the ranker 2.2.0 ordering rules.
-

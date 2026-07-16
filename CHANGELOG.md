@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.35.0 — staged design jobs, Validation Studio, and assay assurance
+
+- Replaced the browser's monolithic automatic-design request with a bounded, single-worker job backend that returns a capability identifier promptly and records actual retrieval, design, enrichment, and optional specificity stages.
+- Added idempotent submission, bounded queueing, required-stage deadlines, optional-BLAST deadlines, cancellation, terminal TTL cleanup, sanitized snapshots, and BLAST-only retry without repeating the completed primary design.
+- Preserved the legacy synchronous API for compatibility while refactoring its scientific work into the same reusable stage functions used by the job worker.
+- Added browser job submission, real stage progress, cancellation, resume after navigation/reload, non-secret form preservation, visible deployment limits, and primary-result retention when optional BLAST is unavailable.
+- Replaced raw Manual Design ranking structures in ordinary workflows with structured mapping, hard-requirement, target/off-target, thermodynamic, robustness, rank, uncertainty, and provenance presentations; machine evidence remains downloadable in Advanced evidence.
+- Added Validation Studio candidate/case normalization, duplicate suppression, complete-product disagreement evaluation, deterministic bounded case selection, candidate-interleaved 96/384-well layouts, control handling, edge warnings, injection-safe CSV, result import, and conservative interpretation.
+- Added the first offline OligoForge Assurance workflow: versioned AssaySBOM, bounded FASTA/FASTA.GZ snapshots, accepted/rejected record ledgers, exact deduplication, immutable hashes, deterministic snapshot deltas, complete-product DriftGuard, OFVR records, and self-verifying evidence packages.
+- Added JSON schemas, offline Assurance CLI, methods/limits/threat-model documentation, API and deployment guidance, current-source evidence mapping, and data attribution.
+- Made Python and Node test discovery recursive and added a release gate that rejects any source directory containing 100 or more direct child files.
+- Bumped candidate search to 2.1.1 and made its minimum candidate corpus deterministic: up to the first three spread-ordered target windows (5′, 3′, midpoint) are evaluated before the soft runtime cutoff. The ledger records this minimum; search remains heuristic-bounded.
+- Replaced a cache/order-sensitive live wall-clock performance ratio with deterministic scan-work linearity while retaining the frozen environment-recorded benchmark and scientific-library acceptance checks.
+- The structured ranker remains version 2.2.0; this release does not change authoritative candidate ordering or claim new held-out biological accuracy.
+- The shipped job backend is explicitly process-local and non-durable, with stage-boundary cancellation and one scientific worker; jobs are lost on restart and horizontal scaling requires a shared authenticated queue/store.
+- Aegis multi-edit search, Repair Compiler orchestration, FutureProof/`assurance_futureproof`, enterprise Assurance persistence, a complete Assurance browser workspace, and public historical sequence replay are not included.
+
 ## 1.34.0 — decision analysis, edit comparison, and path unification
 
 - Manual mapping now reports every allowed near-match, including primer placements with a terminal 3′ mismatch; such placements are explicitly marked non-extension-eligible rather than hidden.

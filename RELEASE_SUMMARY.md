@@ -1,183 +1,123 @@
-# OligoForge 1.34.0 Release Summary
+# OligoForge 1.35.0 release summary
 
-## Release objective
+## Outcome
 
-This release addresses the central product weakness: technically acceptable candidates could be returned without evidence that the highest-ranked complete assay was the strongest candidate preserved under the declared objective.
+OligoForge 1.35.0 converts automatic design from a single long browser request into a bounded staged job, makes Manual Design evidence readable without discarding its machine record, adds a reproducible Validation Studio, and delivers an offline assay-assurance vertical slice from AssaySBOM through immutable sequence evidence, DriftGuard, OFVR, and a self-verifying evidence package.
 
-OligoForge now reports the best-supported candidate among a bounded, fully evaluated retained pool, together with assumptions, attrition, hard failures, competing alternatives, rank rationale, uncertainty, and evaluations not performed. Version 1.34 retains those protections and adds exhaustive manual near-match visibility, exact edit-versus-baseline analysis, reproducibility-aware design-run comparison, rank-reversal scenarios, local feedback evidence summaries, finite benchmark uncertainty intervals, and an authoritative evidence-preserving Batch Design path. It does not claim a universal wet-lab optimum.
+The authoritative structured ranker remains version 2.2.0. This release does not change its weights, hard constraints, lexicographic priorities, objective profiles, or deterministic tie-breaking. Search version 2.1.1 repairs cache-sensitive candidate-corpus variation by evaluating a deterministic minimum of up to three spread-ordered target windows before honoring the soft runtime cutoff. Search remains heuristic-bounded.
 
-## Ranking defects repaired
+## Delivered in 1.35.0
 
-1. Early-window and dense-region candidate monopoly.
-2. Early primer and pair truncation before complete-triplet evidence.
-3. Greedy first-probe attachment.
-4. One-slot probe strand-order bias.
-5. Discrimination-specialist probe monopoly.
-6. Target/off-target-superior probes lost outside the local thermodynamic beam.
-7. Exact and near duplicates consuming retention budgets.
-8. Plain top-N truncation before expensive annotation.
-9. Specificity and conservation displayed after they could no longer change rank.
-10. Weighted-score compensation for hard failures.
-11. Degenerate primers evaluated with the unchanged probe accidentally omitted.
-12. Robustness claims based only on Tm windows.
-13. Finalist categories attached to non-category winners.
-14. Automatic, direct, batch, viewer, manual, and rescue workflow divergence.
-15. Repeated-target coordinate ambiguity.
-16. Locked components disappearing from generic candidate beams.
-17. Multiplex interaction underweighting.
-18. False decimal-score precision and missing comparison rationale.
-19. Shared mutable reaction-condition state.
-20. Opaque runtime/native-call failure behavior from excessive full-annotation batches.
-21. Deterministic tie-breakers displayed as stronger evidence than they contained.
-22. Missing off-target, panel, or junction evidence not always suppressing comparison confidence.
-23. Incomplete scientific/library/database provenance in run manifests.
-24. Duplicate, conflicting, impossible, or target-leaking experimental-feedback datasets.
-25. Benchmark split integrity assumed rather than machine-validated.
-26. Rank manifests and evidence could be dropped when a candidate entered the Workbench or a report/export.
-27. Reports could recompute Tm and structures under mutable session conditions instead of the assay's recorded design conditions.
-28. Exact manually analyzed assays could not be transferred directly into the Workbench without first generating a redesign or rescue result.
-29. Manual mapping hid near placements with terminal 3′ mismatches instead of showing why extension was unsafe.
-30. Exact manual sequence edits lacked authoritative before/after evidence comparison.
-31. Two saved runs could not be audited for winner changes, rank shifts, candidate loss, or context drift.
-32. Rank explanations did not state concrete conditions under which the ordering might reverse.
-33. Feedback records could be stored but lacked bounded, context-local descriptive evidence summaries.
-34. Batch Design bypassed structured ranking and discarded attrition, explanations, and run provenance.
+### Staged automatic design
 
-See `RANKING_AUDIT.md` for reproductions, mechanisms, and repair details.
+- `POST /api/autodesign/jobs` returns a capability identifier promptly and queues sequence retrieval, candidate design/ranking, enrichment, and optional specificity as actual stages.
+- The process-local backend provides a bounded queue, one scientific worker, idempotent submission, per-job capability access, required-stage deadlines, optional-BLAST deadlines, terminal expiry, sanitized snapshots, and no public list endpoint.
+- A required-stage failure, timeout, or cancellation never exposes a partial finalist as complete.
+- Optional BLAST failure, timeout, or cancellation retains the completed primary design with a warning. `POST /api/autodesign/jobs/{job_id}/retry-blast` retries specificity without repeating retrieval, design, or enrichment.
+- The browser submits, polls, cancels, and resumes by capability identifier; preserves non-secret form inputs; shows deployment limits and actual stage state; and keeps the primary result visible when optional specificity is unavailable.
+- The synchronous `/api/autodesign` route remains for compatibility and composes the same refactored scientific stage functions.
 
-## Evidence provenance and feedback integrity
+This is not a durable or distributed queue. Jobs and idempotency records are lost on restart, capability namespaces are per process, and cancellation/deadline observation is stage-boundary. A native or network call already in progress can drain before the sole worker advances.
 
-- Consecutive candidates can share an explicit equivalence group while retaining deterministic export order.
-- Required evidence is objective-aware; missing specificity, panel, or junction evaluation produces an insufficient-evidence state.
-- Run manifests are deterministic, self-hashing, and independently verifiable, and record application/ranker/schema/search/retention/manual/rescue versions, native scientific-library versions, scientific model identifiers, reaction conditions, constraints, candidate limits, input hashes, external-database state, warnings, and fallbacks.
-- Selecting a candidate no longer strips that provenance: automatic, direct, manual, and rescue candidates retain the manifest, objective, candidate rank, evidence vector, explanation, trace, attrition, and search state in the Workbench.
-- HTML and CSV reports verify and expose the complete run ID and manifest digest; RDML 1.3 target descriptions carry compact verified provenance. Missing or altered manifests are labeled rather than trusted.
-- Report thermodynamics use each assay's recorded manifest condition snapshot. Legacy assays are explicitly labeled as using the current-session fallback rather than silently mixing conditions.
-- JSON and CSV feedback imports are normalized through one schema with bounded values, exact deduplication, conflict detection, completeness reporting, and versioned record hashes.
-- Dataset splitting assigns complete target groups—not individual assay rows—to deterministic train, validation, or test sets.
-- A learned reranker remains disabled unless the minimum evidence gate is met and subsequent leakage-controlled validation demonstrates held-out improvement.
-- Benchmark manifests now fail on duplicate or missing IDs, incomplete/overlapping splits, target-group leakage, or expected candidates absent from the case.
+### Manual Design evidence presentation
 
-## Manual Design Studio implemented
+Ordinary analysis, redesign, rescue, edit comparison, feedback, and run-comparison views now present structured scientific evidence rather than primary raw JSON:
 
-- Direct forward-primer, reverse-primer, optional probe, and template entry.
-- Shared authoritative sequence normalization and condition snapshot.
-- Every exact and allowed near placement, strand, orientation, coordinates, mismatch count, 3′ status, and uncertainty flag.
-- Every coherent forward/reverse product; no silent placement selection when several exist.
-- Hydrolysis-probe and SYBR analysis through the same ranker used by automatic design.
-- Direct transfer of the exact analyzed assay into the Workbench with its objective, evidence, rank trace, condition snapshot, source workflow, and verified run manifest intact.
-- Component locks for forward, reverse, primer pair, and probe.
-- Product-length, local-shift, and excluded-region constraints.
-- Locked-primer, probe-only, primer-only, pair, and local redesign.
-- Immediate complete recalculation after sequence changes.
-- Exhaustive display of allowed near placements, including non-extension-eligible terminal 3′ mismatches.
-- Exact baseline-versus-edited comparison through the complete mapping, specificity, conservation, robustness, and ranking path.
-- Side-by-side base-versus-redesign changes, retained/changed components, new risks, and rank explanations.
-- Manual design designations and versioned experimental-feedback records.
+- mapping status and all allowed placements;
+- observed/required hard requirements, rationale, remedy, and source;
+- coherent target and off-target products;
+- thermodynamics, structures, interactions, and robustness;
+- evaluation state, rank rationale, closest-competitor evidence, reversal conditions, uncertainty, and provenance.
 
-## Assay Diagnosis and Rescue implemented
+Machine-readable records remain available through Advanced copy/download actions. Stale-state guards prevent an edited form from silently reusing an earlier result, and Workbench transfer binds the analyzed candidate and its provenance. Placement display is capped at 100 rows and engine product records at 50; those caps are disclosed. Modified order notation is analyzed as the supported bare backbone and requires vendor/experimental confirmation.
 
-- Existing assay analysis with optional observed efficiency, standard-curve, melt, amplification, nonspecific-product, probe-signal, replicate, and multiplex information.
-- Computational diagnoses separated from experimental inference.
-- Evidence-checked one-base intended-template repair.
-- Small positional shifts.
-- Forward-primer replacement while retaining reverse primer.
-- Reverse-primer replacement while retaining forward primer.
-- Probe-only replacement while retaining both primers.
-- Primer-pair replacement while retaining an existing probe when applicable.
-- New amplicon within the same target.
-- Explicit escalation to a new target region when no defensible local repair survives.
-- Disruption order, components retained/changed, exact sequence changes, predicted improvement, new risks, evidence level, and wet-lab confirmation requirements.
+### Validation Studio
 
-## Benchmark outcome
+- Normalizes complete assays with chemistry and suppresses exact molecular-and-chemistry duplicates.
+- Reuses coherent complete-product reconstruction to identify candidate disagreements over supplied target and off-target cases.
+- Selects a bounded case set deterministically using new candidate-pair distinctions, modeled-state diversity, group diversity, and stable tie-breaks.
+- Produces candidate-interleaved 96- or 384-well layouts with 1–12 replicates, declared controls, deterministic seed, optional edge exclusion/warnings, and spreadsheet-injection-safe CSV.
+- Imports completed results and labels predictions supported, contradicted, mixed, missing, invalid, or inconclusive under the declared experiment.
 
-Frozen synthetic/adversarial benchmark:
+The selector is deterministic greedy coverage, not a proof of global experimental optimality. Interpretation is local to the supplied cases, controls, conditions, observations, and acceptance criteria; it does not alter the ranker.
 
-- Legacy Top-1 expected preference: 18.2%.
-- Structured ranker 2.2.0 Top-1 expected preference: 100%.
-- Structured pairwise preference accuracy: 100%.
-- Held-out synthetic Top-1: 100%.
-- Final synthetic-test Top-1: 100%.
-- Structured Top-1 supplied signal/product off-target rate: 0%.
-- Small-soft-perturbation Top-1 stability: 79.2%, with instability concentrated in intentionally near-equivalent or knife-edge fixtures.
+### Assay Assurance vertical slice
 
-This is measurable improvement in frozen software-decision fixtures. It is not evidence of improved held-out biological performance.
+- A versioned AssaySBOM records normalized forward/reverse/probe components, chemistry, order notation, and locks with a deterministic content identifier.
+- Bounded offline FASTA/FASTA.GZ ingestion records source metadata, accepted and rejected records, exact duplicates, unique haplotypes, and group metrics separately.
+- Immutable target/off-target sequence snapshots have deterministic hashes; deterministic delta records report added, removed, and unchanged unique sequences.
+- DriftGuard reconstructs coherent complete products through `isolates.amplify` and emits structured, reason-coded nonnumeric states for target dropout and signal-capable off-target observations.
+- OFVR creates deterministic OligoForge-local vulnerability records without representing them as an external standard.
+- Evidence packages combine AssaySBOMs, snapshots, deltas, scans, OFVRs, and Validation Studio plans with per-artifact and package SHA-256 verification and escaped HTML rendering.
+- JSON schemas, an offline CLI, methods, limits, threat model, source/evidence mapping, attribution, and API/deployment guidance are included.
 
-## Files added
+Hashes establish content integrity, not authorship, database completeness, population representativeness, clinical validity, regulatory acceptability, or wet-lab performance.
 
-- `RANKING_AUDIT.md`
-- `RANKING_VALIDATION_REPORT.md`
-- `RELEASE_SUMMARY.md`
-- `RELEASE_TEST_REPORT.md`
-- `run_tests.sh`
-- `tests/run_ranking_benchmark.py`
-- `tests/generate_biological_ranking_trace.py`
-- `tests/test_ranking_benchmark.py`
-- `tests/test_ranking_truth.py`
-- `tests/test_autodesign_inclusivity.py`
-- `tests/test_evidence_provenance.py`
-- `oligoforge/provenance.py`
-- `oligoforge/run_compare.py`
-- `tests/test_decision_analysis.py`
-- `tests/ui_manual_studio.js`
-- `tests/fixtures/autodesign_expected_v1.33.json`
-- Frozen benchmark corpus, manifest, JSON/CSV results, trace, PNG, and SVG under `tests/benchmark/`.
+### Release engineering
 
-## Substantially changed files
+- Python and Node test discovery is recursive.
+- The test runner prunes caches and dependency/build directories and applies a per-program timeout.
+- A release gate rejects any source directory with 100 or more direct children.
+- The performance gate uses deterministic scientific work units for its live linearity assertion while retaining the frozen environment-recorded benchmark and scientific-library acceptance checks.
+- Current API, deployment, licensing/attribution, prior-art/requirements, and regulatory evidence-mapping documents cover the implemented routes and operational boundaries.
 
-- Scientific design/ranking: `oligoforge/autodesign.py`, `design.py`, `candidate_search.py`, `candidate_retention.py`, `ranking.py`, `ranking_profiles.py`, `ranking_explain.py`, `provenance.py`, `thermo.py`.
-- Manual/rescue/feedback/decision audit: `manual_design.py`, `assay_rescue.py`, `experimental_feedback.py`, `run_compare.py`.
-- Product/API/UI: `app.py`, `static/index.html`, `launcher.py`, `oligoforge/__init__.py`.
-- Tests and release tooling: `run_tests.py`, `package.json`, `package-lock.json`, multiple scientific regression programs, and release documentation.
+## Ranking and scientific behavior
 
-No scientific module was intentionally removed. The frozen automatic-design fixture was renamed from `autodesign_expected_v1.32.json` to `autodesign_expected_v1.33.json`; both biological regression programs now reference the version-matched file.
+Ranker 2.2.0 remains authoritative. Validation Studio observations, Assurance scans, OFVRs, and imported experimental feedback do not retrain, reweight, or silently change candidate order. A learned reranker remains disabled unless target-group isolation, conflict adjudication, leakage-controlled validation, calibration, ablation, and held-out improvement are demonstrated.
+
+Search version 2.1.1 always evaluates up to the first three windows in the spread ordering (5′, 3′, midpoint) before applying the soft time budget. The ledger records `deterministic_minimum_windows`. Direct `design_assay` declares this three-window corpus; broader workflows retain their explicit larger window and retention budgets. This establishes deterministic bounded inputs, not an exhaustive or globally optimal assay search.
+
+The frozen synthetic/adversarial ranking benchmark and Plasmodium/Haemoproteus trace remain regression evidence for software behavior. The trace was regenerated with application 1.35.0 and search 2.1.1 after the determinism repair. These fixtures do not establish improved held-out biological selection performance.
+
+## Main files added
+
+- Job orchestration: `oligoforge/jobs.py`, `tests/integration/test_autodesign_jobs.py`.
+- Validation Studio: `oligoforge/validation_studio.py`, `VALIDATION_STUDIO_METHODS.md`, `schemas/validation_plan.schema.json`, `tests/test_validation_studio.py`.
+- Assurance: `oligoforge/assurance/`, `oligoforge/assurance_cli.py`, Assurance guides/methods/limits/threat-model documents, five Assurance schemas, `templates/assaysbom_components.csv`, and `tests/test_assurance.py`.
+- API/release guidance: `API.md`, `DEPLOYMENT.md`, `DATA_LICENSING_AND_ATTRIBUTION.md`, `ASSURANCE_PRIOR_ART_AND_REQUIREMENTS.md`, and `REGULATORY_EVIDENCE_MAPPING.md`.
+- Release checks: `tests/integration/test_new_api.py`, `tests/test_release_engineering.py`, and `tools/check_directory_file_counts.py`.
+
+## Main files changed
+
+- Scientific/orchestration: `oligoforge/autodesign.py`, `oligoforge/candidate_search.py`, and `oligoforge/design.py`.
+- API/UI: `app.py`, `static/index.html`, `launcher.py`, and `oligoforge/__init__.py`.
+- Test/release tooling: `run_tests.py`, `run_tests.sh`, `package.json`, `package-lock.json`, `tests/test_performance.py`, UI harnesses, benchmark trace, and release documentation.
+
+No production scientific module was intentionally removed. The final clean-archive file inventory and digest are generated during packaging rather than inferred in this summary.
 
 ## Deployment
 
-### Local
+Local use remains the safest default. The included Dockerfile and `render.yaml` support a one-process service. Set `OLIGOFORGE_HOSTED=1` for hosted restrictions, configure NCBI contact credentials through environment variables, and keep secrets outside source and job snapshots. Hosted project persistence, shared reaction-condition mutation, and local BLAST paths remain disabled unless deliberately enabled in a private authenticated deployment.
 
-```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
-npm ci
-python run_tests.py
-uvicorn app:app --host 127.0.0.1 --port 8000
-```
+Run one application process for the shipped job backend. Multiple workers or replicas create independent queues and capability namespaces; use sticky routing for a temporary constrained deployment or replace the backend with an authenticated shared durable queue and store. The application does not provide authentication, authorization, tenant isolation, TLS termination, a shared database, or regulatory electronic-record controls.
 
-### Render
+No live Render service was deployed or verified because no authorized repository/service target was provided.
 
-Use `render.yaml` or the included Dockerfile. Set `OLIGOFORGE_HOSTED=1`, provide an NCBI contact email through environment variables, and store all secrets in Render configuration. Hosted server-side project storage, reaction-setting mutation, and local BLAST paths remain disabled unless deliberately enabled in a private authenticated deployment.
+## Explicitly not delivered
 
-## Known limitations
+- Aegis multi-edit mutation search.
+- Repair Compiler orchestration.
+- The `assurance_futureproof` objective or FutureProof design.
+- Enterprise portfolio persistence, multi-tenant access control, or a complete Assurance browser workspace.
+- A public historical sequence replay or retrospective performance demonstration.
 
-- Heuristic-bounded search can miss an unretained triplet.
-- No target-grouped held-out wet-lab preference dataset is included.
-- A near-equivalent or insufficient-evidence label is conditional on the modeled evidence and supplied corpora, not a biological equivalence proof.
-- The feedback eligibility gate is not a validated learned model.
-- Live NCBI and remote BLAST availability is external to the release.
-- Modified-probe and degenerate-pool predictions require vendor and experimental confirmation.
-- The three-scenario robustness screen does not exhaust all reagent and matrix effects.
-- Live Render deployment could not be confirmed without repository/service access.
+Existing constrained redesign and Assay Rescue remain available, but they are not relabeled as Aegis or Repair Compiler. No `DEMO_HISTORICAL_REPLAY.md` is included because no genuine public replay was run.
+
+## Scientific and product limitations
+
+- Search and retention are bounded heuristics and can miss an unretained triplet.
+- A supplied sequence snapshot can be incomplete, biased, duplicated, or unrepresentative even when its hash is valid.
+- Complete-product modeling does not determine amplification efficiency, fluorescence, inhibition, matrix effects, LOD/LOQ, analytical sensitivity/specificity, clinical performance, or multiplex competition.
+- Polymerase-specific mismatch tolerance, modified oligos, degenerate pools, and vendor notation require appropriate experimental confirmation.
+- Live NCBI and BLAST availability, content, licensing, and rate limits are external.
+- No target-grouped held-out wet-lab preference dataset or validated learned reranker is included.
+- Rank equivalence and uncertainty labels are conditional on modeled and supplied evidence; they are not biological-equivalence claims.
+- No regulatory compliance or intended-use claim follows from the evidence mappings or package structure.
 
 ## Recommended wet-lab comparison
 
-Preregister a target-grouped comparison of rank 1 against diverse alternatives from ranks 2–10 and an external comparator under matched sequences, chemistry, concentrations, and annealing conditions. Measure amplification success, efficiency, linearity, fixed-input Cq, replicate precision, adequate LOD/LOQ, product identity, inclusivity, exclusivity, probe signal, inhibition sensitivity, synthesis failures, and multiplex performance. Preserve failed assays and redesign history.
+Preregister a target-grouped comparison of rank 1 against region/pair-diverse alternatives and an external comparator under matched templates, chemistry, concentrations, cycling, and analysis rules. Measure amplification success, efficiency, linearity, fixed-input Cq, replicate precision, product identity, inclusivity, exclusivity, probe signal, inhibition sensitivity, adequate LOD/LOQ, synthesis failures, and multiplex performance. Preserve failed assays, invalid runs, sequence-corpus provenance, and redesign history.
 
-## Release conclusion
+## Historical continuity
 
-The new ranker **did improve held-out synthetic/adversarial selection performance** and repaired confirmed candidate-loss mechanisms. The release does **not** establish improved held-out biological selection performance or universal assay optimality.
-
-## 1.34.0 decision-analysis additions
-
-- Every allowed manual near-match is visible, including failed terminal 3′ placements.
-- Exact manual edits receive complete baseline-versus-edited evidence comparison.
-- Complete design runs can be compared for reproducibility and rank stability.
-- Rank explanations identify concrete conditions that could reverse an ordering.
-- Experimental outcomes receive local, context-bounded summaries without activating an unvalidated learned model.
-- Benchmark proportions include finite uncertainty intervals.
-- Batch Design now uses the authoritative structured ranker and preserves evidence/provenance; its smaller search budget is explicit and auditable.
-
-These changes improve the ability to understand, override, repair, and reproduce rankings. They do not add wet-lab labels to the benchmark and do not convert computational preference into a validated biological claim.
-
+Version 1.34.0 added decision analysis, exhaustive allowed manual near-placement visibility, exact edit comparison, run comparison, rank-reversal conditions, context-local feedback summaries, benchmark uncertainty intervals, and authoritative Batch Design. Version 1.35.0 preserves those behaviors while adding staged jobs, evidence-oriented UI presentation, Validation Studio, and Assurance. See `CHANGELOG.md`, `RANKING_AUDIT.md`, and `RANKING_VALIDATION_REPORT.md` for the historical ranking-truth record.

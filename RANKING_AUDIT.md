@@ -1,4 +1,6 @@
-# OligoForge Ranking Audit — v1.34.0
+# OligoForge Ranking Audit — v1.35.0
+
+Version 1.35.0 does not change the authoritative ranking order, ranking schema, objective priorities, or ranker version (2.2.0). Search version 2.1.1 evaluates a deterministic minimum of up to three spread-ordered target windows before its soft runtime cutoff, preventing cache warmth from changing the minimum candidate corpus; search remains heuristic-bounded. Staged automatic design invokes the same refactored scientific functions as the retained synchronous compatibility endpoint; Validation Studio and Assurance consume completed assay evidence without silently changing rank.
 
 ## Executive finding
 
@@ -166,4 +168,3 @@ The complete machine-readable trace is `tests/benchmark/plasmodium_ranking_trace
 - **Run reproducibility:** before, identical manifests with reordered candidates were not diagnosed; after, the comparison classifies this as `critical_non_reproducibility`.
 
 The new functions do not prove biological superiority. They make candidate loss, manual edits, rank changes, and evidence gaps reconstructable.
-
