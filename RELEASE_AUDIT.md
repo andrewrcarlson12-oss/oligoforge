@@ -1,16 +1,15 @@
-# OligoForge 1.35.0 release audit
+# OligoForge 1.36.0 release audit
 
 ## Audited scope
 
-Version 1.35.0 is the staged-design, Validation Studio, and assay-assurance release. The audit covers:
+Version 1.36.0 is the lifecycle-workspace release. The audit covers:
 
-- the process-local automatic-design job backend and browser submit/poll/resume/cancel flow;
-- the human-readable Manual Design evidence presentation;
-- deterministic Validation Studio experiment planning and conservative result interpretation;
-- AssaySBOM, immutable offline sequence snapshots and deltas, complete-product DriftGuard, OFVR, the offline Assurance CLI, and self-verifying evidence packages;
-- preservation of the authoritative ranker, provenance chain, hosted restrictions, recursive test discovery, and release directory limits.
+- first-class Validation Studio and Assurance destinations in the main browser navigation;
+- readable candidate-disagreement, case-selection, full-plate, control, interpretation, AssaySBOM, snapshot, delta, DriftGuard, OFVR, and package evidence;
+- exact end-to-end API wiring, snapshot baseline/retrieval provenance, active-plan packaging, downloads, workflow status, responsive layout, and accessibility semantics;
+- preservation of the 1.35 staged-design, Manual Design, lifecycle engines, authoritative ranker, provenance chain, hosted restrictions, recursive test discovery, and release directory limits.
 
-The ranker remains version 2.2.0. Version 1.35.0 does not change rank weights, objective priorities, hard constraints, or the authoritative ordering rules. Search version 2.1.1 adds a deterministic minimum target-spanning corpus before the soft wall-clock cutoff; this fixes cold-cache/warm-cache variation in the candidate corpus without claiming exhaustive search.
+The ranker remains version 2.2.0 and search remains version 2.1.1. Version 1.36.0 does not change rank weights, objective priorities, hard constraints, candidate search, or authoritative ordering rules.
 
 ## Implemented boundary
 
@@ -21,6 +20,7 @@ The ranker remains version 2.2.0. Version 1.35.0 does not change rank weights, o
 - Validation Studio uses deterministic bounded greedy case selection. It does not claim a globally optimal experimental design.
 - DriftGuard reconstructs coherent complete products through the existing isolate engine. Its reason-coded states are computational observations, not biological-risk probabilities.
 - Snapshot and evidence-package hashes provide integrity and reproducibility, not authenticity, representativeness, regulatory compliance, or wet-lab validity.
+- Browser lifecycle state is session-local. The new workspaces are not an authenticated registry, durable approval system, or second scientific implementation.
 
 ## Verification status
 
@@ -30,7 +30,7 @@ The ranker remains version 2.2.0. Version 1.35.0 does not change rank weights, o
 | Focused Validation Studio and Assurance unit/API regressions | Passed |
 | Ranking benchmark determinism after search 2.1.1 change | Passed |
 | Evidence/provenance regression after trace regeneration | Passed |
-| Browser/UI harness set | Passed; 9 harnesses |
+| Browser/UI harness set | Passed; 10 harnesses, including 20 lifecycle workflow/accessibility checks |
 | Manual Design targeted browser checks | Passed; 75 checks |
 | Real-DOM async job integration check | Passed; submit/idempotency/resume-state/result path exercised |
 | Recursive source-tree Python suite | Passed; 49 / 49 programs |
@@ -44,7 +44,7 @@ Exact counts, dependency versions, and extracted-tree results are recorded in `R
 
 ## Honest omissions
 
-The release does not implement Aegis multi-edit mutation search, Repair Compiler orchestration, the `assurance_futureproof` objective/FutureProof design, enterprise or multi-tenant assurance persistence, or a complete Assurance browser workspace. Existing constrained redesign and Assay Rescue remain distinct workflows and are not represented as those features.
+The release does not implement Aegis multi-edit mutation search, Repair Compiler orchestration, the `assurance_futureproof` objective/FutureProof design, enterprise or multi-tenant assurance persistence, identity-backed approval, or durable lifecycle-session recovery. Existing constrained redesign and Assay Rescue remain distinct workflows and are not represented as those features.
 
 No public historical sequence replay was performed, so no `DEMO_HISTORICAL_REPLAY.md` or retrospective performance claim is included. The frozen Plasmodium/Haemoproteus trace remains a software regression fixture, not a new public historical replay or prospective validation.
 

@@ -2,7 +2,7 @@
 
 ## Status and intended use of this mapping
 
-This mapping is a planning aid for organizations evaluating OligoForge 1.35.0 in an assay-development or quality workflow. It is not legal advice, a regulatory submission, a declaration of conformity, a quality-system procedure, or a determination that OligoForge is a medical device or is suitable for a particular regulated use.
+This mapping is a planning aid for organizations evaluating OligoForge 1.36.0 in an assay-development or quality workflow. It is not legal advice, a regulatory submission, a declaration of conformity, a quality-system procedure, or a determination that OligoForge is a medical device or is suitable for a particular regulated use.
 
 OligoForge has not been shown in this repository to be FDA cleared, approved, authorized, listed, or registered; CE marked under the EU IVDR; certified to ISO 13485, ISO 14971, IEC 62304, ISO 15189, or another standard; or validated as a 21 CFR Part 11 electronic-record/signature system. Product classification and obligations depend on intended purpose, claims, jurisdiction, deployment, users, and how software output is used.
 
@@ -27,7 +27,7 @@ The mapping uses three contribution levels:
 | `SECURITY.md` and `ASSURANCE_THREAT_MODEL.md` | Security assumptions, implemented hardening, protected assets, and residual-risk inputs | Partial cybersecurity/risk input | Full security architecture, software SBOM, penetration testing, coordinated vulnerability process, patch SLA, monitoring, incident response, or secure-product lifecycle evidence |
 | `API.md`, schemas, tests, and release records | Interface description, data contracts, verification inputs, and configuration traceability | Partial software documentation input | Complete software requirements, architecture, safety classification, hazard analysis, trace matrix, unresolved-anomaly assessment, independent V&V, or submission-ready documentation |
 
-The evidence package accepts caller-supplied opaque `repairs` records. That field is only a packaging slot. OligoForge 1.35.0 does not implement an Assurance Repair subsystem. Aegis and FutureProof are also not implemented.
+The evidence package accepts caller-supplied opaque `repairs` records. That field is only a packaging slot. OligoForge 1.36.0 does not implement an Assurance Repair subsystem. Aegis and FutureProof are also not implemented.
 
 ## United States mapping
 
@@ -157,4 +157,3 @@ All sources were accessed 2026-07-15.
 - IMDRF, *Principles and Practices for Software Bill of Materials for Medical Device Cybersecurity* (N73): <https://www.imdrf.org/documents/principles-and-practices-software-bill-materials-medical-device-cybersecurity>
 - Bustin et al., MIQE primary paper: <https://pubmed.ncbi.nlm.nih.gov/19246619/>
 - RDML Consortium, MIQE/RDML information: <https://rdml.org/miqe.html>
-

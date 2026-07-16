@@ -1,6 +1,6 @@
-# OligoForge 1.35.0 API
+# OligoForge 1.36.0 API
 
-This document describes the HTTP surface implemented for the 1.35.0 release. The executable authority is `app.py`; request and response details generated from that code are available at `/openapi.json`, `/docs`, and `/redoc` while the service is running. The JSON schemas under `schemas/` are authorities for Assurance artifacts, not substitutes for the HTTP OpenAPI document.
+This document describes the HTTP surface implemented for the 1.36.0 release. The executable authority is `app.py`; request and response details generated from that code are available at `/openapi.json`, `/docs`, and `/redoc` while the service is running. The JSON schemas under `schemas/` are authorities for Assurance artifacts, not substitutes for the HTTP OpenAPI document.
 
 OligoForge is research and engineering software. An API response is not analytical, clinical, or regulatory evidence by itself.
 
@@ -141,12 +141,14 @@ The `/api/assay-rescue` endpoint is a bounded redesign/ranking helper. It is not
 
 The plan model includes `candidates`, `cases`, objective, reaction conditions, plate format, replicates, controls, acceptance criteria, model, maximum cases, seed, edge-well policy, and existing evidence. Validation Studio plans experiments and interprets supplied data; it does not conduct experiments or create analytical or clinical validity.
 
+The browser's Validation Studio destination is a first-party client of these endpoints. It renders selection rationale, modeled disagreements, the full plate, and conservative interpretation as human-readable evidence while retaining plan and CSV downloads.
+
 ### Assurance
 
 | Method | Path | Required or notable request fields | Output |
 |---|---|---|---|
 | POST | `/api/assurance/assaysbom` | `assay` | Deterministic `oligoforge-assaysbom/v1` record. |
-| POST | `/api/assurance/snapshots` | `fasta`; optional `name`, `role`, `source` object, and delimited `metadata` text | Immutable `oligoforge-sequence-snapshot/v1` record. |
+| POST | `/api/assurance/snapshots` | `fasta`; optional `name`, `role`, `source`, delimited `metadata`, `baseline_snapshot_id`, and `retrieval` | Immutable `oligoforge-sequence-snapshot/v1` record. |
 | POST | `/api/assurance/snapshots/delta` | `baseline`, `followup` | Deterministic set delta after hash verification. |
 | POST | `/api/assurance/drift-scan` | AssaySBOM and baseline/current target snapshots; optional off-target snapshots and model | Bounded `oligoforge-drift-scan/v1` record. |
 | POST | `/api/assurance/ofvr` | `drift_scan`; optional `issuance_year` | OligoForge-local vulnerability records. |
@@ -161,12 +163,14 @@ python -m oligoforge.assurance_cli --help
 Assurance semantics are deliberately bounded:
 
 - AssaySBOM is a molecular/computational inventory, not proof of performance.
-- Snapshots describe only supplied records and do not establish database completeness or population representativeness.
+- Snapshots describe only supplied records and do not establish database completeness or population representativeness. `baseline_snapshot_id` records caller-declared lineage; `retrieval` preserves caller-declared provenance such as offline submission and `network_used: false`. Neither field independently authenticates the source.
 - DriftGuard compares supplied snapshots under a declared complete-product model. It does not emit a numeric probability of clinical failure or future evolution.
 - OFVR identifiers are local records, unreviewed by default, and are not a recognized external vulnerability standard.
 - Evidence package hashes detect modification; they are not digital signatures and do not establish author identity.
-- The package request may carry caller-supplied opaque `repairs` artifacts. OligoForge 1.35.0 does not implement an Assurance Repair generator or workflow.
+- The package request may carry caller-supplied opaque `repairs` artifacts. OligoForge 1.36.0 does not implement an Assurance Repair generator or workflow.
 - Aegis, Repair, and FutureProof subsystems are not implemented.
+
+The browser's Assurance destination orchestrates these routes from registration through package verification. Its state is session-local and client-held; the API does not provide an authenticated registry, lifecycle list endpoint, or durable approval store.
 
 ## Environment variables
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.36.0 — visible lifecycle workspaces
+
+- Added first-class Validation Studio and Assurance destinations to the main navigation so the 1.35 lifecycle engines are directly discoverable and usable without API calls.
+- Added a guided Validation Studio workflow for pasted or Workbench candidates, target/near-neighbor FASTA cases, declared comparison criteria, deterministic case selection, and full 96/384-well plate visualization.
+- Added human-readable candidate-disagreement evidence, case-selection rationale, plan identity, edge-well warnings, fillable CSV download/import, conservative result interpretation, and downloadable plan/interpretation artifacts.
+- Added a guided Assurance workflow from exact displayed-assay or Workbench registration through AssaySBOM review, linked baseline/follow-up target and optional off-target snapshots, exact deltas, DriftGuard, OFVR issuance, and verified evidence-package export.
+- Preserved snapshot baseline identifiers and explicit offline retrieval provenance through the HTTP API and browser workflow.
+- Included an active Validation Studio plan in the Assurance package when both workflows are used in the same browser session.
+- Added plain-language scope statements, visible lifecycle progress, browser-session storage disclosure, responsive plate maps, accessible form names, polite status announcements, and current-step semantics.
+- Added a real-DOM lifecycle harness covering the complete visible workflow, API payloads, a 96-well rendering, baseline linkage, deltas, DriftGuard state, OFVRs, package verification, absence of primary raw-JSON dumps, and accessibility contracts.
+- The scientific search, structured ranker, objective profiles, and biological claim boundary are unchanged from 1.35.0.
+
 ## 1.35.0 — staged design jobs, Validation Studio, and assay assurance
 
 - Replaced the browser's monolithic automatic-design request with a bounded, single-worker job backend that returns a capability identifier promptly and records actual retrieval, design, enrichment, and optional specificity stages.

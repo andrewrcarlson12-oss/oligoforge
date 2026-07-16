@@ -2,7 +2,7 @@
 
 ## Purpose and boundary
 
-This document defines the implemented requirements baseline for OligoForge Assurance 1.35.0 and compares its artifacts with relevant public standards and reporting practices. It is not a patent prior-art search, freedom-to-operate opinion, standards certification, regulatory determination, or claim of novelty.
+This document defines the implemented requirements baseline for OligoForge Assurance 1.36.0 and compares its artifacts with relevant public standards and reporting practices. It is not a patent prior-art search, freedom-to-operate opinion, standards certification, regulatory determination, or claim of novelty.
 
 Only the following Assurance capabilities are implemented:
 
@@ -11,7 +11,8 @@ Only the following Assurance capabilities are implemented:
 3. DriftGuard comparison of supplied baseline and follow-up snapshots under a declared complete-product model;
 4. OligoForge-local OFVR generation from reason records;
 5. Validation Studio planning and interpretation of caller-supplied results; and
-6. deterministic evidence-package assembly and integrity verification.
+6. deterministic evidence-package assembly and integrity verification; and
+7. a session-local browser workspace that orchestrates and presents those existing authorities.
 
 Aegis multi-edit search, an Assurance Repair system, and FutureProof design are not implemented. A caller may place opaque records in an evidence package's `repairs` list, but OligoForge does not generate, validate, approve, or apply a repair.
 
@@ -38,6 +39,7 @@ Aegis multi-edit search, an Assurance Repair system, and FutureProof design are 
 | ASR-015 | Bounded experiment planning | Validation Studio lays out declared candidates, cases, replicates, controls, acceptance criteria, model, and plate policy; it interprets a caller-supplied results CSV against the plan. | `schemas/validation_plan.schema.json`, `oligoforge/validation_studio.py` |
 | ASR-016 | Offline file workflow | The Assurance CLI has explicit file arguments and performs no network retrieval for `build-assaysbom`, `build-snapshot`, `delta`, `drift-scan`, `ofvr`, or `package`. | `oligoforge/assurance_cli.py`, `ASSURANCE_CLI.md` |
 | ASR-017 | Honest scope statements | Artifacts and reports distinguish computational evidence from analytical, clinical, population, regulatory, and future-performance evidence. | `ASSURANCE_VALIDATION_LIMITS.md`, `ASSURANCE_THREAT_MODEL.md`, artifact builders |
+| ASR-018 | Human-readable lifecycle workspace | The browser exposes registration, linked snapshot provenance, deltas, reason-coded scans, OFVRs, package verification, and explicit downloads without creating a second scientific implementation or hiding raw artifacts. Form controls and workflow status have programmatic names/current-state semantics. | `static/index.html`, `tests/ui_lifecycle.js` |
 
 ## Prior-art and standards comparison
 
@@ -67,7 +69,7 @@ The MIQE paper describes minimum information needed to evaluate quantitative rea
 
 DriftGuard applies an established software pattern—versioned baseline, immutable input snapshot, deterministic set delta, bounded model execution, reason records, and review state—to molecular sequence inputs. It performs no scheduled retrieval, epidemiological surveillance, prevalence estimation, phylogenetics, forecasting, or future-evolution prediction. “Stable” means no modeled concern in the supplied snapshots and declared model; it is not a guarantee of future assay performance.
 
-## Explicit non-requirements for 1.35.0
+## Explicit non-requirements for 1.36.0
 
 The following are out of scope and must not be represented as present:
 

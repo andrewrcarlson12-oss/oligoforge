@@ -18,7 +18,7 @@ from oligoforge import assurance as ASSURE
 from oligoforge.assurance.evidence_package import verify_evidence_package
 from oligoforge.jobs import DesignJobManager, QueueFull as DesignQueueFull, IdempotencyConflict, RetryNotAvailable
 
-app = FastAPI(title="OligoForge", version="1.35.0")
+app = FastAPI(title="OligoForge", version="1.36.0")
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -1852,13 +1852,17 @@ class SnapshotBuildReq(BaseModel):
     source: Optional[Dict] = None
     metadata: Optional[str] = None
     role: str = "target"
+    baseline_snapshot_id: Optional[str] = None
+    retrieval: Optional[Dict] = None
 
 
 @app.post("/api/assurance/snapshots")
 def api_assurance_snapshot(r: SnapshotBuildReq):
     try:
         return ASSURE.build_snapshot(r.fasta, name=r.name, source=r.source,
-                                     metadata=r.metadata, role=r.role)
+                                     metadata=r.metadata, role=r.role,
+                                     baseline_snapshot_id=r.baseline_snapshot_id,
+                                     retrieval=r.retrieval)
     except (TypeError, ValueError) as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
 

@@ -1,6 +1,6 @@
-# OligoForge v1.35.0 Ranking Validation Report
+# OligoForge v1.36.0 Ranking Validation Report
 
-Version 1.35.0 retains ranker 2.2.0 and the frozen 1.34 ranking evidence. No rank weights, lexicographic priorities, hard constraints, objective profiles, retention priorities, or benchmark labels were changed. Search 2.1.1 adds an invariant minimum of up to three spread-ordered windows before its soft runtime cutoff, repairing cold-cache/warm-cache corpus variation without making search exhaustive. New Validation Studio and Assurance results remain separate evidence records and do not retrain or silently alter candidate order.
+Version 1.36.0 retains ranker 2.2.0 and the frozen ranking evidence. No rank weights, lexicographic priorities, hard constraints, objective profiles, retention priorities, or benchmark labels were changed. Search remains 2.1.1. The visible Validation Studio and Assurance workspaces remain separate evidence workflows and do not retrain or silently alter candidate order.
 
 ## 1. Existing ranker description
 
@@ -140,7 +140,7 @@ Use target-group-separated assays and compare rank 1 with diverse alternatives f
 
 The 1.34.0 decision was to release a computational ranking-truth and evidence-provenance pre-release. Ranker 2.2.0 measurably improved held-out **synthetic/adversarial selection**, repaired confirmed candidate-loss mechanisms, and exposed its assumptions and attrition. It did not demonstrate improved held-out biological selection performance.
 
-The 1.35.0 release preserves that ranking decision. Its staged orchestration, Validation Studio, and Assurance records add operational and evidence capabilities but do not provide new rank labels or a new biological-accuracy claim. The regenerated biological trace records application 1.35.0 and search 2.1.1 and remains a regression fixture, not a public historical replay.
+The 1.35.0 release preserved that ranking decision while adding staged orchestration and lifecycle engines. Version 1.36.0 adds first-class browser workspaces over those engines but provides no new rank labels or biological-accuracy claim. The regenerated biological trace records application 1.36.0 and search 2.1.1 and remains a regression fixture, not a public historical replay.
 
 ## Machine-readable outputs and figures
 

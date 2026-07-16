@@ -1,4 +1,4 @@
-# Validation limits — OligoForge 1.35.0
+# Validation limits — OligoForge 1.36.0
 
 OligoForge produces computational candidates, structured evidence, uncertainty labels, provenance manifests, and assay-readiness records. It does not biologically validate an assay.
 

@@ -1,6 +1,6 @@
-# OligoForge 1.35.0 engineering handoff
+# OligoForge 1.36.0 engineering handoff
 
-Release identity: application 1.35.0, authoritative ranker 2.2.0, search 2.1.1, ranking schema 1.2.0, and objective profile `2026-07-ranking-truth-3`.
+Release identity: application 1.36.0, authoritative ranker 2.2.0, search 2.1.1, ranking schema 1.2.0, and objective profile `2026-07-ranking-truth-3`.
 
 Authoritative search/ranking modules are `candidate_search.py`, `candidate_retention.py`, `ranking_profiles.py`, `ranking.py`, `ranking_explain.py`, `provenance.py`, and `ranking_benchmark.py`.
 
@@ -24,7 +24,7 @@ Experimental feedback is assay-specific evidence. Do not activate a learned rera
 
 Current status: computational pre-release. Synthetic/adversarial ranking behavior improved; held-out wet-lab rank-1 superiority is not established.
 
-## 1.35.0 operational invariants
+## 1.36.0 operational invariants
 
 - The in-memory job manager has one scientific worker, matching the process-wide Primer3/Entrez constraints. Do not increase worker count without removing shared native/global state and adding isolation tests.
 - The shipped queue is process-local and non-durable. Restart loses jobs and idempotency records; terminal records expire; multiple processes have independent queues and capability namespaces. Use one process, or replace this backend with an authenticated shared queue/store before horizontal scaling.
@@ -34,6 +34,7 @@ Current status: computational pre-release. Synthetic/adversarial ranking behavio
 - Snapshot and AssaySBOM identifiers verify canonical content. Migration or schema changes require new versions and deterministic-hash regressions.
 - DriftGuard uses reconstructed coherent products from `isolates.amplify`; do not replace this with independent oligo-percent-identity thresholds or a cosmetic biological-risk score.
 - Validation Studio selection is a bounded deterministic greedy coverage method, not a globally optimal experiment claim.
+- The Validation Studio and Assurance pages are first-party clients of server authorities. Keep primary evidence human-readable, downloads machine-complete, workflow state explicitly session-local, snapshot baseline/retrieval fields intact, and every visible control programmatically named.
 
 ## Search determinism invariant
 
@@ -56,9 +57,9 @@ Ordinary Manual Design panels now render evidence cards/tables; machine records 
 
 ## Explicit omissions
 
-Aegis multi-edit mutation search, Repair Compiler orchestration, the `assurance_futureproof` objective/FutureProof design, enterprise portfolio persistence, and a complete Assurance browser workspace are not implemented. Existing constrained redesign and Assay Rescue must not be renamed or documented as those workflows.
+Aegis multi-edit mutation search, Repair Compiler orchestration, the `assurance_futureproof` objective/FutureProof design, enterprise portfolio persistence, and identity-backed review/approval are not implemented. Existing constrained redesign and Assay Rescue must not be renamed or documented as those workflows.
 
-No public historical sequence replay was performed for 1.35.0. The frozen biological trace is a regression fixture only; do not add `DEMO_HISTORICAL_REPLAY.md` or a retrospective performance claim without a genuine source-versioned public replay and documented methods.
+No public historical sequence replay was performed for 1.36.0. The frozen biological trace is a regression fixture only; do not add `DEMO_HISTORICAL_REPLAY.md` or a retrospective performance claim without a genuine source-versioned public replay and documented methods.
 
 ## 1.34.0 maintenance notes
 

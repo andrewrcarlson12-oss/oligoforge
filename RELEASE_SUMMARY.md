@@ -1,12 +1,37 @@
-# OligoForge 1.35.0 release summary
+# OligoForge 1.36.0 release summary
 
 ## Outcome
 
-OligoForge 1.35.0 converts automatic design from a single long browser request into a bounded staged job, makes Manual Design evidence readable without discarding its machine record, adds a reproducible Validation Studio, and delivers an offline assay-assurance vertical slice from AssaySBOM through immutable sequence evidence, DriftGuard, OFVR, and a self-verifying evidence package.
+OligoForge 1.36.0 turns the Validation Studio and Assurance engines into visible, guided, end-to-end browser workspaces. The lifecycle capabilities that were previously most apparent through APIs, CLI commands, and documentation are now first-class destinations in the main navigation with readable evidence, explicit progress, worked examples, responsive plate maps, accessibility semantics, and direct artifact downloads.
 
-The authoritative structured ranker remains version 2.2.0. This release does not change its weights, hard constraints, lexicographic priorities, objective profiles, or deterministic tie-breaking. Search version 2.1.1 repairs cache-sensitive candidate-corpus variation by evaluating a deterministic minimum of up to three spread-ordered target windows before honoring the soft runtime cutoff. Search remains heuristic-bounded.
+The authoritative structured ranker remains version 2.2.0 and search remains 2.1.1. This release does not change weights, hard constraints, lexicographic priorities, objective profiles, candidate-search behavior, or deterministic tie-breaking.
 
-## Delivered in 1.35.0
+## Delivered in 1.36.0
+
+### Visible Validation Studio
+
+- A dedicated navigation destination accepts two or more pasted or Workbench assays and supplied target/near-neighbor FASTA cases.
+- The form declares objective, plate format, replicates, controls, randomization seed, model bounds, Cq precision, and efficiency acceptance criteria.
+- The primary result explains why cases were selected, which candidate pairs they distinguish, the modeled state for each candidate/case, and the exact plan hash.
+- A full responsive 96- or 384-well map shows interleaved candidate assignments, controls, unused wells, and edge-well warnings.
+- The workspace downloads the machine plan and fillable CSV, imports or accepts completed CSV, and reports control validity, supported/contradicted predictions, missing observations, and remaining uncertainty without changing the ranker.
+
+### Visible Assurance lifecycle
+
+- A dedicated navigation destination registers the displayed assay or entire Workbench as an AssaySBOM and shows normalized components, order sequences, locks, review state, identifiers, and content hashes.
+- Users can freeze baseline and follow-up target and optional off-target FASTA evidence. Follow-ups preserve baseline linkage, and browser-originated records explicitly declare offline retrieval with `network_used: false`.
+- Snapshot identity, raw/unique/duplicate/rejected counts, exact deltas, and download points are visible before scanning.
+- DriftGuard runs the real complete-product API, presents state and assay support in readable tables, exposes reason records by affected assay/record/group/component, and issues local OFVRs.
+- One action assembles and verifies the AssaySBOM, snapshots, deltas, scan, OFVRs, and any active Validation Studio plan. JSON and escaped review HTML are downloadable.
+
+### Product and accessibility finish
+
+- Both workspaces expose six-stage progress, scope boundaries, session-local storage disclosure, human-readable primary evidence, and explicit machine-download surfaces.
+- Every visible lifecycle input has a programmatic accessible name; dynamic statuses use polite live announcements; each workflow exposes one current step.
+- The API now carries snapshot `baseline_snapshot_id` and structured `retrieval` provenance from browser through immutable record.
+- A real-DOM lifecycle harness exercises the complete visible workflow in 20 checks, including 96-well rendering, API payloads, provenance linkage, deltas, OFVRs, package verification, readable evidence, and accessibility contracts.
+
+## Inherited 1.35.0 foundation
 
 ### Staged automatic design
 
@@ -67,9 +92,9 @@ Ranker 2.2.0 remains authoritative. Validation Studio observations, Assurance sc
 
 Search version 2.1.1 always evaluates up to the first three windows in the spread ordering (5′, 3′, midpoint) before applying the soft time budget. The ledger records `deterministic_minimum_windows`. Direct `design_assay` declares this three-window corpus; broader workflows retain their explicit larger window and retention budgets. This establishes deterministic bounded inputs, not an exhaustive or globally optimal assay search.
 
-The frozen synthetic/adversarial ranking benchmark and Plasmodium/Haemoproteus trace remain regression evidence for software behavior. The trace was regenerated with application 1.35.0 and search 2.1.1 after the determinism repair. These fixtures do not establish improved held-out biological selection performance.
+The frozen synthetic/adversarial ranking benchmark and Plasmodium/Haemoproteus trace remain regression evidence for software behavior. The trace was regenerated with application 1.36.0 and search 2.1.1; its expected candidate ordering remains unchanged. These fixtures do not establish improved held-out biological selection performance.
 
-## Main files added
+## Foundation files retained from 1.35.0
 
 - Job orchestration: `oligoforge/jobs.py`, `tests/integration/test_autodesign_jobs.py`.
 - Validation Studio: `oligoforge/validation_studio.py`, `VALIDATION_STUDIO_METHODS.md`, `schemas/validation_plan.schema.json`, `tests/test_validation_studio.py`.
@@ -77,11 +102,11 @@ The frozen synthetic/adversarial ranking benchmark and Plasmodium/Haemoproteus t
 - API/release guidance: `API.md`, `DEPLOYMENT.md`, `DATA_LICENSING_AND_ATTRIBUTION.md`, `ASSURANCE_PRIOR_ART_AND_REQUIREMENTS.md`, and `REGULATORY_EVIDENCE_MAPPING.md`.
 - Release checks: `tests/integration/test_new_api.py`, `tests/test_release_engineering.py`, and `tools/check_directory_file_counts.py`.
 
-## Main files changed
+## Main files changed for 1.36.0
 
-- Scientific/orchestration: `oligoforge/autodesign.py`, `oligoforge/candidate_search.py`, and `oligoforge/design.py`.
 - API/UI: `app.py`, `static/index.html`, `launcher.py`, and `oligoforge/__init__.py`.
-- Test/release tooling: `run_tests.py`, `run_tests.sh`, `package.json`, `package-lock.json`, `tests/test_performance.py`, UI harnesses, benchmark trace, and release documentation.
+- Verification: new `tests/ui_lifecycle.js`, expanded `tests/integration/test_new_api.py`, and regenerated versioned biological trace.
+- Release identity and guidance: `package.json`, `package-lock.json`, README, changelog, specification, API, deployment, handoff, ranking, validation, requirements, regulatory, and release documents.
 
 No production scientific module was intentionally removed. The final clean-archive file inventory and digest are generated during packaging rather than inferred in this summary.
 
@@ -98,7 +123,7 @@ No live Render service was deployed or verified because no authorized repository
 - Aegis multi-edit mutation search.
 - Repair Compiler orchestration.
 - The `assurance_futureproof` objective or FutureProof design.
-- Enterprise portfolio persistence, multi-tenant access control, or a complete Assurance browser workspace.
+- Enterprise portfolio persistence, multi-tenant access control, identity-backed approval, or durable lifecycle-session recovery.
 - A public historical sequence replay or retrospective performance demonstration.
 
 Existing constrained redesign and Assay Rescue remain available, but they are not relabeled as Aegis or Repair Compiler. No `DEMO_HISTORICAL_REPLAY.md` is included because no genuine public replay was run.
@@ -120,4 +145,4 @@ Preregister a target-grouped comparison of rank 1 against region/pair-diverse al
 
 ## Historical continuity
 
-Version 1.34.0 added decision analysis, exhaustive allowed manual near-placement visibility, exact edit comparison, run comparison, rank-reversal conditions, context-local feedback summaries, benchmark uncertainty intervals, and authoritative Batch Design. Version 1.35.0 preserves those behaviors while adding staged jobs, evidence-oriented UI presentation, Validation Studio, and Assurance. See `CHANGELOG.md`, `RANKING_AUDIT.md`, and `RANKING_VALIDATION_REPORT.md` for the historical ranking-truth record.
+Version 1.34.0 added decision analysis, exhaustive allowed manual near-placement visibility, exact edit comparison, run comparison, rank-reversal conditions, context-local feedback summaries, benchmark uncertainty intervals, and authoritative Batch Design. Version 1.35.0 added staged jobs, evidence-oriented Manual Design, Validation Studio, and Assurance engines. Version 1.36.0 preserves those scientific behaviors while making both lifecycle engines visible and operational in the browser. See `CHANGELOG.md`, `RANKING_AUDIT.md`, and `RANKING_VALIDATION_REPORT.md` for the historical ranking-truth record.

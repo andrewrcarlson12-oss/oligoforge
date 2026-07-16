@@ -1,8 +1,8 @@
-# OligoForge 1.35.0 release test report
+# OligoForge 1.36.0 release test report
 
 ## Release candidate identity
 
-- Application version: 1.35.0
+- Application version: 1.36.0
 - Ranker version: 2.2.0 (unchanged)
 - Search version: 2.1.1
 - Ranking schema: 1.2.0
@@ -12,7 +12,7 @@
 - Manual-design schema: 1.4.0
 - Validation plan schema: `oligoforge-validation-plan/v1`
 - Search status: heuristic-bounded
-- Application route declarations: 72
+- Application routes (including framework documentation routes): 76
 
 ## Final automated gates
 
@@ -21,27 +21,28 @@ All results below were measured on 2026-07-16. Earlier-release counts were not c
 | Gate | Result |
 |---|---|
 | Recursive Python suite (`run_tests.sh`) | Passed; 49 / 49 programs |
-| Node/browser harnesses | Passed; 9 / 9 harnesses |
+| Node/browser harnesses | Passed; 10 / 10 harnesses |
 | Async automatic-design job integration | Passed; 10 scenarios / 55 assertions |
 | Validation Studio focused regression | Passed |
 | Assurance focused regression | Passed |
-| New 1.35 API integration regression | Passed |
+| Lifecycle/API integration regression | Passed; snapshot baseline linkage and retrieval provenance included |
 | Manual Design Studio targeted browser checks | Passed; 75 checks |
-| Real-DOM async job integration | Passed; 8 checks with 111 event handlers registered |
+| Real-DOM async job integration | Passed; 8 checks with 129 event handlers registered |
+| Real-DOM lifecycle workspace integration | Passed; 20 checks spanning navigation, accessible controls/status/current steps, plan, 96-well map, interpretation, snapshots, deltas, DriftGuard, OFVR, and package verification |
 | Frozen ranking benchmark | Passed after search 2.1.1 determinism repair |
-| Evidence/provenance regression and biological trace verification | Passed; regenerated trace identifies application 1.35.0 and search 2.1.1 |
+| Evidence/provenance regression and biological trace verification | Passed; regenerated trace identifies application 1.36.0 and search 2.1.1 with unchanged expected ordering |
 | Performance gate | Passed; deterministic scan-work linearity and frozen environment-recorded benchmark retained |
 | Python byte compilation | Passed; `app.py`, `launcher.py`, `oligoforge/`, `tests/`, and `tools/` |
 | `pip check` in working environment | Passed; no broken requirements |
-| Clean pinned-environment install/import and `pip check` | Passed in a new Python 3.12 virtual environment |
+| Isolated pinned-environment import and `pip check` | Passed; a second dependency-resolution replay was attempted but the package-index proxy was unavailable, so no fresh-download claim is made |
 | npm high-severity audit | Passed; 0 vulnerabilities at every severity across 63 dependencies |
-| Per-directory direct-child count (<100) | Passed; 18 directories / 217 files scanned, maximum 60 in `tests/` |
+| Per-directory direct-child count (<100) | Passed; maximum 61 direct files in `tests/` |
 | Live Uvicorn health/limits/representative API smoke | Passed; health, staged-design limits, and AssaySBOM returned HTTP 200 |
 | Staged release-manifest verification | Passed; every listed path, byte count, and SHA-256 verified after extraction |
 | ZIP path/symlink safety and SHA-256 verification | Passed; one release root, no unsafe paths or symlinks; archive digest recorded in the delivery handoff |
-| Re-extracted archive full suite | Passed; 49 / 49 Python programs and 9 / 9 Node harnesses |
+| Re-extracted archive full suite | Passed; 49 / 49 Python programs and 10 / 10 Node harnesses |
 
-## 1.35.0 workflows exercised
+## 1.36.0 workflows exercised
 
 The focused and recursive suites cover:
 
@@ -50,6 +51,7 @@ The focused and recursive suites cover:
 - Manual Design mapping, hard requirements, products, target/off-target evidence, thermodynamics, interactions, robustness, ranking rationale, reversal uncertainty, provenance, stale-state guards, Workbench transfer, reports, and downloads;
 - Validation Studio normalization, duplicate suppression, complete-product candidate disagreement, deterministic bounded case selection, candidate-interleaved 96/384-well layouts, controls, edge warnings, CSV injection neutralization, import, and conservative interpretation;
 - AssaySBOM normalization and hashing, order notation and locks, bounded FASTA/FASTA.GZ snapshots, accepted/rejected ledgers, exact deduplication, metadata groups, deterministic deltas, complete-product DriftGuard, OFVR deduplication, package verification/tamper detection, HTML escaping, schemas, APIs, and offline CLI;
+- visible lifecycle navigation, Workbench/pasted inputs, readable selection rationale, full plate rendering, baseline/retrieval linkage, readable reason records, active-plan packaging, direct downloads, scope boundaries, responsive markup, accessible names, polite status announcements, and current-step semantics;
 - legacy automatic, batch, viewer, manual, constrained-redesign, rescue, isolate, specificity, multiplex, quantitative, RDML, report, hosted-hardening, and ranking/provenance regressions.
 
 ## Determinism repair
@@ -70,7 +72,7 @@ No live Render deployment result is claimed without an authorized repository and
 
 ## Runtime and dependency audit
 
-The verified runtime was Python 3.12.13 with OligoForge 1.35.0, Primer3-py 2.3.0, Biopython 1.87, ViennaRNA 2.7.2, FastAPI 0.139.0, Uvicorn 0.51.0, Pydantic 2.13.4, and HTTPX 0.28.1. Browser checks used Node 24.14.0 and npm 11.9.0. The clean environment installed directly from `requirements.txt`, imported the application and scientific libraries, and passed `pip check`.
+The verified runtime was Python 3.12.13 with OligoForge 1.36.0, Primer3-py 2.3.0, Biopython 1.87, ViennaRNA 2.7.2, FastAPI 0.139.0, Uvicorn 0.51.0, Pydantic 2.13.4, and HTTPX 0.28.1. Browser-DOM checks used Node 24.14.0 and npm 11.9.0. The isolated pinned environment imported the application and scientific libraries and passed `pip check`. A separate fresh virtual environment was created, but its package installation could not reach the configured package-index proxy; the release therefore makes no fresh-download verification claim for 1.36.0.
 
 The npm lockfile audit reported zero info, low, moderate, high, or critical findings. A heuristic repository scan found no private-key markers, credential-like filenames, strong token signatures, or quoted credential assignments. Dedicated secret scanners and a Python advisory-database scanner were not available, so these checks do not constitute a complete supply-chain or secret audit; Python transitive dependencies are not fully locked.
 

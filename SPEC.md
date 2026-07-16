@@ -2,11 +2,11 @@
 
 ## Product boundary
 
-OligoForge 1.35.0 is a computational workbench for primer/probe design, assay comparison, experiment planning, and local evidence packaging. It reports modeled evidence and reproducible provenance. It does not establish wet-lab amplification, analytical or clinical performance, future-variant resilience, regulatory acceptability, or a globally optimal design.
+OligoForge 1.36.0 is a computational workbench for primer/probe design, assay comparison, experiment planning, and local evidence packaging. It reports modeled evidence and reproducible provenance through both APIs and visible lifecycle workspaces. It does not establish wet-lab amplification, analytical or clinical performance, future-variant resilience, regulatory acceptability, or a globally optimal design.
 
 Release identity:
 
-- application: 1.35.0;
+- application: 1.36.0;
 - authoritative ranker: 2.2.0;
 - candidate search: 2.1.1;
 - ranking schema: 1.2.0;
@@ -78,6 +78,8 @@ Plate generation supports 96/384 wells, 1–12 replicates, candidate interleavin
 
 Result interpretation is conservative. Invalid controls invalidate the comparison; otherwise observations are compared with modeled states and reported as supported, contradicted, mixed, missing, or inconclusive. Any preference is scoped to the declared experiment and never silently changes ranker 2.2.0.
 
+The browser workspace is an input, orchestration, and evidence-presentation layer over these server authorities. It exposes candidate and case identity, selection rationale, the complete plate, plan hash, fillable CSV, control status, support/contradiction counts, and unresolved uncertainty. It does not calculate an independent browser-side scientific result.
+
 ## Assay Assurance model
 
 ### AssaySBOM
@@ -86,7 +88,7 @@ A versioned AssaySBOM normalizes the molecular components and chemistry of an as
 
 ### Sequence snapshots and deltas
 
-Offline bounded FASTA/FASTA.GZ ingestion creates immutable target or off-target snapshots. Accepted records, rejected records, exact duplicates, unique haplotypes, metadata groups, source declarations, and their metrics remain distinct. Snapshot hashes detect content change; they do not establish source authenticity or corpus representativeness.
+Offline bounded FASTA/FASTA.GZ ingestion creates immutable target or off-target snapshots. Accepted records, rejected records, exact duplicates, unique haplotypes, metadata groups, source declarations, baseline linkage, retrieval provenance, and their metrics remain distinct. Snapshot hashes detect content change; they do not establish source authenticity or corpus representativeness.
 
 A deterministic delta compares compatible baseline and follow-up snapshots and reports added, removed, and unchanged unique sequences. It does not infer prevalence or evolutionary direction.
 
@@ -100,15 +102,17 @@ OFVR is a deterministic, deduplicated OligoForge-local Molecular Vulnerability R
 
 An Assurance evidence package combines declared AssaySBOMs, snapshots, deltas, scans, OFVRs, and Validation Studio plans. Per-artifact and package SHA-256 digests support independent tamper checks; HTML output escapes supplied text. Hash validity demonstrates internal integrity only, not authorship, approval, regulatory electronic-record compliance, or biological validity.
 
+The browser Assurance workspace calls these same APIs in the explicit order register → baseline → follow-up → scan → OFVR → package. It presents primary evidence in readable tables and reason records while retaining machine artifacts as downloads. Its state is browser-session-local; clearing or reloading the session can discard unexported lifecycle state, and no enterprise registry or approval ledger is implied.
+
 ## Hosted and security boundary
 
 Hosted mode disables shared server project storage, shared reaction-condition mutation, and local BLAST paths by default. Request-size and scientific input caps limit resource exposure, and API errors avoid reflecting secrets, local paths, or stack details.
 
 Capability identifiers are bearer secrets, not user authentication. The application has no built-in authorization, tenant isolation, shared durable store, TLS termination, audit-signature identity, or regulatory electronic-record controls. Operators must provide those controls before a public or sensitive-data deployment.
 
-## Features outside 1.35.0
+## Features outside 1.36.0
 
-The following are not implemented: Aegis multi-edit mutation search, Repair Compiler orchestration, the `assurance_futureproof` objective/FutureProof design, enterprise portfolio persistence, a complete Assurance browser workspace, and public historical sequence replay. Frozen biological fixtures are software regressions, not retrospective or prospective validation studies.
+The following are not implemented: Aegis multi-edit mutation search, Repair Compiler orchestration, the `assurance_futureproof` objective/FutureProof design, enterprise portfolio persistence, identity-backed review/approval, and public historical sequence replay. Frozen biological fixtures are software regressions, not retrospective or prospective validation studies.
 
 ## Orthogonal-panel graph model
 

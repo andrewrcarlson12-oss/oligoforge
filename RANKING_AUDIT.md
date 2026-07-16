@@ -1,6 +1,6 @@
-# OligoForge Ranking Audit — v1.35.0
+# OligoForge Ranking Audit — v1.36.0
 
-Version 1.35.0 does not change the authoritative ranking order, ranking schema, objective priorities, or ranker version (2.2.0). Search version 2.1.1 evaluates a deterministic minimum of up to three spread-ordered target windows before its soft runtime cutoff, preventing cache warmth from changing the minimum candidate corpus; search remains heuristic-bounded. Staged automatic design invokes the same refactored scientific functions as the retained synchronous compatibility endpoint; Validation Studio and Assurance consume completed assay evidence without silently changing rank.
+Version 1.36.0 does not change the authoritative ranking order, ranking schema, objective priorities, or ranker version (2.2.0). Search version 2.1.1 evaluates a deterministic minimum of up to three spread-ordered target windows before its soft runtime cutoff, preventing cache warmth from changing the minimum candidate corpus; search remains heuristic-bounded. The new visible Validation Studio and Assurance workspaces consume the same completed assay evidence and server authorities without silently changing rank.
 
 ## Executive finding
 

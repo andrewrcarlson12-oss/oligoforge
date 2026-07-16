@@ -1,8 +1,8 @@
-# Paper-readiness assessment — OligoForge 1.35.0
+# Paper-readiness assessment — OligoForge 1.36.0
 
-## 1.35.0 impact
+## 1.36.0 impact
 
-The staged-job architecture, Validation Studio, and offline Assurance records improve reproducibility, responsiveness, and evidence traceability. They do not add a sufficiently large, target-grouped, held-out wet-lab dataset and therefore do not change the paper's biological-validity ceiling. Any manuscript must describe candidate selection and DriftGuard as bounded computational evidence and keep experimental performance claims separate.
+The first-class Validation Studio and Assurance browser workspaces improve usability, evidence visibility, and workflow reproducibility. They do not add a sufficiently large, target-grouped, held-out wet-lab dataset and therefore do not change the paper's biological-validity ceiling. Any manuscript must describe candidate selection and DriftGuard as bounded computational evidence and keep experimental performance claims separate.
 
 The software methods, candidate provenance, attrition accounting, explicit rank uncertainty, benchmark-integrity checks, and adversarial computational validation are suitable for a methods preprint after independent code review. Claims must remain limited to computational behavior.
 

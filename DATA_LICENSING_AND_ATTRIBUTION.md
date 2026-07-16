@@ -1,6 +1,6 @@
 # Data licensing and attribution
 
-This document records the data and direct-dependency obligations relevant to the implemented OligoForge 1.35.0 release. It is an engineering inventory, not legal advice. A deployer or distributor must review the terms that apply to its jurisdiction, data sources, users, and distribution format.
+This document records the data and direct-dependency obligations relevant to the implemented OligoForge 1.36.0 release. It is an engineering inventory, not legal advice. A deployer or distributor must review the terms that apply to its jurisdiction, data sources, users, and distribution format.
 
 The repository's MIT `LICENSE` covers OligoForge-authored source code. It does not relicense third-party libraries, sequence records, publications, user inputs, local BLAST databases, names, logos, or generated content derived from them.
 
@@ -97,4 +97,3 @@ All sources were accessed 2026-07-15.
 - Uvicorn 0.51.0: <https://pypi.org/project/uvicorn/0.51.0/>
 - HTTPX 0.28.1: <https://pypi.org/project/httpx/0.28.1/>
 - jsdom package metadata: <https://registry.npmjs.org/jsdom>
-
