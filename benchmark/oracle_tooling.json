@@ -1,9 +1,0 @@
-{
-  "blastn": "blastn: 2.17.0+",
-  "blast_env": "bioinfo (conda)",
-  "melting_engine": "MELTING 5 via rmelting 1.26.0 (bioconductor)",
-  "melting_env": "melting (conda: openjdk + r-rjava + bioconductor-rmelting)",
-  "melting_lna_methods": ["mct04 (McTigue 2004)", "owc11 (Owczarzy 2011)"],
-  "melting_lna_notation": "AL/GL/TL/CL inline",
-  "note": "MELTING 5 Java engine RUNS in this environment (v1.28.0 assessment had it as unavailable). Enables the real independent LNA cross-check for G7. blastn 2.17.0 is the same engine Primer-BLAST wraps, enabling a faithful offline Primer-BLAST-equivalent specificity oracle for G3/G6b."
-}

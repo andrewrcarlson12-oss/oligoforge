@@ -1,0 +1,62 @@
+{
+  "version": "1.37.0",
+  "ranker_version": "2.2.0",
+  "search_version": "2.2.0",
+  "profile": "parasite_mtdna",
+  "note": "Versioned computational regression winners after the v1.37 canonical search-depth change. Search and full-annotation corpus sizes are now independent of the number of rows requested for display. Every recorded finalist passed the same complete evidence and hard-validity gates; these results are not claims of universal or wet-lab optimality.",
+  "discrimination_ids": [
+    [
+      "TTACTGCTTTTATGGGATATGTA",
+      "ATGTTGGGTCACTTACAAG",
+      "CCAGAAACTCATTTGACCCCAAGGTA"
+    ],
+    [
+      "CTTTTATGGGATATGTACTACCT",
+      "ATGTTGGGTCACTTACAAG",
+      "CCCCAGAAACTCATTTGACCCC"
+    ],
+    [
+      "TTTCCATTTATAGCCTTATGTATTG",
+      "TCAAGACTTAATAGATTTGGATAGA",
+      "TCATACCCTAAAGGATTTGTGCTACCTT"
+    ],
+    [
+      "TTTCCATTTATAGCCTTATGTATTG",
+      "TAGATTTGGATAGAAGGGTATTTT",
+      "TCATACCCTAAAGGATTTGTGCTACCTT"
+    ],
+    [
+      "TTTCTACATTTACAAGGTAGCA",
+      "TCAAGACTTAATAGATTTGGATAGA",
+      "AAAGCTGTATCATACCCTAAAGGATTTG"
+    ]
+  ],
+  "broad_inclusivity_ids": [
+    [
+      "TTTCTACATTTACAAGGTAGCA",
+      "TCAAGACTTAATAGATTTGGATAGA",
+      "AAAGCTGTATCATACCCTAAAGGATTTG"
+    ],
+    [
+      "TTTCTACATTTACAAGGTAGCA",
+      "TCAAGACTTAATAGATTTGGATAGA",
+      "CAAATCCTTTAGGGTATGATACAGCTTT"
+    ],
+    [
+      "TTTCTACATTTACAAGGTAGCA",
+      "TCAAGACTTAATAGATTTGGATAGA",
+      "CAAATCCTTTAGGGTATGATACAGCTT"
+    ],
+    [
+      "TGACCCAACATTAAAAAGATTTT",
+      "GGATAGAAGGGTATTTTTAAAGC",
+      "TACCCTAAAGGATTTGTGCTACCTTGTA"
+    ],
+    [
+      "CTGGTCTTGTTTCATGGAT",
+      "TGCTACCTTGTAAATGTAGAAA",
+      "AATGTTGGGTCACTTACAAGATATCCAC"
+    ]
+  ],
+  "fixture_sha256": "75b2e5eae1a93465381c2e172a43ede226009716c556e0309b07d7cd5226adc8"
+}
