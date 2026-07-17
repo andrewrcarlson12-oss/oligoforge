@@ -273,6 +273,15 @@ a.lnk:hover{text-decoration:underline}
 .toast.ok{border-left-color:var(--pass)}.toast.warn{border-left-color:var(--warn)}.toast.err{border-left-color:var(--fail)}
 .toast.out{opacity:0;transform:translateY(8px);transition:.3s}
 
+/* actionable, persistent API problems + canonical design quality contract */
+.problem-card{border:1px solid color-mix(in srgb,var(--fail) 55%,var(--line2));border-left:4px solid var(--fail);border-radius:10px;background:color-mix(in srgb,var(--fail) 7%,var(--panel));padding:12px 14px;margin:8px 0;color:var(--ink)}
+.problem-card.no-solution{border-color:color-mix(in srgb,var(--warn) 55%,var(--line2));border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 7%,var(--panel))}
+.problem-title{font-family:var(--display);font-weight:650;font-size:13px}.problem-card ul{margin:7px 0 2px 18px;padding:0;color:var(--ink2);font-size:12px}.problem-card li{margin:3px 0}
+.problem-meta{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:8px;word-break:break-word}.problem-copy{padding:3px 8px!important;font-size:10px!important;margin-left:6px}
+.design-contract{border:1px solid var(--line2);border-left:4px solid var(--acc2);border-radius:10px;background:color-mix(in srgb,var(--acc2) 6%,var(--panel));padding:11px 13px;margin:9px 0}
+.design-contract.review{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 6%,var(--panel))}.design-contract.fail{border-left-color:var(--fail);background:color-mix(in srgb,var(--fail) 6%,var(--panel))}
+.design-contract-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--display);font-size:12px;font-weight:650}.design-contract .contract-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:6px;margin-top:8px}.design-contract .contract-grid div{font-size:10.5px;color:var(--dim)}.design-contract .contract-grid b{display:block;color:var(--ink);font-family:var(--mono);font-size:11px}
+
 /* progress + flash */
 .ofbar{height:6px;border-radius:6px;background:var(--panel3);overflow:hidden;margin:10px 0;position:relative}
 .ofbar::after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;border-radius:6px;background:linear-gradient(90deg,transparent,var(--acc),transparent);animation:ofslide 1.1s ease-in-out infinite}
@@ -559,7 +568,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
 <header class="topbar">
   <div class="brand">
     <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2c0 4 12 4 12 8s-12 4-12 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M16 2c0 4-12 4-12 8s12 4 12 8" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/><path d="M5.6 5h8.8M5 10h10M5.6 15h8.8" stroke="rgba(255,255,255,.5)" stroke-width="1" stroke-linecap="round"/></svg></span>
-    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.36.0</span>
+    <b>Oligo<span style="color:var(--acc)">Forge</span></b><span class="ver" id="ver">v1.37.0</span>
   </div>
   <div class="spacer"></div>
   <div class="toolset">
@@ -588,7 +597,9 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
             <input id="email" placeholder="you@uni.edu">
             <input id="ncbi_key" type="password" placeholder="API key (optional)">
           </div>
+          <div style="margin-top:10px"><button class="ghost" onclick="showDiagnostics()">System diagnostics</button></div>
         </div>
+        <div id="diagPanel" style="display:none;grid-column:1/-1;max-width:520px" aria-live="polite"></div>
       </div>
     </div>
   </div>
@@ -1259,7 +1270,7 @@ footer{text-align:center;color:var(--dim);font-size:10px;letter-spacing:.05em;pa
   </div></section>
 </main>
 </div><!--/shell-->
-<footer>OligoForge v1.36.0 · lifecycle workspace release</footer>
+<footer>OligoForge v1.37.0 · design consistency and reliability release</footer>
 <div id="toast" class="toast-wrap"></div>
 <script>
 const TABS=[
@@ -1329,21 +1340,39 @@ function copyText(t){try{navigator.clipboard.writeText(t);}catch(e){}}
 document.getElementById("qc_seq").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();doQC();}});
 function _degFold(s){const f={R:2,Y:2,S:2,W:2,K:2,M:2,B:3,V:3,D:3,H:3,N:4};let n=1;for(const c of (s||"").toUpperCase()){if(f[c])n*=f[c];}return n;}
 [["p_f",()=>doPair()],["p_r",()=>doPair()],["q_ng",()=>doCopies()],["q_len",()=>doCopies()],["gf_org",()=>suggestGenes()],["gene_q",()=>geneFind()],["gene_org",()=>geneFind()]].forEach(([id,fn])=>{const e=document.getElementById(id);if(e)e.addEventListener("keydown",ev=>{if(ev.key==="Enter"){ev.preventDefault();fn();}});});
-async function api(path,body){let r,j;
- if(body&&typeof body==="object"&&!Array.isArray(body)){try{const _em=(document.getElementById("email")||{}).value;const _ky=(document.getElementById("ncbi_key")||{}).value;if(_em&&body.email==null)body.email=_em;if(_ky)body.ncbi_key=_ky;}catch(e){}}
- var _ctl=(typeof AbortController!=="undefined")?new AbortController():null;
- var _to=_ctl?setTimeout(function(){try{_ctl.abort();}catch(e){}},180000):0;
- try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:_ctl?_ctl.signal:undefined});}
- catch(e){if(_to)clearTimeout(_to);
-  if(e&&e.name==="AbortError")return {error:"the server didn\u2019t respond in time \u2014 if this is the hosted demo it may be waking up (the free tier sleeps after inactivity). Try again in a moment."};
-  return {error:"cannot reach the server \u2014 if you\u2019re running it locally, check the terminal window is still open."};}
- if(_to)clearTimeout(_to);
- try{j=await r.json();}catch(e){return {error:"server returned a non-JSON response (HTTP "+r.status+")"};}
- if(!r.ok && !(j&&j.error)){
-  if(Array.isArray(j.detail))return {error:"input problem — "+j.detail.map(e=>(e.loc?e.loc[e.loc.length-1]+": ":"")+e.msg).join("; ")};
-  return {error:(j&&j.detail)?(""+j.detail):("server error HTTP "+r.status)};
+const _ERROR_META=new Map(),_ERROR_DIAGNOSTICS={};let _ERROR_DIAG_N=0;
+const _NCBI_CREDENTIAL_PATHS=new Set(["/api/fetch","/api/intron","/api/blast","/api/pair_specificity","/api/assay_specificity","/api/gene_lookup","/api/scan_markers","/api/suggest_genes","/api/fetch_nuc"]);
+function _clientProblem(message,code,category,retryable,recovery,stage){return {schema_version:"oligoforge-problem/v1",code:code,category:category,message:String(message||"Request failed"),stage:stage||null,retryable:!!retryable,retry_after_seconds:null,field_errors:[],recovery:recovery||[],request_id:null};}
+function _rememberProblem(j,path,status,requestId){j=j||{};let p=j.problem;
+ if(!p){const m=String(j.error||"Request failed"),low=m.toLowerCase();let cat="request",code="request.failed",retry=false,rec=[];
+  if(status===429){cat="capacity";code="capacity.queue_full";retry=true;rec=["Wait briefly, then retry with the same preserved inputs."];}
+  else if(status>=500){cat="internal";code="internal.server_error";retry=true;rec=["Retry once. If it fails again, copy the diagnostic ID for support."];}
+  else if(low.includes("no clean assay")||low.includes("no primer/probe")||low.includes("no hard-valid")){cat="scientific_no_solution";code="design.no_solution";rec=["Use a longer target region or an appropriate chemistry profile.","Keep true specificity and geometry requirements instead of forcing a weak design."];}
+  else if(status===403){cat="authorization";code="capability.disabled";rec=["Use browser-local storage or a private instance for this capability."];}
+  else if(status===422||status===400){cat="input";code="input.invalid";rec=["Correct the listed input and submit again."];}
+  p=_clientProblem(m,code,cat,retry,rec,path);
  }
- return j;}
+ p=Object.assign({},p);p.request_id=p.request_id||requestId||j.request_id||null;
+ const fields=Array.isArray(p.field_errors)&&p.field_errors.length?p.field_errors:(Array.isArray(j.details)?j.details:[]);p.field_errors=fields;
+ j.problem=p;if(p.request_id&&!j.request_id)j.request_id=p.request_id;if(j.error)_ERROR_META.set(String(j.error),p);return j;}
+function _transportError(message,code,recovery,retryable){const j={error:message};j.problem=_clientProblem(message,code,"network",retryable,recovery,"transport");_ERROR_META.set(message,j.problem);return j;}
+async function api(path,body){let r,j;let payload=(body&&typeof body==="object"&&!Array.isArray(body))?Object.assign({},body):body;
+ if(payload&&typeof payload==="object"&&_NCBI_CREDENTIAL_PATHS.has(path)){try{const _em=(document.getElementById("email")||{}).value;const _ky=(document.getElementById("ncbi_key")||{}).value;if(_em&&payload.email==null)payload.email=_em;if(_ky&&payload.ncbi_key==null)payload.ncbi_key=_ky;}catch(e){}}
+ const ctl=(typeof AbortController!=="undefined")?new AbortController():null;
+ const long=/blast|specificity/.test(path),wait=long?420000:(path==="/api/design"?300000:180000);
+ const to=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},wait):0;
+ try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),signal:ctl?ctl.signal:undefined});}
+ catch(e){if(to)clearTimeout(to);
+  if(e&&e.name==="AbortError")return _transportError("The request exceeded the browser wait limit. The server may still be finishing it; do not submit duplicates blindly.","network.request_timeout",["Keep this form open and check System diagnostics.","Retry deliberately only after confirming no result appeared."],true);
+  return _transportError("Cannot reach the OligoForge service. Your inputs are still in this form.","network.unreachable",["Check the status lamp or local terminal, then retry with the same inputs."],true);}
+ if(to)clearTimeout(to);let rid=null;try{rid=r.headers&&r.headers.get?r.headers.get("X-Request-ID"):null;}catch(e){}
+ try{j=await r.json();}catch(e){return _transportError("The service returned an unreadable response (HTTP "+r.status+").","network.non_json_response",["Check System diagnostics and retry once."],r.status>=500);}
+ if(!j||typeof j!=="object")j={};
+ if(!r.ok&&!(j&&j.error)){
+  const details=Array.isArray(j.details)?j.details:(Array.isArray(j.detail)?j.detail:[]);
+  j.error=details.length?("Input problem — "+details.map(e=>(e.loc?e.loc[e.loc.length-1]+": ":"")+(e.msg||"invalid value")).join("; ")):((j&&j.detail)?(""+j.detail):("Service error HTTP "+r.status));
+ }
+ if(j.error)_rememberProblem(j,path,r.status,rid);return j;}
 function dgClass(dg){return dg>-6?"PASS":(dg>-9?"WARN":"FAIL");}
 // ---- orthogonal-panel model bounds ----
 function doOrthoPanel(){
@@ -1434,16 +1463,33 @@ function drawConfusabilityGraph(d){
 }
 function lintTable(rows){if(!rows)return"";return `<table><tr><th>rule</th><th>status</th><th>detail</th></tr>`+
  rows.map(r=>`<tr><td>${r.rule}</td><td><span class="pill b-${r.status}">${r.status}</span></td><td class="mono">${r.detail}</td></tr>`).join("")+`</table>`;}
-function err(m){return `<div class="err">${m}</div>`;}
+function copyDiagnostic(id){const value=_ERROR_DIAGNOSTICS[id];if(!value)return;try{navigator.clipboard.writeText(value);toast("Diagnostic copied.","ok");}catch(e){copyText(value);}}
+function err(m){const message=String(m==null?"Request failed":m),p=_ERROR_META.get(message);if(!p)return `<div class="err" role="alert">${esc(message)}</div>`;
+ const id="diag_"+(++_ERROR_DIAG_N);_ERROR_DIAGNOSTICS[id]=JSON.stringify({message:message,problem:p},null,2);
+ const fields=(p.field_errors||[]).map(x=>{const loc=(x.loc||[]).filter(z=>z!=="body").join(" › ");return `<li>${loc?`<b>${esc(loc)}:</b> `:""}${esc(x.msg||"invalid value")}</li>`;}).join("");
+ const recovery=(p.recovery||[]).map(x=>`<li>${esc(x)}</li>`).join("");const noSolution=p.category==="scientific_no_solution";
+ const meta=[p.code,p.request_id?"request "+p.request_id:null,p.retryable?"retryable":"not automatically retried"].filter(Boolean).join(" · ");
+ return `<div class="problem-card${noSolution?" no-solution":""}" role="alert" aria-live="assertive"><div class="problem-title">${noSolution?"No assay met the declared constraints":"The operation did not complete"}</div><div>${esc(message)}</div>${fields?`<ul>${fields}</ul>`:""}${recovery?`<div class="hint" style="margin-top:7px"><b>What to do</b></div><ul>${recovery}</ul>`:""}<div class="problem-meta">${esc(meta)} <button class="ghost problem-copy" onclick="copyDiagnostic('${id}')">Copy diagnostics</button></div></div>`;}
+function contractHtml(c){if(!c||!c.schema_version)return"";const ok=c.status==="computationally_qualified_with_declared_limits",fail=c.status==="not_computationally_qualified",cls=ok?"":(fail?" fail":" review");
+ const obj=c.objective||{},prof=c.profile||{},eng=c.engine||{},cf=c.conformance||{},scope=c.evidence_scope||{},performed=scope.performed||{};
+ const label=ok?"Computationally qualified · declared limits":(c.status==="insufficient_declared_evidence"?"More evidence required":(fail?"Not computationally qualified":String(c.status||"Review contract").replaceAll("_"," ")));
+ const miss=(obj.missing_prerequisites||[]).join(", "),warn=(c.warnings||[]).join(" · ");
+ return `<div class="design-contract${cls}" role="status"><div class="design-contract-h"><span class="pill ${ok?"b-PASS":(fail?"b-FAIL":"b-WARN")}">${esc(label)}</span><span>Canonical design quality contract</span></div>${miss?`<div class="hint" style="margin-top:6px"><b>Missing objective evidence:</b> ${esc(miss)}</div>`:""}<div class="contract-grid"><div><span>chemistry</span><b>${esc(prof.name||prof.key||"—")}</b></div><div><span>objective</span><b>${esc(obj.key||"—")}</b></div><div><span>ranker / search</span><b>${esc((eng.ranker_version||"—")+" / "+(eng.search_version||"—"))}</b></div><div><span>hard-valid finalists</span><b>${esc((cf.hard_valid_candidates==null?"—":cf.hard_valid_candidates)+" / "+(cf.candidate_count==null?"—":cf.candidate_count))}</b></div><div><span>target / off-target sets</span><b>${esc(((scope.targets||{}).count||0)+" / "+((scope.off_targets||{}).count||0))}</b></div><div><span>contract fingerprint</span><b>${esc((c.contract_sha256||"").slice(0,12)||"—")}</b></div></div><details style="margin-top:7px"><summary class="hint" style="cursor:pointer">Evidence scope and limits</summary><div class="hint">thermodynamics ${performed.thermodynamics?"✓":"—"} · structured rank ${performed.structured_ranking?"✓":"—"} · target coverage ${performed.target_coverage?"✓":"—"} · off-target specificity ${performed.offtarget_specificity?"✓":"—"} · condition robustness ${performed.condition_robustness?"✓":"—"}</div>${warn?`<div class="hint" style="margin-top:4px">${esc(warn)}</div>`:""}<div class="hint" style="margin-top:4px">${esc(c.scope_statement||"")}</div></details></div>`;}
+async function showDiagnostics(){const box=document.getElementById("diagPanel");if(!box)return;box.style.display="block";box.innerHTML='<div class="working">Checking core engines and deployment capabilities…</div>';const d=await autoRequest("/api/system/diagnostics","GET");if(d.error){box.innerHTML=err(d.error);return;}const cap=d.capabilities||{},core=d.core_design||{},jobs=d.automatic_design_jobs||{};box.innerHTML=`<div class="subbox" style="margin:0"><div class="sub-h">System diagnostics · ${d.ok?"core ready":"attention required"}</div><div class="kv"><div><span>application</span><b>${esc((d.application||{}).version||"—")}</b></div><div><span>canonical ranker</span><b>${esc(core.ranker_version||"—")}</b></div><div><span>structure engine</span><b>${(cap.structure_model||{}).available?"available":"optional / unavailable"}</b></div><div><span>local BLAST</span><b>${(cap.local_blast||{}).available&&((cap.local_blast||{}).allowed)?"available":"unavailable here"}</b></div><div><span>job queue</span><b>${esc((jobs.queue_depth||0)+" / "+(jobs.queue_capacity||"—"))}</b></div><div><span>server storage</span><b>${(cap.server_storage||{}).enabled?"enabled":"browser-local"}</b></div></div><div class="hint">${esc(d.privacy||"")}</div><button id="diagCopy" class="ghost" style="margin-top:7px">Copy system report</button></div>`;const copy=document.getElementById("diagCopy");if(copy&&copy.addEventListener)copy.addEventListener("click",()=>copyText(JSON.stringify(d,null,2)));}
 function toast(msg,kind){try{const w=document.getElementById("toast");if(!w){return;}const t=document.createElement("div");t.className="toast "+(kind||"");t.textContent=msg;w.appendChild(t);setTimeout(()=>{try{t.classList.add("out");setTimeout(()=>{try{w.removeChild(t);}catch(_){}},320);}catch(_){}},2600);}catch(e){}}
 function flash(e){try{if(!e||!e.classList)return;e.classList.remove("flash");void(e.offsetWidth);e.classList.add("flash");setTimeout(()=>{try{e.classList.remove("flash");}catch(_){}},1000);}catch(_){}}
 
 // profiles
 let PROFILES={};
-fetch("/api/profiles").then(r=>r.json()).then(p=>{PROFILES=p;
- document.querySelectorAll(".profsel").forEach(sel=>{sel.innerHTML=Object.entries(p).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join("");});
+async function loadProfiles(){const p=await autoRequest("/api/profiles","GET"),sels=[...document.querySelectorAll(".profsel")];
+ if(p.error){sels.forEach(sel=>{sel.innerHTML='<option value="">Chemistry profiles unavailable</option>';sel.disabled=true;sel.title=p.error;});
+  const box=document.getElementById("d_out");if(box)box.innerHTML=err(p.error);toast("Chemistry profiles could not be loaded; inputs remain available.","err");return;}
+ PROFILES=p||{};const rows=Object.entries(PROFILES);
+ if(!rows.length){const j=_transportError("The service returned no chemistry profiles.","dependency.profiles_empty",["Check System diagnostics, then reload the page."],true);sels.forEach(sel=>{sel.innerHTML='<option value="">No chemistry profiles available</option>';sel.disabled=true;sel.title=j.error;});const box=document.getElementById("d_out");if(box)box.innerHTML=err(j.error);return;}
+ sels.forEach(sel=>{sel.disabled=false;sel.title="";sel.innerHTML=rows.map(([k,v])=>`<option value="${esc(k)}">${esc((v||{}).name||k)}</option>`).join("");});
  try{const dp=document.getElementById("d_prof"); if(dp&&dp.insertAdjacentHTML){dp.insertAdjacentHTML("afterbegin",'<option value="auto" selected>Auto \u2014 detect AT/GC-rich</option>');dp.value="auto";}}catch(e){}
-});
+}
+loadProfiles();
 
 async function doQC(){const o=document.getElementById("qc_out");o.innerHTML="…";
  const d=await api("/api/qc",{seq:document.getElementById("qc_seq").value,role:document.getElementById("qc_role").value,profile:document.getElementById("qc_prof").value});
@@ -1504,12 +1550,13 @@ async function doDesign(){const o=document.getElementById("d_out");o.innerHTML='
  const panel=(typeof PANEL!=="undefined"?PANEL:[]).filter(a=>a&&a.forward&&a.reverse).map(a=>({name:a.name||"assay",dye:a.dye||"",amplicon_tm:a.amplicon_tm,sybr:!a.probe,oligos:[{name:"F",seq:a.forward},{name:"R",seq:a.reverse}].concat(a.probe?[{name:"P",seq:a.probe}]:[])}));
  const d=await api("/api/design",{template:document.getElementById("d_tmpl").value,profile:document.getElementById("d_prof").value,objective:(document.getElementById("d_obj")||{}).value||"balanced",off_targets:off,panel:panel});
  if(d.error){o.innerHTML=err(d.error);return;}
- if(!d.candidates||!d.candidates.length){o.innerHTML=err("no candidate assays were returned for this template.");return;}
+ if(!d.candidates||!d.candidates.length){const j={error:"No candidate assays met the declared design requirements for this template."};j.problem=_clientProblem(j.error,"design.no_solution","scientific_no_solution",false,["Use a longer target region or choose a chemistry profile appropriate for this template.","Review the declared evidence limits instead of forcing a weak assay."],"interactive_design");_rememberProblem(j,"interactive_design",422,null);o.innerHTML=contractHtml(d.design_contract)+err(j.error);return;}
  MD={tmpl:d.template||"",cands:d.candidates,profile:d.profile||"",note:d.note,constraint:d.constraint_note,
      n_targets:d.n_targets||1,n_offs:d.n_offs||0,n_panel:d.n_panel||0,off_control:d.off_control||null,
      junctions:d.junctions||[],n_junctions:d.n_junctions||0,objective:d.objective_profile||null,
      attrition:d.candidate_attrition||null,manifest:d.ranker_manifest||null,
-     search_status:d.search_status||null,ranking_statement:d.ranking_statement||null,sel:0};
+     search_status:d.search_status||null,ranking_statement:d.ranking_statement||null,
+     contract:d.design_contract||null,sel:0};
  o.innerHTML=designShell();
  showCand(0);}
 function candVerdict(c){            // worst of off-target specificity + panel fit -> ring/segment colour; null when neither was checked
@@ -1524,7 +1571,7 @@ function designShell(){const n=MD.cands.length;let bub="";
   bub+=`<button class="candbubble${v?(" v-"+v):""}" id="cb_${i}" onclick="showCand(${i})" title="${esc(tip)}" aria-label="${esc(tip)}">${i+1}${i===0?'<span class="cb-star" title="top-ranked">\u2605</span>':''}</button>`;}
  const ctx=MD.n_targets>1?(MD.n_targets+" targets"):"1 target";
  const octx=(MD.n_offs>0?(" \u00b7 "+MD.n_offs+" off-target"+(MD.n_offs>1?"s":"")):"")+(MD.n_panel>0?(" \u00b7 vs "+MD.n_panel+"-assay panel"):"")+(MD.n_junctions>0?(" \u00b7 "+MD.n_junctions+" exon junction"+(MD.n_junctions>1?"s":"")+" \u2014 gDNA-aware"):"");
- return `<div class="cand-head"><div class="cand-bubbles" role="tablist" aria-label="candidate assays">${bub}</div>`+
+ return contractHtml(MD.contract)+`<div class="cand-head"><div class="cand-bubbles" role="tablist" aria-label="candidate assays">${bub}</div>`+
   `<span class="hint">${n} candidate${n>1?"s":""}, deterministic order \u2014 click a number to compare; close candidates may share an indistinguishable rank band. <b>${esc(MD.profile)}</b> \u00b7 ${ctx}${octx}.</span></div>`+
   (MD.note?`<small class="note">${esc(MD.note)}</small>`:"")+
   (MD.constraint?`<small class="note">${esc(MD.constraint)}</small>`:"")+
@@ -1635,7 +1682,7 @@ async function loadAccess(i){const c=MD&&MD.cands[i];if(!c||!c.amp_span||!MD.tmp
 function showCand(i){if(!MD||!MD.cands[i])return;MD.sel=i;
  for(let k=0;k<MD.cands.length;k++){const b=document.getElementById("cb_"+k);if(b)b.classList.toggle("active",k===i);}
  const c=MD.cands[i];
- LAST_DESIGN=Object.assign({profile:MD.profile,ranker_manifest:MD.manifest||null,objective_profile:MD.objective||null,search_status:MD.search_status||null,candidate_attrition:MD.attrition||null,candidate_rank:i+1,source_workflow:"direct_design"},c);   // selected candidate feeds designAdd() / doPairSpec() without dropping rank provenance
+ LAST_DESIGN=Object.assign({profile:MD.profile,ranker_manifest:MD.manifest||null,objective_profile:MD.objective||null,search_status:MD.search_status||null,candidate_attrition:MD.attrition||null,design_contract:MD.contract||null,candidate_rank:i+1,source_workflow:"direct_design"},c);   // selected candidate feeds designAdd() / doPairSpec() without dropping rank provenance
  const fpos=c.f_span?("pos "+(c.f_span[0]+1)+"\u2013"+c.f_span[1]):"";
  const rpos=c.r_span?("pos "+(c.r_span[0]+1)+"\u2013"+c.r_span[1]+" \u00b7 antisense"):"";
  const ppos=c.probe_span?("pos "+(c.probe_span[0]+1)+"\u2013"+c.probe_span[1]+(c.probe_rc?" \u00b7 antisense":"")):"";
@@ -1741,9 +1788,13 @@ async function doOrder(){const o=document.getElementById("o_out");
   <button class="ghost" onclick='download("idt_oligos.csv",${JSON.stringify(d.oligo_csv)})'>download CSV</button>`+
   (d.gblock_fasta?`<label style="margin-top:12px;display:block">gBlock FASTA</label><pre>${esc(d.gblock_fasta)}</pre><button class="ghost" onclick='download("gblocks.fasta",${JSON.stringify(d.gblock_fasta)})'>download FASTA</button>`:"");}
 async function saveOligoPanel(){const ol={};[...document.querySelectorAll("#seqrows .seqrow")].forEach(r=>{const i=r.querySelectorAll("input");if(i[0].value&&i[1].value)ol[i[0].value]=i[1].value.toUpperCase();});
- const name=document.getElementById("panelname").value||"panel";await api("/api/panel/save",{name,oligos:ol});refreshPanels();}
-async function refreshPanels(){const d=await(await fetch("/api/panel/list")).json();const s=document.getElementById("panelsel");if(s)s.innerHTML=`<option value="">— saved panels —</option>`+(d.panels||[]).map(p=>`<option>${p}</option>`).join("");}
-async function loadPanel(){const name=document.getElementById("panelsel").value;if(!name)return;const d=await api("/api/panel/load",{name});if(d.error)return;
+ const name=document.getElementById("panelname").value||"panel",d=await api("/api/panel/save",{name,oligos:ol});
+ if(d.error){const o=document.getElementById("m_out");if(o)o.innerHTML=err(d.error);toast("Panel was not saved.","err");return;}
+ const listed=await refreshPanels();if(listed!==false)toast("Saved panel “"+name+"”.","ok");}
+async function refreshPanels(){const d=await autoRequest("/api/panel/list","GET"),s=document.getElementById("panelsel");
+ if(d.error){if(s){s.innerHTML='<option value="">Saved panels unavailable</option>';s.title=d.error;}const o=document.getElementById("m_out");if(o&&!(o.textContent||"").trim())o.innerHTML=err(d.error);return false;}
+ const panels=Array.isArray(d.panels)?d.panels:[];if(s){s.title="";s.innerHTML='<option value="">— saved panels —</option>'+panels.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join("");}return true;}
+async function loadPanel(){const name=document.getElementById("panelsel").value;if(!name)return;const d=await api("/api/panel/load",{name});if(d.error){const o=document.getElementById("m_out");if(o)o.innerHTML=err(d.error);toast("Panel could not be loaded.","err");return;}
  document.getElementById("seqrows").innerHTML="";Object.entries(d.oligos).forEach(([n,s])=>addSeqRow(n,s));}
 refreshPanels();
 async function doBatch(){const o=document.getElementById("bd_out");o.innerHTML="…";
@@ -1754,9 +1805,12 @@ async function doBatch(){const o=document.getElementById("bd_out");o.innerHTML="
  if(name)items.push({name,template:seq,profile,objective});
  if(!items.length){o.innerHTML=err("paste FASTA — a >name header then sequence");return;}
  const d=await api("/api/batch_design",{items});if(d.error){o.innerHTML=err(d.error);return;}
- o.innerHTML=`<table><tr><th>gene</th><th>F</th><th>R</th><th>probe</th><th>amp</th><th>rank evidence</th></tr>`+
-  d.results.map(r=>r.ok?`<tr><td>${esc(r.name)}</td><td class="mono">${esc(r.forward)}</td><td class="mono">${esc(r.reverse)}</td><td class="mono">${esc(r.probe||'—')}</td><td>${Number(r.amplicon)||'—'}</td><td><b>${esc(r.uncertainty||'ranked')}</b><br><small>${esc(r.strongest_feature||r.ranking_statement||'structured retained-pool rank')}</small></td></tr>`:`<tr><td>${esc(r.name)}</td><td colspan="5" class="FAIL">${esc(r.error)}</td></tr>`).join("")+`</table>`+
-  `<p class="hint">${esc(d.policy||'')}</p>`;}
+ const results=Array.isArray(d.results)?d.results:[];
+ const rows=results.map(r=>{if(r.ok)return `<tr><td>${esc(r.name)}</td><td class="mono">${esc(r.forward)}</td><td class="mono">${esc(r.reverse)}</td><td class="mono">${esc(r.probe||'—')}</td><td>${Number(r.amplicon)||'—'}</td><td><b>${esc(r.uncertainty||'ranked')}</b><br><small>${esc(r.strongest_feature||r.ranking_statement||'structured retained-pool rank')}</small></td></tr>`;
+  const item={error:r.error||"This batch item did not complete.",problem:r.problem||null};_rememberProblem(item,"batch_design_item",422,null);return `<tr><td>${esc(r.name)}</td><td colspan="5">${err(item.error)}</td></tr>`;}).join("");
+ const contracts=results.filter(r=>r.ok&&r.design_contract).map(r=>`<div style="margin-top:8px"><b>${esc(r.name||"batch item")}</b>${contractHtml(r.design_contract)}</div>`).join("");
+ o.innerHTML=`<table><tr><th>gene</th><th>F</th><th>R</th><th>probe</th><th>amp</th><th>rank evidence</th></tr>${rows}</table>`+
+  `<p class="hint">${esc(d.policy||'')}</p>`+(contracts?`<details class="subbox"><summary class="sub-h" style="cursor:pointer">canonical quality contracts · ${results.filter(r=>r.ok&&r.design_contract).length}</summary>${contracts}</details>`:"");}
 async function doPairSpec(f,r){const o=document.getElementById("ds_out");o.innerHTML='<div class="working">Remote BLAST queued at NCBI — 30 s to a few minutes…</div><div class="ofbar"></div>';
  const d=await api("/api/pair_specificity",{forward:f,reverse:r,mode:"remote"});
  if(d.error){o.innerHTML=err(d.error);return;}
@@ -1952,25 +2006,37 @@ async function autoRequest(path,method,body,headers){let r,j;const ctl=(typeof A
  const wait=method==="GET"?20000:60000,to=ctl?setTimeout(()=>{try{ctl.abort();}catch(e){}},wait):0;
  const opt={method:method||"GET",headers:Object.assign({},headers||{}),cache:"no-store",signal:ctl?ctl.signal:undefined};
  if(body!==undefined){opt.headers["Content-Type"]="application/json";opt.body=JSON.stringify(body);}
- try{r=await fetch(path,opt);}catch(e){if(to)clearTimeout(to);return {error:e&&e.name==="AbortError"?"The hosted service did not acknowledge the job yet. Your inputs are preserved; retrying with the same request will not create duplicate work.":"The job service is temporarily unreachable. Your inputs and any known job identifier are preserved."};}
- if(to)clearTimeout(to);try{j=await r.json();}catch(e){return {error:"The job service returned an unreadable response (HTTP "+r.status+")."};}
- if(!r.ok)return Object.assign({error:"Automatic design request failed (HTTP "+r.status+")."},j||{});return j||{};}
+ try{r=await fetch(path,opt);}catch(e){if(to)clearTimeout(to);return e&&e.name==="AbortError"
+   ?_transportError("The service did not acknowledge this request within the browser wait limit. Your inputs and any known job identifier are preserved.","network.job_ack_timeout",["Keep this page open; automatic-design polling will retry a bounded number of times."],true)
+   :_transportError("The job service is temporarily unreachable. Your inputs and any known job identifier are preserved.","network.job_service_unreachable",["Check the status lamp; automatic-design polling will retry a bounded number of times."],true);}
+ if(to)clearTimeout(to);let rid=null;try{rid=r.headers&&r.headers.get?r.headers.get("X-Request-ID"):null;}catch(e){}
+ try{j=await r.json();}catch(e){return _transportError("The service returned an unreadable response (HTTP "+r.status+").","network.non_json_response",["Check System diagnostics and retry once."],r.status>=500);}
+ if(!j||typeof j!=="object")j={};
+ if(!r.ok){if(typeof j.error!=="string")j.error=(j.problem&&j.problem.message)||("Request failed (HTTP "+r.status+").");return _rememberProblem(j,path,r.status,rid);}
+ if(typeof j.error==="string")_rememberProblem(j,path,r.status,rid);return j;}
 function autoStageView(job){const names={resolve_fetch:"Retrieve and normalize sequences",design:"Generate and rank candidates",enrich:"Annotate and prepare result",blast:"Optional specificity analysis"};
  const status={pending:"Waiting",running:"Running",complete:"Complete",skipped:"Skipped",failed:"Unavailable",timed_out:"Timed out",cancelled:"Cancelled"};
  const rows=(job.stages||[]).map(s=>`<tr><td>${esc(names[s.name]||s.name)}</td><td><span class="pill b-${s.status==="complete"?"PASS":(s.status==="failed"||s.status==="timed_out"?"WARN":"")}">${esc(status[s.status]||s.status)}</span></td><td class="hint">${esc(s.message||"")}</td></tr>`).join("");
  const primary=job.result&&job.status==="running"?'<div class="verdict v-ok"><b>Primary design complete.</b> Optional specificity analysis is still running; the design will be retained if that service is unavailable.</div>':"";
- return `<div class="subbox"><div class="sub-h">Automatic design · ${esc(status[job.status]||job.status||"Submitted")}</div>${primary}<table><tr><th>Stage</th><th>Status</th><th>Detail</th></tr>${rows}</table><div class="hint">Job ${esc((job.job_id||job.id||"").slice(0,12))}… · progress reflects completed scientific stages, not elapsed-time estimates.</div></div>`;}
+ return `<div class="subbox"><div class="sub-h">Automatic design · ${esc(status[job.status]||job.status||"Submitted")}</div>${primary}<table><tr><th>Stage</th><th>Status</th><th>Detail</th></tr>${rows}</table><div class="hint">Job ${esc((job.job_id||job.id||"").slice(0,12))}… · progress reflects completed scientific stages, not elapsed-time estimates.</div></div>${AUTO_JOB_NOTICE||""}`;}
 function autoBusy(on){const run=document.getElementById("au_run"),cancel=document.getElementById("au_cancel");if(run)run.disabled=!!on;if(cancel)cancel.style.display=on?"inline-block":"none";}
-async function cancelAutoJob(){if(!AUTO_JOB_ID)return;const o=document.getElementById("au_out");const d=await autoRequest("/api/autodesign/jobs/"+encodeURIComponent(AUTO_JOB_ID),"DELETE");if(d&&d.job_id&&o)o.innerHTML=autoStageView(d);}
+function autoRetryable(d){const p=(d&&d.problem)||_ERROR_META.get(String((d&&d.error)||""))||{};return !!(p.retryable||p.category==="network"||p.category==="dependency"||p.category==="internal");}
+async function cancelAutoJob(){if(!AUTO_JOB_ID)return;const o=document.getElementById("au_out"),d=await autoRequest("/api/autodesign/jobs/"+encodeURIComponent(AUTO_JOB_ID),"DELETE");
+ if(d.error&&!(d.job_id||d.id)){AUTO_JOB_NOTICE=err(d.error);if(o)o.innerHTML=AUTO_LAST_SNAPSHOT?autoStageView(AUTO_LAST_SNAPSHOT):AUTO_JOB_NOTICE;toast("Cancellation was not acknowledged; the job is still being monitored.","err");return;}
+ AUTO_JOB_NOTICE="";AUTO_LAST_SNAPSHOT=d;if(d&&d.job_id&&o)o.innerHTML=autoStageView(d);}
 async function runAutoDesignJob(o,body,resumeId){AUTO_JOB_POLLING=true;AUTO_POLL_TOKEN=autoNewKey();const token=AUTO_POLL_TOKEN;autoBusy(true);let job,id=resumeId||null;
  if(!id){let rec=null;try{rec=JSON.parse(sessionStorage.getItem("of_autodesign_submit")||"null");}catch(e){}const draftKey=JSON.stringify(autoDraft());const key=rec&&rec.draft===draftKey?rec.key:autoNewKey();try{sessionStorage.setItem("of_autodesign_submit",JSON.stringify({draft:draftKey,key:key}));}catch(e){}
   job=await autoRequest("/api/autodesign/jobs","POST",body,{"Idempotency-Key":key});if(job.error){AUTO_JOB_POLLING=false;autoBusy(false);return job;}id=job.job_id||job.id;try{sessionStorage.removeItem("of_autodesign_submit");}catch(e){}
  }
  AUTO_JOB_ID=id;try{localStorage.setItem("of_autodesign_job",id);}catch(e){}
+ let pollFailures=0;
  while(AUTO_JOB_POLLING&&token===AUTO_POLL_TOKEN){if(!job||!(job.job_id||job.id))job=await autoRequest("/api/autodesign/jobs/"+encodeURIComponent(id),"GET");
-  if(job.error){AUTO_JOB_POLLING=false;autoBusy(false);if(job.code==="job_lost_or_expired"){try{localStorage.removeItem("of_autodesign_job");}catch(e){}}return job;}
-  if(o)o.innerHTML=autoStageView(job);const terminal=["succeeded","succeeded_with_warnings","failed","timed_out","cancelled"].includes(job.status);
-  if(terminal){AUTO_JOB_POLLING=false;AUTO_JOB_ID=null;autoBusy(false);try{localStorage.removeItem("of_autodesign_job");}catch(e){}if(job.result){job.result._job_warnings=job.warnings||[];job.result._job_stages=job.stages||[];return job.result;}return {error:(job.error&&job.error.message)||("Automatic design "+job.status.replace(/_/g," ")+"."),job:job};}
+  if(job.error&&!(job.job_id||job.id)){const p=job.problem||{},lost=p.code==="job.lost_or_expired"||job.code==="job_lost_or_expired";
+   if(!lost&&autoRetryable(job)&&pollFailures<4){pollFailures++;const waitMs=Math.min(8000,900*Math.pow(2,pollFailures-1));AUTO_JOB_NOTICE=`<div class="verdict v-warn"><b>Connection check delayed.</b> The job and its completed stages are preserved; retrying status ${pollFailures} of 4 in ${Math.ceil(waitMs/1000)} s. ${esc(job.error)}</div>`;if(o)o.innerHTML=AUTO_LAST_SNAPSHOT?autoStageView(AUTO_LAST_SNAPSHOT):AUTO_JOB_NOTICE;job=null;await new Promise(resolve=>setTimeout(resolve,waitMs));continue;}
+   AUTO_JOB_POLLING=false;autoBusy(false);if(lost){try{localStorage.removeItem("of_autodesign_job");}catch(e){}}return job;}
+  pollFailures=0;AUTO_JOB_NOTICE="";AUTO_LAST_SNAPSHOT=job;if(o)o.innerHTML=autoStageView(job);const terminal=["succeeded","succeeded_with_warnings","failed","timed_out","cancelled"].includes(job.status);
+  if(terminal){AUTO_JOB_POLLING=false;AUTO_JOB_ID=null;autoBusy(false);try{localStorage.removeItem("of_autodesign_job");}catch(e){}if(job.result){job.result._job_warnings=job.warnings||[];job.result._job_stages=job.stages||[];return job.result;}
+   const message=(job.error&&job.error.message)||("Automatic design "+String(job.status||"failed").replace(/_/g," ")+"."),out={error:message,job:job};out.problem=_clientProblem(message,(job.error&&job.error.code)||("job."+(job.status||"failed")),"job",false,["Review the completed stage history above, correct any reported input issue, and submit deliberately."],"automatic_design");_rememberProblem(out,"automatic_design",422,null);return out;}
   job=null;await new Promise(resolve=>setTimeout(resolve,1200));
  }
  autoBusy(false);return {error:"Automatic-design polling stopped; the preserved job can be resumed."};}
@@ -1998,7 +2064,7 @@ async function doAuto(resumeId){const o=document.getElementById("au_out");
  LAST_AUTO={assay:d.candidates[0].assay,pretty:d.profile_pretty,query:d.target_query,acc:d.source_accession};
  LAST_AUTO_FULL=d;
  const probeKind=(d.profile_used==="idt_affinity"||d.profile_used==="parasite_mtdna")?"probe_lna":"probe_zen";
- let h=`${d._job_warnings&&d._job_warnings.length?`<div class="verdict v-warn"><b>Primary design retained with a specificity-stage warning.</b> ${d._job_warnings.map(esc).join(" · ")}</div>`:""}<small class="note">fetched ${d.n_targets} target${d.n_offs?(", "+d.n_offs+" off-target"):""}; designed on a ${d.reference_len} nt reference; ${d.n_candidates} candidate(s). Screen only — confirm in OligoAnalyzer.</small>${!d.n_offs?`<div class="hint" style="margin-top:4px"><b>No off-target set.</b> To score cross-reactivity (e.g. Plasmodium vs Haemoproteus), put an off-target query in the <b>off-target to discriminate against</b> field above, or use the marker finder’s <b>Design with … vs …</b> button — the off-target column appears once one is set.</div>`:''}${d.constraint_note?`<div class="note" style="margin-top:4px"><b class="WARN">heads up:</b> ${esc(d.constraint_note)}</div>`:""}
+ let h=`${contractHtml(d.design_contract)}${d._job_warnings&&d._job_warnings.length?`<div class="verdict v-warn"><b>Primary design retained with a specificity-stage warning.</b> ${d._job_warnings.map(esc).join(" · ")}</div>`:""}<small class="note">fetched ${d.n_targets} target${d.n_offs?(", "+d.n_offs+" off-target"):""}; designed on a ${d.reference_len} nt reference; ${d.n_candidates} candidate(s). Screen only — confirm in OligoAnalyzer.</small>${!d.n_offs?`<div class="hint" style="margin-top:4px"><b>No off-target set.</b> To score cross-reactivity (e.g. Plasmodium vs Haemoproteus), put an off-target query in the <b>off-target to discriminate against</b> field above, or use the marker finder’s <b>Design with … vs …</b> button — the off-target column appears once one is set.</div>`:''}${d.constraint_note?`<div class="note" style="margin-top:4px"><b class="WARN">heads up:</b> ${esc(d.constraint_note)}</div>`:""}
    <div class="card" style="margin-top:8px;border-color:var(--acc)">chemistry chosen: <b>${d.profile_pretty||d.profile_used}</b></div>
    <details style="margin-top:8px"><summary class="note" style="cursor:pointer">sequences used (${(d.target_subjects||[]).length} target${d.off_subjects&&d.off_subjects.length?" / "+d.off_subjects.length+" off-target":""}) — accessions behind the conservation / discrimination</summary><div class="hint" style="margin-top:4px"><b>Target:</b><br>${((d.target_subjects||[]).map(s=>'<span class="mono">'+esc(s.acc)+'</span> '+esc((s.title||"").slice(0,90))).join("<br>"))||"&mdash;"}</div>${d.off_subjects&&d.off_subjects.length?('<div class="hint" style="margin-top:6px"><b>Off-target:</b><br>'+d.off_subjects.map(s=>'<span class="mono">'+esc(s.acc)+'</span> '+esc((s.title||"").slice(0,90))).join("<br>")+'</div>'):""}</details>`;
  d.candidates.forEach((c,i)=>{const a=c.assay,cn=c.conservation,ds=c.discrimination;
@@ -2050,6 +2116,7 @@ async function doRefGenes(){const o=document.getElementById("rg_out");o.innerHTM
 /* ---- workbench: assays carry across tabs + panel + report + multiplex ---- */
 let LAST_DESIGN=null,LAST_STD=null,LAST_AUTO=null,LAST_AUTO_FULL=null;
 let AUTO_JOB_ID=null,AUTO_JOB_POLLING=false,AUTO_POLL_TOKEN=null;
+let AUTO_JOB_NOTICE="",AUTO_LAST_SNAPSHOT=null;
 let MD=null;   // manual-design ranked-candidate state: {tmpl,cands,profile,note,constraint,sel}
 let PANEL=[];try{PANEL=JSON.parse(localStorage.getItem("of_panel")||"[]")||[];}catch(e){PANEL=[];}
 let CURRENT_ID=null;try{CURRENT_ID=localStorage.getItem("of_current")||null;}catch(e){}
@@ -2097,12 +2164,16 @@ function removeAssay(id){PANEL=PANEL.filter(a=>a.id!==id);if(CURRENT_ID===id)CUR
 function clearPanel(){if(!PANEL.length||confirm("Remove all "+PANEL.length+" assays from the workbench?")){PANEL=[];CURRENT_ID=null;savePanel();renderPanel();}}
 async function factoryReset(){
  if(!confirm("Reset OligoForge to factory settings?\n\nThis permanently deletes:\n  • the current Workbench\n  • every saved panel and project (on the server)\n  • your saved reaction conditions\n  • your remembered NCBI email and key\n\nThis cannot be undone. Export anything you want to keep first.")) return;
- let extra="";
- try{const d=await api("/api/factory_reset",{});if(d&&d.ok)extra="\nRemoved "+d.panels+" saved panel(s) and "+d.projects+" saved project(s) from the server.";}
- catch(e){extra="\n(Could not reach the server to clear saved panels/projects — your browser data was still cleared.)";}
+ let extra="",serverCleared=false,d;
+ try{d=await api("/api/factory_reset",{});}catch(e){d=_transportError("The server did not acknowledge factory reset.","network.factory_reset_unreachable",["No browser data has been cleared."],true);}
+ if(d&&d.ok){serverCleared=true;extra="\nRemoved "+d.panels+" saved panel(s) and "+d.projects+" saved project(s) from the server.";}
+ else{const message=(d&&d.error)||"The server did not confirm that saved panels and projects were removed.";
+  if(!_ERROR_META.get(String(message))){const j={error:message};j.problem=_clientProblem(message,"storage.factory_reset_unconfirmed","storage",false,["Nothing has been cleared yet. Retry later, or explicitly choose a browser-only reset."],"factory_reset");_rememberProblem(j,"factory_reset",500,null);}
+  if(!confirm("Server-side reset did not complete:\n\n"+message+"\n\nNothing has been cleared yet. Clear this browser only and leave any server-side panels/projects unchanged?"))return;
+  extra="\nBrowser-only reset: server-side panels/projects were NOT removed.";}
  try{["of_panel","of_current","of_tab","of_cond","ncbi_email","of_ncbi_key"].forEach(k=>localStorage.removeItem(k));}catch(e){}
  try{sessionStorage.removeItem("of_seen_intro");}catch(e){}
- alert("OligoForge has been reset to factory settings."+extra+"\n\nReloading…");
+ alert((serverCleared?"OligoForge has been reset to factory settings.":"This browser has been reset.")+extra+"\n\nReloading…");
  try{location.reload();}catch(e){}
 }
 function exportPanel(){if(!PANEL.length){toast("Nothing to export — the workbench is empty.","warn");return;}download("oligoforge_panel.json",JSON.stringify(PANEL,null,1));}
@@ -2122,10 +2193,11 @@ function autoAddCand(i){if(!LAST_AUTO_FULL||!LAST_AUTO_FULL.candidates||!LAST_AU
   candidate_attrition:d.candidate_attrition||null,search_status:d.search_status||null,
   ranking_evidence:row.evidence||row.ranking_evidence_vector||null,rank_trace:row.rank_trace||null,
   rank_explanation:row.rank_explanation||null,candidate_rank:row.rank||i+1,
-  finalist_categories:row.finalist_categories||row.finalist_category||null,source_workflow:"automatic_design"});}
+  finalist_categories:row.finalist_categories||row.finalist_category||null,
+  design_contract:d.design_contract||null,source_workflow:"automatic_design"});}
 function autoAdd(){autoAddCand(0);}
 function gblockToOrder(name,seq){addGbRow(name,seq);gotab("order");toast("gBlock added to the Order tab as a standard.","ok");}
-function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,amplicon_tm:d.amplicon_tm,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||"",gblock:d.gblock,ranker_manifest:d.ranker_manifest||null,objective_profile:d.objective_profile||null,candidate_attrition:d.candidate_attrition||null,search_status:d.search_status||null,ranking_evidence:d.evidence||null,rank_trace:d.rank_trace||null,rank_explanation:d.rank_explanation||null,candidate_rank:d.candidate_rank||null,finalist_categories:d.finalist_categories||null,source_workflow:d.source_workflow||"direct_design"});}
+function designAdd(){if(!LAST_DESIGN)return;const d=LAST_DESIGN;addAssay({name:"assay",gene:"",organism:"",forward:d.forward,reverse:d.reverse,probe:d.probe,amplicon:d.amplicon,amplicon_tm:d.amplicon_tm,f_tm:d.f_tm,r_tm:d.r_tm,probe_tm:d.probe_tm,chemistry:d.profile||"",gblock:d.gblock,ranker_manifest:d.ranker_manifest||null,objective_profile:d.objective_profile||null,candidate_attrition:d.candidate_attrition||null,search_status:d.search_status||null,ranking_evidence:d.evidence||null,rank_trace:d.rank_trace||null,rank_explanation:d.rank_explanation||null,candidate_rank:d.candidate_rank||null,finalist_categories:d.finalist_categories||null,design_contract:d.design_contract||null,source_workflow:d.source_workflow||"direct_design"});}
 function addManualAssay(){
  const f=(document.getElementById("ma_f").value||"").trim().toUpperCase().replace(/\s+/g,"");
  const r=(document.getElementById("ma_r").value||"").trim().toUpperCase().replace(/\s+/g,"");
@@ -2184,7 +2256,9 @@ function renderPanel(){const o=document.getElementById("wk_out");if(!o)return;
   const pm=a.ranker_manifest||{},px=a.rank_explanation||{};
   const prov=pm.run_id?`<span class="achip" title="rank provenance: ${esc(pm.run_id)} · manifest ${esc(pm.manifest_sha256||"unhashed")}">rank ${a.candidate_rank||"?"} · ${esc(pm.ranker_version||"ranker?")}</span>`:`<span class="achip dim" title="No versioned rank manifest was attached to this manually entered or legacy assay.">unranked / legacy provenance</span>`;
   const pref=px.preference_state?`<span class="achip ${px.preference_state.indexOf("strong")===0?"ok":(px.preference_state.indexOf("insufficient")===0?"warn":"")}">${esc(px.preference_state)}</span>`:"";
-  const flags=`${a.checks&&a.checks.specificity?(a.checks.specificity.error?`<span class="achip warn">spec ?</span>`:`<span class="achip ok">spec \u2713</span>`):""}${a.validation&&a.validation.efficiency_pct!=null?`<span class="achip ok">eff ${a.validation.efficiency_pct}%</span>`:""}${prov}${pref}`;
+  const dc=a.design_contract||{},dcOk=dc.status==="computationally_qualified_with_declared_limits",dcFail=dc.status==="not_computationally_qualified";
+  const quality=dc.schema_version?`<span class="achip ${dcOk?"ok":"warn"}" title="canonical contract ${esc(dc.contract_sha256||"unhashed")} · ${esc(dc.scope_statement||"")}">${dcOk?"quality contract ✓":(dcFail?"quality contract failed":"quality contract review")}</span>`:"";
+  const flags=`${a.checks&&a.checks.specificity?(a.checks.specificity.error?`<span class="achip warn">spec ?</span>`:`<span class="achip ok">spec \u2713</span>`):""}${a.validation&&a.validation.efficiency_pct!=null?`<span class="achip ok">eff ${a.validation.efficiency_pct}%</span>`:""}${prov}${pref}${quality}`;
   return `<div class="acard${cur?" cur":""}">
     <div class="acard-top">
       <label class="acard-cur"><input type="radio" name="wkcur" ${cur?"checked":""} onclick="setCurrent(\'${a.id}\')"><span>current</span></label>
@@ -2351,12 +2425,19 @@ async function miqeValidate(){
  o.innerHTML=h;}
 function downloadMiqe(){if(!LAST_MIQE)return;download((LAST_MIQE.assay.name||"assay").replace(/[^A-Za-z0-9_-]+/g,"_")+"_miqe.md",LAST_MIQE.markdown);toast("MIQE report downloaded.","ok");}
 function attachMeltToCurrent(tm,peaks){const a=curAssay();if(!a){toast("Pick an assay in the Workbench first.","warn");return;}a.validation=a.validation||{};a.validation.observed_amplicon_tm=tm;a.validation.observed_peaks=peaks;if(a.status==="designed")a.status="bench data attached";savePanel();renderPanel();toast("Attached melt data to "+(a.name||"current assay")+"; a single peak is not sequence-level product confirmation.","ok");}
-async function applyConditions(){const b={mv_conc:parseFloat(cond_mv.value)||50,dv_conc:parseFloat(cond_dv.value)||3,dntp_conc:parseFloat(cond_dntp.value)||0.8,dna_conc:parseFloat(cond_dna.value)||200};
- await api("/api/conditions",b);try{localStorage.setItem("of_cond",JSON.stringify(b));}catch(e){}
- const n=document.getElementById("cond_note");if(n){n.textContent="applied — Tm now uses your mix";setTimeout(()=>{n.textContent="";},2200);}}
+function conditionValues(v){return !!(v&&[v.mv_conc,v.dv_conc,v.dntp_conc,v.dna_conc].some(x=>x!=null));}
+function paintConditions(v){if(!conditionValues(v))return;if(v.dv_conc!=null)cond_dv.value=v.dv_conc;if(v.mv_conc!=null)cond_mv.value=v.mv_conc;if(v.dntp_conc!=null)cond_dntp.value=v.dntp_conc;if(v.dna_conc!=null)cond_dna.value=v.dna_conc;}
+function settingsFailure(message,note){const n=document.getElementById("cond_note");if(n){n.className="FAIL";n.textContent=note||"not applied";n.title=String(message||"");}const box=document.getElementById("diagPanel");if(box){box.style.display="block";box.innerHTML=err(message);}toast(note||"Reaction conditions were not applied.","err");}
+async function applyConditions(){const b={mv_conc:parseFloat(cond_mv.value)||50,dv_conc:parseFloat(cond_dv.value)||3,dntp_conc:parseFloat(cond_dntp.value)||0.8,dna_conc:parseFloat(cond_dna.value)||200},d=await api("/api/conditions",b);
+ if(d.error){settingsFailure(d.error,"not applied — active mix unchanged");return false;}
+ paintConditions(d);try{localStorage.setItem("of_cond",JSON.stringify(b));}catch(e){}
+ const n=document.getElementById("cond_note");if(n){n.className="ok";n.title="";n.textContent="applied — Tm now uses your mix";setTimeout(()=>{n.textContent="";},2200);}return true;}
 async function initConditions(){let b=null;try{b=JSON.parse(localStorage.getItem("of_cond")||"null");}catch(e){}
- const cur=await api("/api/conditions",b||{});const v=(b||cur)||{};
- if(!v.error){if(v.dv_conc!=null)cond_dv.value=v.dv_conc;if(v.mv_conc!=null)cond_mv.value=v.mv_conc;if(v.dntp_conc!=null)cond_dntp.value=v.dntp_conc;if(v.dna_conc!=null)cond_dna.value=v.dna_conc;}}
+ const postConditions=api;
+ let cur=await autoRequest("/api/conditions","GET");
+ if(!cur.error&&!conditionValues(cur)){const legacy=await postConditions("/api/conditions",{});if(conditionValues(legacy))cur=legacy;}
+ if(b){const applied=await postConditions("/api/conditions",b);if(!applied.error){paintConditions(conditionValues(applied)?applied:b);return;}paintConditions(cur);settingsFailure(applied.error,"saved mix not active — showing server mix");return;}
+ if(cur.error){settingsFailure(cur.error,"active mix unavailable");return;}paintConditions(cur);}
 function seedFSJ(){const host="IDT PrimeTime (ZEN 5'FAM)";const org="Aphelocoma coerulescens";
  const A=[
   {name:"IFNG",gene:"IFNG",organism:org,chemistry:host,dye:"FAM",amplicon:136,forward:"AGTCATTCTGATGTCGCTGATG",reverse:"ACCTGTCAGTGTTTTCAAGCA",probe:"TCATTTCTCTCTGTCCAGCCTGATAGCTTCTCT"},
@@ -2738,7 +2819,7 @@ function isoRender(){
   '<div style="overflow:auto"><table><tr><th>accession</th><th>isolate</th>'+th("role","role")+'<th>verdict</th>'+th("amp","amp bp")+th("tm","amp Tm")+th("f","F%")+th("r","R%")+th("probe","probe%")+'</tr>'+
   (rows||'<tr><td colspan="9" class="hint">no isolates match this filter</td></tr>')+'</table></div>';}
 /* ---- Manual design + base-level sequence viewer ---- */
-let VW={seq:"",src:"",gene:"",org:"",recs:[],cands:[],sel:-1,spans:[],win:null,manual:[],erase:false,dragging:false,anchor:-1,selRange:null,_selPainted:null};
+let VW={seq:"",src:"",gene:"",org:"",recs:[],cands:[],sel:-1,spans:[],win:null,manual:[],erase:false,dragging:false,anchor:-1,selRange:null,_selPainted:null,contract:null,manifest:null,objective:null,attrition:null,searchStatus:null};
 const VW_CAP=20000;
 function vwClean(s){return (s||"").replace(/^[>;].*$/gm,"").toUpperCase().replace(/U/g,"T").replace(/[^ACGTRYSWKMBDHVN]/g,"");}
 async function vwFetch(mode){
@@ -2756,7 +2837,7 @@ async function vwFetch(mode){
 function vwRenderPicker(){const pick=document.getElementById("vw_picker"); if(!pick)return; pick.style.display="block";
  pick.innerHTML='<div class="hint" style="margin-bottom:4px">pick the exact record to load ('+VW.recs.length+' found) — choose the isoform you mean, do not guess:</div>'+
   VW.recs.map((r,i)=>'<a class="vw-rec" onclick="vwPick('+i+')"><b>'+esc(r.id)+'</b> · '+esc((r.desc||"").slice(0,100))+' <span class="hint">('+r.length+' nt)</span></a>').join("");}
-function vwResetForNewSeq(){VW.cands=[];VW.sel=-1;VW.win=null;
+function vwResetForNewSeq(){VW.cands=[];VW.sel=-1;VW.win=null;VW.contract=null;VW.manifest=null;VW.objective=null;VW.attrition=null;VW.searchStatus=null;
  const cb=document.getElementById("vw_cands"); if(cb)cb.innerHTML='<div class="ph">Design on the loaded sequence to see candidate primer/probe sets, drawn on the bases above.</div>';
  const db=document.getElementById("vw_data"); if(db)db.innerHTML="";}
 function vwPick(i){const r=VW.recs[i]; if(!r)return; VW.seq=vwClean(r.seq); VW.src=r.id+" · "+(r.desc||""); vwResetForNewSeq(); vwRenderSeq(); toast("Loaded "+r.id+" ("+VW.seq.length+" nt).","ok");}
@@ -2797,12 +2878,12 @@ async function vwDesign(){
   probe_offset_min:+gv("vw_polo").value||5, probe_offset_max:+gv("vw_pohi").value||10.5,
   n:+gv("vw_n").value||5};
  const d=await api("/api/viewer_design",body); if(stat)stat.textContent="";
- if(d.error){toast(d.error,"warn");gv("vw_cands").innerHTML=err(d.error);return;}
- VW.cands=d.candidates||[]; VW.sel=-1; VW.win=d.tm_window||null;
- if(!VW.cands.length){gv("vw_cands").innerHTML='<div class="hint">no clean assay found under these rules — widen the Tm window, GC, or amplicon range.</div>';vwApplyHighlights();return;}
+ if(d.error){VW.cands=[];VW.sel=-1;VW.contract=null;VW.manifest=null;VW.objective=null;VW.attrition=null;VW.searchStatus=null;vwApplyHighlights();const data=gv("vw_data");if(data)data.innerHTML="";toast(d.error,"warn");gv("vw_cands").innerHTML=err(d.error);return;}
+ VW.cands=d.candidates||[]; VW.sel=-1; VW.win=d.tm_window||null;VW.contract=d.design_contract||null;VW.manifest=d.ranker_manifest||null;VW.objective=d.objective_profile||null;VW.attrition=d.candidate_attrition||null;VW.searchStatus=d.search_status||null;
+ if(!VW.cands.length){gv("vw_cands").innerHTML=contractHtml(VW.contract)+'<div class="hint">no clean assay found under these rules — widen the Tm window, GC, or amplicon range.</div>';vwApplyHighlights();return;}
  vwRenderCands(); vwSelect(0); toast(VW.cands.length+" candidate"+(VW.cands.length===1?"":"s")+" found.","ok");}
 function vwRenderCands(){const box=document.getElementById("vw_cands"); if(!box)return;
- box.innerHTML=VW.cands.map((c,k)=>{
+ box.innerHTML=contractHtml(VW.contract)+VW.cands.map((c,k)=>{
   const f='<span class="vw-flag '+(c.f_in?'ok':'no')+'">F '+c.f_tm+'°</span>';
   const r='<span class="vw-flag '+(c.r_in?'ok':'no')+'">R '+c.r_tm+'°</span>';
   const p=c.probe?(' · probe '+c.probe_tm+'°'):' · no probe';
@@ -2877,8 +2958,8 @@ function vwManualPayload(){const f=[...VW.manual].reverse().find(m=>m.role==="f"
  if(!f||!r)return null;return {forward:f.disp,reverse:r.disp,probe:p?p.disp:null,template:VW.seq,profile:p?"idt_taqman":"sybr_generic",objective:p?"balanced":"sybr",max_mm:2};}
 function vwManualResult(d,mode){const box=document.getElementById("vw_manual_analysis");if(!box)return;if(!d||d.error){box.innerHTML=err((d&&d.error)||"analysis failed");return;}
  if(mode==="analyze"){box.innerHTML=mdEvidencePresentation(d,"Exact assay analysis",false);return;}
- if(mode==="rescue"){box.innerHTML='<div class="subbox"><div class="sub-h">Assay diagnosis and rescue</div>'+mdDiagnosisCards(d.diagnoses||[])+'<div class="hint">'+(d.redesigns||[]).length+' minimally disruptive redesign(s) returned.</div></div>';return;}
- const rows=(d.candidates||[]).map((z,i)=>{const a=z.assay||{},e=z.evidence||{};return '<tr><td>'+(i+1)+'</td><td class="mono">'+esc(a.forward||"")+'</td><td class="mono">'+esc(a.reverse||"")+'</td><td class="mono">'+esc(a.probe||"—")+'</td><td>'+esc((z.components_changed||[]).map(mdLabel).join(", ")||"None")+'</td><td>'+(e.hard_valid?"Meets requirements":"Review required")+'</td></tr>';}).join("");box.innerHTML='<div class="subbox"><div class="sub-h">Constrained redesign · locked components preserved</div><table><tr><th>Rank</th><th>Forward</th><th>Reverse</th><th>Probe</th><th>Changed</th><th>Status</th></tr>'+rows+'</table><div class="hint">'+esc(d.note||"")+'</div></div>';}
+ if(mode==="rescue"){box.innerHTML=contractHtml(d.design_contract)+'<div class="subbox"><div class="sub-h">Assay diagnosis and rescue</div>'+mdDiagnosisCards(d.diagnoses||[])+'<div class="hint">'+(d.redesigns||[]).length+' minimally disruptive redesign(s) returned.</div></div>';return;}
+ const rows=(d.candidates||[]).map((z,i)=>{const a=z.assay||{},e=z.evidence||{};return '<tr><td>'+(i+1)+'</td><td class="mono">'+esc(a.forward||"")+'</td><td class="mono">'+esc(a.reverse||"")+'</td><td class="mono">'+esc(a.probe||"—")+'</td><td>'+esc((z.components_changed||[]).map(mdLabel).join(", ")||"None")+'</td><td>'+(e.hard_valid?"Meets requirements":"Review required")+'</td></tr>';}).join("");box.innerHTML=contractHtml(d.design_contract)+'<div class="subbox"><div class="sub-h">Constrained redesign · locked components preserved</div><table><tr><th>Rank</th><th>Forward</th><th>Reverse</th><th>Probe</th><th>Changed</th><th>Status</th></tr>'+rows+'</table><div class="hint">'+esc(d.note||"")+'</div></div>';}
 async function vwAnalyzeManual(){const b=vwManualPayload();if(!b){toast("Tag both primers first.","warn");return;}const box=document.getElementById("vw_manual_analysis");if(box)box.innerHTML='<div class="working">analyzing every placement and product…</div>';vwManualResult(await api("/api/manual-design/analyze",b),"analyze");}
 async function vwRedesignManual(mode){const b=vwManualPayload();if(!b){toast("Tag both primers first.","warn");return;}b.locks=mode==="pair"?{primer_pair:true}:mode==="forward"?{forward:true}:mode==="reverse"?{reverse:true}:{probe:true};b.max_results=6;const box=document.getElementById("vw_manual_analysis");if(box)box.innerHTML='<div class="working">jointly optimizing unlocked components…</div>';vwManualResult(await api("/api/manual-design/redesign",b),"redesign");}
 async function vwRescueManual(){const b=vwManualPayload();if(!b){toast("Tag both primers first.","warn");return;}b.observed={};b.max_results=4;const box=document.getElementById("vw_manual_analysis");if(box)box.innerHTML='<div class="working">diagnosing and generating minimally disruptive alternatives…</div>';vwManualResult(await api("/api/assay-rescue",b),"rescue");}
@@ -2886,7 +2967,10 @@ function vwRemoveManual(id){VW.manual=(VW.manual||[]).filter(m=>m.id!==id);vwRep
 function vwSrcName(){const s=(VW.gene||VW.src||"manual").split("·")[0].trim();return (s||"manual").slice(0,24);}
 function vwToWorkbench(k){const c=VW.cands[k];if(!c){toast("No candidate selected.","warn");return;}
  addAssay({name:vwSrcName()+" (viewer)",gene:VW.gene||"",organism:VW.org||"",forward:c.forward,reverse:c.reverse,probe:c.probe||null,
-  amplicon:c.amplicon,amplicon_tm:c.amplicon_tm,f_tm:c.f_tm,r_tm:c.r_tm,probe_tm:c.probe_tm||null,chemistry:"viewer (strict rules)",gblock:c.gblock||null});}
+  amplicon:c.amplicon,amplicon_tm:c.amplicon_tm,f_tm:c.f_tm,r_tm:c.r_tm,probe_tm:c.probe_tm||null,chemistry:"viewer (strict rules)",gblock:c.gblock||null,
+  ranker_manifest:VW.manifest||null,objective_profile:VW.objective||null,candidate_attrition:VW.attrition||null,search_status:VW.searchStatus||null,
+  ranking_evidence:c.evidence||null,rank_trace:c.rank_trace||null,rank_explanation:c.rank_explanation||null,candidate_rank:c.rank||k+1,
+  finalist_categories:c.finalist_categories||null,design_contract:VW.contract||null,source_workflow:"sequence_viewer_design"});}
 function vwManualToWorkbench(){const f=[...VW.manual].reverse().find(m=>m.role==="f"),r=[...VW.manual].reverse().find(m=>m.role==="r"),p=[...VW.manual].reverse().find(m=>m.role==="p");
  if(!f&&!r&&!p){toast("Tag at least one region (forward, reverse, or probe) first.","warn");return;}
  if(f&&r&&r.to<=f.from){toast("The reverse region should sit downstream (3') of the forward region.","warn");return;}
@@ -3053,7 +3137,7 @@ function mdEvidenceData(kind){if(kind==="edit")return MEDIT_COMPARE;if(kind==="r
 function mdDownloadEvidence(kind){const d=mdEvidenceData(kind);if(!d){toast("That evidence record is not available for this result.","warn");return;}const names={record:"oligoforge-manual-evidence-record.json",trace:"oligoforge-ranking-trace.json",manifest:"oligoforge-run-manifest.json",edit:"oligoforge-edit-comparison.json",run:"oligoforge-design-run-comparison.json",feedback:"oligoforge-feedback.json"};download(names[kind]||"oligoforge-evidence.json",JSON.stringify(d,null,2));}
 function mdCopyEvidence(kind){const d=mdEvidenceData(kind);if(!d){toast("That evidence record is not available for this result.","warn");return;}const t=JSON.stringify(d,null,2);try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t);toast("Machine-readable evidence copied.","ok");}else{toast("Clipboard access is unavailable; use Download instead.","warn");}}catch(e){toast("Could not copy evidence; use Download instead.","warn");}}
 function mdAdvancedHtml(extraKind){return `<details class="md-advanced"><summary>Advanced evidence and machine-readable exports</summary><div class="md-advanced-body"><div class="hint">These records preserve the full calculations and provenance without placing internal rank keys in the primary interpretation.</div><div class="row"><button class="ghost" onclick="mdDownloadEvidence('record')">Download full evidence record</button><button class="ghost" onclick="mdDownloadEvidence('trace')">Download ranking trace</button><button class="ghost" onclick="mdDownloadEvidence('manifest')">Download run manifest</button><button class="ghost" onclick="mdCopyEvidence('record')">Copy machine-readable record</button>${extraKind?`<button class="ghost" onclick="mdDownloadEvidence('${extraKind}')">Download this comparison</button>`:""}</div></div></details>`;}
-function mdEvidencePresentation(analysis,title,advanced=true){const d=analysis||{},c=d.candidate||{},e=c.evidence||{};const ok=!!e.hard_valid;return `<div class="subbox md-result-head ${ok?"ok":"risk"}"><div><div class="md-result-title">${esc(title||"Exact assay analysis")}</div><div class="hint">${ok?"Meets the hard computational requirements for this objective and supplied evidence.":"Review required: one or more hard computational requirements were not met."}</div></div><span class="pill ${ok?"b-PASS":"b-FAIL"}">${ok?"computationally supported":"review required"}</span></div><div class="md-evidence-grid">${mdMappingPanel(d)}${mdRequirementPanel(c,d)}${mdTargetPanels(c)}${mdThermoPanel(c)}${mdRobustnessPanel(c)}${mdEvaluationsPanel(c)}${mdRankPanels(c)}${mdProvenancePanel(d.ranker_manifest||((MDIRECT||{}).manifest))}</div>${advanced?mdAdvancedHtml():""}`;}
+function mdEvidencePresentation(analysis,title,advanced=true){const d=analysis||{},c=d.candidate||{},e=c.evidence||{};const ok=!!e.hard_valid;return contractHtml(d.design_contract)+`<div class="subbox md-result-head ${ok?"ok":"risk"}"><div><div class="md-result-title">${esc(title||"Exact assay analysis")}</div><div class="hint">${ok?"Meets the hard computational requirements for this objective and supplied evidence.":"Review required: one or more hard computational requirements were not met."}</div></div><span class="pill ${ok?"b-PASS":"b-FAIL"}">${ok?"computationally supported":"review required"}</span></div><div class="md-evidence-grid">${mdMappingPanel(d)}${mdRequirementPanel(c,d)}${mdTargetPanels(c)}${mdThermoPanel(c)}${mdRobustnessPanel(c)}${mdEvaluationsPanel(c)}${mdRankPanels(c)}${mdProvenancePanel(d.ranker_manifest||((MDIRECT||{}).manifest))}</div>${advanced?mdAdvancedHtml():""}`;}
 function mdVal(id){const e=document.getElementById(id);return e?e.value.trim():"";}
 function mdNum(id){const v=mdVal(id);return v===""?null:Number(v);}
 function mdChecked(id){const e=document.getElementById(id);return !!(e&&e.checked);}
@@ -3070,7 +3154,7 @@ function mdPayload(){
 }
 function mdObserved(){const o={};const eff=mdNum("md_eff"),r2=mdNum("md_r2"),peaks=mdNum("md_peaks");if(eff!==null)o.efficiency=eff;if(r2!==null)o.r2=r2;if(peaks!==null)o.melt_peaks=peaks;if(mdChecked("md_probe_problem"))o.probe_signal_problem=true;if(mdChecked("md_multiplex_failure"))o.multiplex_only_failure=true;return o;}
 function mdLoadCandidate(i){if(!MDIRECT||!MDIRECT.rows||!MDIRECT.rows[i])return;const raw=MDIRECT.rows[i],row=raw.candidate||raw,a=row.assay||row;document.getElementById("md_f").value=a.forward||"";document.getElementById("md_r").value=a.reverse||"";document.getElementById("md_p").value=a.probe||"";toast("Loaded candidate "+(i+1)+" for editing or another constrained redesign.","ok");}
-function mdAddCandidate(i){if(!MDIRECT||!MDIRECT.rows||!MDIRECT.rows[i])return;const raw=MDIRECT.rows[i],row=raw.candidate||raw,a=row.assay||row,nm=(MDIRECT.mode==="analyze"?"Manual Studio analyzed assay":"Manual Studio candidate "+(i+1));addAssay({name:nm,forward:a.forward,reverse:a.reverse,probe:a.probe||null,amplicon:a.amplicon||null,amplicon_tm:a.amplicon_tm||null,f_tm:a.f_tm||null,r_tm:a.r_tm||null,probe_tm:(a.probe_info||{}).tm||null,chemistry:MDIRECT.profile||"manual design",ranker_manifest:MDIRECT.manifest||null,objective_profile:MDIRECT.objective||null,ranking_evidence:row.evidence||null,rank_trace:row.rank_trace||null,rank_explanation:row.rank_explanation||null,candidate_rank:row.rank||i+1,source_workflow:(MDIRECT.mode==="rescue"?"assay_rescue":"manual_design")});}
+function mdAddCandidate(i){if(!MDIRECT||!MDIRECT.rows||!MDIRECT.rows[i])return;const raw=MDIRECT.rows[i],row=raw.candidate||raw,a=row.assay||row,nm=(MDIRECT.mode==="analyze"?"Manual Studio analyzed assay":"Manual Studio candidate "+(i+1));addAssay({name:nm,forward:a.forward,reverse:a.reverse,probe:a.probe||null,amplicon:a.amplicon||null,amplicon_tm:a.amplicon_tm||null,f_tm:a.f_tm||null,r_tm:a.r_tm||null,probe_tm:(a.probe_info||{}).tm||null,chemistry:MDIRECT.profile||"manual design",ranker_manifest:MDIRECT.manifest||null,objective_profile:MDIRECT.objective||null,ranking_evidence:row.evidence||null,rank_trace:row.rank_trace||null,rank_explanation:row.rank_explanation||null,candidate_rank:row.rank||i+1,design_contract:MDIRECT.contract||null,source_workflow:(MDIRECT.mode==="rescue"?"assay_rescue":"manual_design")});}
 function mdDiagnosisCards(rows){if(!(rows||[]).length)return '<div class="md-empty">No diagnostic hypotheses were returned.</div>';return rows.map(z=>{const high=z.severity==="critical"||z.severity==="high",e=z.code==="hard_requirement_failure"?mdFailureListText(z.computational_evidence):z.computational_evidence;return `<div class="verdict ${high?"v-risk":"v-warn"}"><b>${esc(mdLabel(z.code||"diagnostic finding"))}</b><div>${esc(e||"No computational detail was returned.")}</div><div class="hint"><b>Experimental interpretation:</b> ${esc(z.experimental_inference||"Experimental confirmation is required.")}</div></div>`;}).join("");}
 function mdSearchLedgerHtml(l){const x=l||{},lim=x.limits||{};if(!Object.keys(x).length)return "";return `<div class="md-panel wide"><div class="md-panel-h">Bounded redesign search</div><div class="md-stat-grid"><div class="md-stat"><span>Search status</span><b>${esc(mdLabel(x.search_status||"bounded"))}</b></div><div class="md-stat"><span>Primer pairs considered</span><b>${x.pairs_considered==null?"Not recorded":x.pairs_considered}</b></div><div class="md-stat"><span>Complete assays constructed</span><b>${x.triplets_constructed==null?"Not recorded":x.triplets_constructed}</b></div><div class="md-stat"><span>Fully evaluated candidates</span><b>${x.candidates_fully_annotated==null?"Not recorded":x.candidates_fully_annotated}</b></div><div class="md-stat"><span>Full-annotation budget</span><b>${lim.full_annotation_limit==null?"Not recorded":lim.full_annotation_limit}</b></div></div><div class="hint">The returned order is strongest among the retained, fully evaluated pool; it is not a proof of a global biological optimum.</div></div>`;}
 function mdCandidateRows(rows,rescue){return (rows||[]).map((raw,i)=>{const wrap=raw.candidate?raw:null,row=raw.candidate||raw,a=row.assay||{},e=row.evidence||{},x=row.rank_explanation||{},changed=(wrap&&wrap.components_changed)||row.components_changed||[];const level=wrap&&wrap.disruption_level;return `<tr><td>${row.rank||i+1}</td>${rescue?`<td>${esc(mdLabel(level||"redesign"))}</td>`:""}<td class="md-seq">${esc(a.forward||"")}</td><td class="md-seq">${esc(a.reverse||"")}</td><td class="md-seq">${esc(a.probe||"None")}</td><td>${esc(changed.map(mdLabel).join(", ")||"None")}</td><td>${e.hard_valid?"Meets requirements":"Review required"}${x.preference_state?" · "+esc(mdLabel(x.preference_state)):""}</td><td><button class="ghost" onclick="mdLoadCandidate(${i})">Load for editing</button><button class="ghost" onclick="mdAddCandidate(${i})">Add to Workbench</button></td></tr>`;}).join("");}
@@ -3078,7 +3162,7 @@ function mdRender(d,mode,request){const out=document.getElementById("md_out");if
  const rows=mode==="analyze"?[d.candidate||{}]:mode==="rescue"?(d.redesigns||[]):(d.candidates||[]);
  const manifest=d.ranker_manifest||((d.base||{}).ranker_manifest)||null;
  const objective=d.objective_profile||((d.base||{}).objective_profile)||null;
- MDIRECT={mode:mode,rows:rows,request:mdClone(request||{}),response:mdClone(d),manifest:manifest,objective:objective,profile:(request||{}).profile||""};
+ MDIRECT={mode:mode,rows:rows,request:mdClone(request||{}),response:mdClone(d),manifest:manifest,objective:objective,profile:(request||{}).profile||"",contract:d.design_contract||null};
  MLAST_MANIFEST=manifest;MLAST_OBJECTIVE=objective;
  if(mode==="analyze"){
   out.innerHTML=mdEvidencePresentation(d,"Exact assay analysis",true)+'<div class="subbox"><div class="row"><button class="ghost" onclick="mdAddCandidate(0)">Add analyzed assay to Workbench</button></div><div class="hint">This action adds the exact analyzed sequences together with their ranking evidence, objective, reaction snapshot, and self-verifying manifest.</div></div>';
@@ -3087,11 +3171,11 @@ function mdRender(d,mode,request){const out=document.getElementById("md_out");if
  if(mode==="rescue"){
   const base=d.base&&d.base.candidate?mdEvidencePresentation(d.base,"Current assay evidence",false):"";
   const candidateRows=mdCandidateRows(rows,true);
-  out.innerHTML='<div class="subbox"><div class="sub-h">Assay diagnosis</div>'+mdDiagnosisCards(d.diagnoses||[])+'</div>'+base+'<div class="subbox"><div class="sub-h">Redesigns ordered by disruption level</div>'+(candidateRows?'<table class="md-evidence-table"><tr><th>Rank</th><th>Disruption level</th><th>Forward primer</th><th>Reverse primer</th><th>Probe</th><th>Changed components</th><th>Computational support</th><th>Actions</th></tr>'+candidateRows+'</table>':'<div class="md-empty">No redesign candidates were returned under the current constraints.</div>')+'<div class="hint">'+esc(d.caveat||"Redesign rankings are computational; verify the selected assay experimentally.")+'</div></div>'+mdAdvancedHtml();
+  out.innerHTML=contractHtml(d.design_contract)+'<div class="subbox"><div class="sub-h">Assay diagnosis</div>'+mdDiagnosisCards(d.diagnoses||[])+'</div>'+base+'<div class="subbox"><div class="sub-h">Redesigns ordered by disruption level</div>'+(candidateRows?'<table class="md-evidence-table"><tr><th>Rank</th><th>Disruption level</th><th>Forward primer</th><th>Reverse primer</th><th>Probe</th><th>Changed components</th><th>Computational support</th><th>Actions</th></tr>'+candidateRows+'</table>':'<div class="md-empty">No redesign candidates were returned under the current constraints.</div>')+'<div class="hint">'+esc(d.caveat||"Redesign rankings are computational; verify the selected assay experimentally.")+'</div></div>'+mdAdvancedHtml();
   return;
  }
  const candidateRows=mdCandidateRows(rows,false);
- out.innerHTML='<div class="subbox"><div class="sub-h">Constrained redesign · locked components preserved</div>'+(candidateRows?'<table class="md-evidence-table"><tr><th>Rank</th><th>Forward primer</th><th>Reverse primer</th><th>Probe</th><th>Changed components</th><th>Computational support</th><th>Actions</th></tr>'+candidateRows+'</table>':'<div class="md-empty">No candidates satisfied the bounded search and declared constraints.</div>')+'<div class="hint">'+esc(d.note||"Candidate order applies only to the fully evaluated retained search pool.")+'</div></div>'+mdSearchLedgerHtml(d.search_ledger)+mdAdvancedHtml();
+ out.innerHTML=contractHtml(d.design_contract)+'<div class="subbox"><div class="sub-h">Constrained redesign · locked components preserved</div>'+(candidateRows?'<table class="md-evidence-table"><tr><th>Rank</th><th>Forward primer</th><th>Reverse primer</th><th>Probe</th><th>Changed components</th><th>Computational support</th><th>Actions</th></tr>'+candidateRows+'</table>':'<div class="md-empty">No candidates satisfied the bounded search and declared constraints.</div>')+'<div class="hint">'+esc(d.note||"Candidate order applies only to the fully evaluated retained search pool.")+'</div></div>'+mdSearchLedgerHtml(d.search_ledger)+mdAdvancedHtml();
 }
 async function mdRun(mode){const b=mdPayload();if(!b)return;const out=document.getElementById("md_out");if(out)out.innerHTML='<div class="working">'+(mode==="analyze"?'mapping every placement and product…':mode==="rescue"?'diagnosing and generating minimally disruptive alternatives…':'jointly optimizing unlocked components…')+'</div>';
  let path="/api/manual-design/analyze";
@@ -3401,12 +3485,12 @@ try{setTimeout(autoBootstrap,0);}catch(e){}
    wedge the lamp on "reconnecting" while the server is actually reachable); each probe is
    time-boxed; the label distinguishes "waking" from "offline"; click the lamp to retry now. ---- */
 (function(){try{
-  var lamp=document.getElementById("lamp"); if(!lamp) return; var ok=false, tries=0;
+  var lamp=document.getElementById("lamp"); if(!lamp) return; var everOk=false, failures=0,inflight=false;
   function set(cls,text,tip){try{
     if(lamp.classList){lamp.classList.remove("ok","bad"); if(cls)lamp.classList.add(cls);}
-    lamp.innerHTML='<i></i> '+text; if(tip!=null)lamp.title=tip;
+    lamp.innerHTML='<i></i> '+esc(text); if(tip!=null)lamp.title=tip;
   }catch(e){}}
-  function paint(j){ ok=true;
+  function paint(j){ everOk=true;failures=0;
     set("ok", (j&&j.version)?("primer3 \u00b7 v"+j.version):"primer3 online", "Server reachable.");
     if(j&&j.version){
       var v=document.getElementById("ver"); if(v)v.textContent="v"+j.version;
@@ -3414,27 +3498,30 @@ try{setTimeout(autoBootstrap,0);}catch(e){}
       if(ft)ft.textContent="OligoForge v"+j.version+(j.commit&&j.commit!=="unknown"?(" \u00b7 "+j.commit):"");
     }
   }
-  function fail(kind){ if(ok)return; tries++;
-    var label=(kind==="slow"||tries<=2)?"waking server\u2026":"reconnecting\u2026";
+  function fail(kind){ failures++;
+    if(everOk&&failures<2){set("ok","primer3 · check delayed","One health check failed; the next scheduled probe will confirm whether service was interrupted.");return;}
+    var label=everOk?"connection interrupted":((kind==="slow"||failures<=2)?"waking server\u2026":"reconnecting\u2026");
     var tip=(kind==="slow")?"The server didn\u2019t answer in time \u2014 if this is the hosted demo it may be waking up (free tier sleeps after ~15 min idle). Retrying\u2026 click to retry now."
            :(kind==="net")?"Can\u2019t reach the server. If you\u2019re running it locally, check the terminal window is still open. Retrying\u2026 click to retry now."
+           :(kind==="unhealthy")?"The service answered but its core design readiness check failed. Open System diagnostics for details; click to retry now."
            :"Contacting the server\u2026 click to retry now.";
     set("bad", label, tip);
   }
   function ping(){
-    if(typeof fetch!=="function")return;
+    if(typeof fetch!=="function"||inflight)return;inflight=true;
     var ctl=(typeof AbortController!=="undefined")?new AbortController():null;
     var to=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},8000):0;
     fetch("/healthz",{cache:"no-store",signal:ctl?ctl.signal:undefined})
       .then(function(r){if(to)clearTimeout(to);return r.ok?r.json():null;})
-      .then(function(j){if(j)paint(j);else fail("net");})
-      .catch(function(e){if(to)clearTimeout(to);fail((e&&e.name==="AbortError")?"slow":"net");});
+      .then(function(j){inflight=false;if(j&&j.ok!==false)paint(j);else fail(j?"unhealthy":"net");})
+      .catch(function(e){inflight=false;if(to)clearTimeout(to);fail((e&&e.name==="AbortError")?"slow":"net");});
   }
   set("", "checking\u2026", "Checking the server\u2026");   // neutral initial state, not a failure
   ping();
-  var iv=setInterval(function(){if(ok){clearInterval(iv);}else{ping();}},5000);  // retry until first success, then stop
+  var isHarness=false;try{isHarness=typeof navigator!=="undefined"&&/jsdom/i.test(navigator.userAgent||"");}catch(e){}
+  var iv=isHarness?null:setInterval(ping,15000);  // continue probing after success so stale green state cannot persist
   if(iv&&iv.unref)iv.unref();
-  if(lamp.addEventListener)lamp.addEventListener("click",function(){if(!ok)ping();});
+  if(lamp.addEventListener)lamp.addEventListener("click",ping);
   if(window.addEventListener){window.addEventListener("online",ping);window.addEventListener("focus",ping);}
 }catch(e){}})();
 </script>

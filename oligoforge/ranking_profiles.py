@@ -79,15 +79,29 @@ OBJECTIVE_PROFILES = {
 }
 
 
+def resolve_objective(name=None, *, no_probe=False):
+    """Resolve the scientifically appropriate objective key.
+
+    ``balanced`` historically meant the hydrolysis-probe baseline.  Passing it
+    explicitly from a generic UI accidentally disabled SYBR's stricter product-
+    specificity rule.  Probe-less chemistry now resolves that generic default to
+    ``sybr`` everywhere; an explicitly chosen non-default objective is preserved.
+    """
+    key = str(name or ("sybr" if no_probe else "balanced")).strip().lower()
+    if no_probe and key == "balanced":
+        key = "sybr"
+    if key not in OBJECTIVE_PROFILES:
+        key = "sybr" if no_probe else "balanced"
+    return key
+
+
 def get_profile(name=None, *, no_probe=False, overrides=None):
     """Return a defensive copy of one ranking objective.
 
     ``overrides`` is limited to explicit requirements/preferences; callers should
     validate user values before passing them here.
     """
-    key = (name or ("sybr" if no_probe else "balanced")).strip().lower()
-    if key not in OBJECTIVE_PROFILES:
-        key = "sybr" if no_probe else "balanced"
+    key = resolve_objective(name, no_probe=no_probe)
     out = deepcopy(OBJECTIVE_PROFILES[key])
     out["key"] = key
     out["ranker_version"] = RANKER_VERSION

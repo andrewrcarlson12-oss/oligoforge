@@ -3,7 +3,7 @@ import time
 from . import design as D
 from .candidate_retention import retain_diverse, identity_key
 
-SEARCH_VERSION = "2.1.1"
+SEARCH_VERSION = "2.2.0"
 
 
 def _spread_order(starts):

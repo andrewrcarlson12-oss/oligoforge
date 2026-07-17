@@ -16,6 +16,7 @@ from . import candidate_search as CSEARCH
 from . import candidate_retention as CRET
 from . import ranking as RANK
 from . import ranking_explain as REXPLAIN
+from . import design_contract as DCONTRACT
 import hashlib
 import json
 import threading
@@ -37,6 +38,14 @@ _SEARCH_CACHE = OrderedDict()
 _DESIGN_CACHE = OrderedDict()
 _SEARCH_CACHE_MAX = 8
 _DESIGN_CACHE_MAX = 8
+
+# Search depth is a property of the scientific search tier, never of how many
+# rows the UI happens to display.  Prior releases let n=3 versus n=10 change the
+# candidate corpus that reached full annotation.
+CANONICAL_RETAINED_LIMIT = 96
+CANONICAL_FULL_ANNOTATION_LIMIT = 28
+CANONICAL_DISCRIMINATION_SPECIALISTS = 30
+CANONICAL_OBJECTIVE_PROBE_PAIRS = 20
 
 
 def _stable_hash(value):
@@ -139,8 +148,8 @@ def _candidates_with_ledger(reference, profile, n=3, window=420, step=140, budge
     """Target-wide complete-triplet search plus machine-readable attrition ledger."""
     # ``n`` is the requested number of displayed finalists, not the number allowed
     # to survive preliminary search.  A broad pool must reach full annotation.
-    retained_limit = max(48, min(120, int(n) * 12))
-    key = _stable_hash({"reference": reference, "profile": profile, "n": int(n),
+    retained_limit = CANONICAL_RETAINED_LIMIT
+    key = _stable_hash({"reference": reference, "profile": profile,
                         "window": int(window), "step": int(step), "budget_s": float(budget_s),
                         "retained_limit": retained_limit, "conditions": T._snapshot(),
                         "search_version": getattr(CSEARCH, "SEARCH_VERSION", "unknown")})
@@ -570,6 +579,9 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
         if c and not err and len(c) > 20:
             _off_clean.append(c)
     offs = _off_clean
+    # A generic "balanced" UI default means hydrolysis-probe behavior.  Resolve
+    # probe-less chemistry to the stricter SYBR product-specificity objective.
+    objective = RANK.get_profile(objective, no_probe=bool(profile.get("no_probe"))).get("key")
     search_budget_s = max(3.0, min(float(search_budget_s), 120.0))
     design_key = _stable_hash({"targets": targets, "offs": offs, "profile": profile,
                                "min_ident": float(min_ident), "n_candidates": int(n_candidates),
@@ -589,7 +601,7 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
         # thermodynamic beam may not surface.  They still undergo the same final
         # full annotation and cannot bypass hard constraints.
         try:
-            _dc = _disc_candidates(ref, profile, offs, want=max(16, int(n_candidates) * 3))
+            _dc = _disc_candidates(ref, profile, offs, want=CANONICAL_DISCRIMINATION_SPECIALISTS)
             _have = {(c.get("forward"), c.get("reverse"), c.get("probe")) for c in cands}
             _before = len(_have)
             for _a in _dc:
@@ -601,7 +613,7 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
             attrition["discrimination_specialist_error"] = type(exc).__name__
     augmented_probes, augmentation_ledger = _augment_objective_probes(
         cands, ref, profile, targets, offs, objective, min_ident=min_ident,
-        pair_limit=max(8, int(n_candidates) * 2), probe_scan_limit=24,
+        pair_limit=CANONICAL_OBJECTIVE_PROBE_PAIRS, probe_scan_limit=24,
         additions_per_pair=2)
     if augmented_probes:
         cands.extend(augmented_probes)
@@ -645,7 +657,7 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
     # objective-aware and regionally diverse pool before expensive all-site PCR
     # and condition-envelope structure analysis.  This stage is fully auditable;
     # discarded candidates remain visible in the attrition ledger.
-    full_annotation_limit = max(20, min(28, int(n_candidates) * 5))
+    full_annotation_limit = CANONICAL_FULL_ANNOTATION_LIMIT
     for row in prelim:
         # retain_diverse is a lower-is-better beam; the legacy preliminary score
         # is higher-is-better and already includes objective-relevant cheap
@@ -691,12 +703,19 @@ def design_from_sequences(targets, profile, offs=None, min_ident=0.6, n_candidat
         "rejected": len(ranked) - len(finalists), "hard_gate": False, "reversible": True,
         "reason": "diverse finalist display budget"})
     ih = hashlib.sha256(("\n".join(targets) + "\n--OFF--\n" + "\n".join(offs)).encode()).hexdigest()
+    profile_sha = _stable_hash(profile)
     out = dict(n_targets=len(targets), n_offs=len(offs), reference_len=len(ref),
                n_candidates=len(finalists), n_candidates_screened=len(ranked),
                n_requested=n_candidates, candidates=finalists,
                objective_profile=objective_profile, candidate_attrition=attrition,
-               ranker_manifest=RANK.manifest(objective_profile, attrition.get("candidate_limits", {}),
-                                             input_hashes={"sequence_corpus_sha256": ih}),
+               ranker_manifest=RANK.manifest(
+                   objective_profile, attrition.get("candidate_limits", {}),
+                   input_hashes={"sequence_corpus_sha256": ih,
+                                 "chemistry_profile_sha256": profile_sha},
+                   constraints={"workflow": "canonical_sequence_design",
+                                "chemistry_profile_name": profile.get("name"),
+                                "chemistry_profile_sha256": profile_sha,
+                                "effective_anneal_c": profile.get("anneal_c", T.ANNEAL_C)}),
                search_status="heuristic_bounded",
                cache_policy=("bounded defensive-copy memoization keyed by sequence corpus, chemistry, "
                              "reaction conditions, objective, and constraints"),
@@ -805,55 +824,287 @@ def _annotate(out, ref, prefer_junction):
             c["spans_junction"] = (any(jspan[0] < j < jspan[1] for j in junctions)
                                    if (junctions and jspan) else None)
     if prefer_junction and junctions:
-        cands.sort(key=lambda c: (0 if c.get("spans_junction") else 1, -c["score"]))
+        # Annotation must never mutate an already-authoritative rank order.  A
+        # former post-rank sort could put rank 3 at index 0 while leaving its
+        # rank trace and explanation untouched (and BLASTing the wrong winner).
+        out["junction_annotation_note"] = (
+            "Junction relationships were annotated after ranking and did not reorder candidates. "
+            "Use a transcript-specific design with declared junction coordinates when junction "
+            "status must be an authoritative ranking requirement.")
     return out
 
 
 def design_nested(reference, profile, inner_assay, outer_flank_max=600, min_gap=8,
-                  outer_amp_max=1400, topk=40):
-    """Fully-nested OUTER pair that flanks a given inner (diagnostic) assay on the same
-    reference: outer forward upstream of the inner forward, outer reverse downstream of the
-    inner reverse, so a second-round reaction only amplifies a correct first-round product
-    (the basis of the haemosporidian MalAvi screen). Inner-first, so the diagnostic assay
-    keeps its full scoring; outer primer quality is gated by the SAME profile. Returns
-    {"outer": {...}} or None when there isn't enough flanking sequence."""
-    if not reference or not inner_assay:
+                  outer_amp_max=1400, topk=40, *, targets=None, offs=None,
+                  min_ident=0.6, objective="balanced", n_candidates=5, panel=None):
+    """Design a fully nested outer primer pair with canonical structured ranking.
+
+    Nested geometry remains non-negotiable: the outer forward primer ends upstream
+    of the inner forward primer and the outer reverse-primer site begins downstream
+    of the inner product.  The outer reaction is necessarily primer-only, even when
+    the inner assay uses a hydrolysis probe, so a generic ``balanced`` objective is
+    resolved to the stricter SYBR product-specificity objective.
+
+    The previous implementation selected one pair with a raw Tm/dimer scalar.  This
+    path now retains a bounded, region/length-diverse pair pool and sends every
+    retained pair through :func:`ranking.rank_candidates`, including target and
+    supplied off-target in-silico PCR, chemistry hard gates, condition robustness,
+    rank traces, explanations, provenance, and a design contract.  The historical
+    ``outer`` mapping remains for UI compatibility; ``candidates`` is authoritative.
+    """
+    if not reference or not inner_assay or not profile:
         return None
-    span = _amplicon_on(reference, inner_assay["forward"], inner_assay.get("amplicon"))
+    reference, _amb, ref_error = T.clean_seq(reference)
+    if ref_error or not reference:
+        return None
+    inner_forward = str(inner_assay.get("forward") or "").upper()
+    span = _amplicon_on(reference, inner_forward, inner_assay.get("amplicon"))
     if not span:
         return None
     I_fs, I_re = span
-    L = len(reference)
-    up = reference[max(0, I_fs - outer_flank_max):I_fs]
-    dn = reference[I_re:min(L, I_re + outer_flank_max)]
-    U0 = max(0, I_fs - outer_flank_max)
-    if len(up) < profile["len_min"] or len(dn) < profile["len_min"]:
-        return None
-    fwd, _ = D.enumerate_primers(up, profile)
-    _, rev = D.enumerate_primers(dn, profile)
-    topt = profile["tm_opt"]
-    F = sorted(((U0 + i, U0 + j, w, T.tm(w)) for (i, j, w) in fwd if (U0 + j) <= I_fs - min_gap),
-               key=lambda x: abs(x[3] - topt))[:topk]
-    R = sorted(((I_re + a, I_re + b, w, T.tm(w)) for (a, b, w) in rev if (I_re + a) >= I_re + min_gap),
-               key=lambda x: abs(x[3] - topt))[:topk]
     inner_amp = I_re - I_fs
-    best = None
-    for (fs, fe, f, ftm) in F:
-        for (rs, re, r, rtm) in R:
+    min_gap = max(1, int(min_gap))
+    outer_flank_max = max(int(profile["len_min"]), int(outer_flank_max))
+    outer_amp_max = max(inner_amp + 2 * min_gap, int(outer_amp_max))
+    topk = max(1, int(topk))
+    n_candidates = max(1, int(n_candidates))
+
+    # The outer tube is a primer-only reaction.  Preserve every primer chemistry
+    # limit from the chosen inner profile while declaring the distinct nested
+    # product geometry and suppressing the irrelevant probe requirement.
+    outer_profile = deepcopy(profile)
+    parent_profile_name = str(profile.get("name") or "selected chemistry")
+    outer_profile.update(
+        name=parent_profile_name + " — nested outer primer pair",
+        no_probe=True,
+        min_probe_gap=0,
+        probe_len_min=0,
+        probe_len_max=0,
+        probe_offset_min=0.0,
+        probe_offset_max=0.0,
+        probe_hairpin_min=-99.0,
+        amp_min=inner_amp + 2 * min_gap,
+        amp_max=outer_amp_max,
+    )
+    objective_profile = RANK.get_profile(objective, no_probe=True)
+
+    def _clean_corpus(values, min_len):
+        cleaned = []
+        for value in values or []:
+            if not isinstance(value, str) or not value.strip():
+                continue
+            seq, _n, error = T.clean_seq(value)
+            if seq and not error and len(seq) >= min_len:
+                cleaned.append(seq)
+        return cleaned
+
+    target_corpus = _clean_corpus(targets, 21) if targets is not None else [reference]
+    if not target_corpus:
+        target_corpus = [reference]
+    off_corpus = _clean_corpus(offs, 21)
+
+    L = len(reference)
+    U0 = max(0, I_fs - outer_flank_max)
+    up = reference[U0:I_fs]
+    dn = reference[I_re:min(L, I_re + outer_flank_max)]
+    if len(up) < outer_profile["len_min"] or len(dn) < outer_profile["len_min"]:
+        return None
+
+    fwd, _ = D.enumerate_primers(up, outer_profile)
+    _, rev = D.enumerate_primers(dn, outer_profile)
+    topt = float(outer_profile["tm_opt"])
+    eligible_f = sorted(
+        ((U0 + i, U0 + j, w, T.tm(w)) for (i, j, w) in fwd
+         if (U0 + j) <= I_fs - min_gap),
+        key=lambda x: (abs(x[3] - topt), x[0], x[2]),
+    )
+    eligible_r = sorted(
+        ((I_re + a, I_re + b, w, T.tm(w)) for (a, b, w) in rev
+         if (I_re + a) >= I_re + min_gap),
+        key=lambda x: (abs(x[3] - topt), x[0], x[2]),
+    )
+    F, R = eligible_f[:topk], eligible_r[:topk]
+    stages = [
+        dict(stage="nested_flank_primer_enumeration", unit="primers",
+             entered=len(fwd) + len(rev), retained=len(eligible_f) + len(eligible_r),
+             rejected=(len(fwd) - len(eligible_f)) + (len(rev) - len(eligible_r)),
+             hard_gate=True, reversible=False,
+             rejection_reason="primer does not preserve the declared inner-to-outer gap"),
+        dict(stage="nested_flank_primer_beam", unit="primers",
+             entered=len(eligible_f) + len(eligible_r), retained=len(F) + len(R),
+             rejected=(len(eligible_f) - len(F)) + (len(eligible_r) - len(R)),
+             hard_gate=False, reversible=True, per_side_limit=topk,
+             reason="bounded Tm-proximity beam before pair construction"),
+    ]
+
+    pair_rejections = {"nested_amplicon_geometry": 0, "primer_tm_gap": 0,
+                       "primer_cross_dimer_at_anneal": 0}
+    pair_pool = []
+    anneal_c = float(outer_profile.get("anneal_c", T.ANNEAL_C))
+    for fs, fe, f, ftm in F:
+        for rs, re, r, rtm in R:
             amp = re - fs
-            if amp < inner_amp + 2 * min_gap or amp > outer_amp_max:
+            if not (outer_profile["amp_min"] <= amp <= outer_profile["amp_max"]):
+                pair_rejections["nested_amplicon_geometry"] += 1
                 continue
             gap = abs(ftm - rtm)
-            if gap > profile["pair_tm_gap_max"]:
+            if gap > float(outer_profile["pair_tm_gap_max"]):
+                pair_rejections["primer_tm_gap"] += 1
                 continue
-            if T.hetero_dimer(f, r) <= profile["pair_dimer_min"]:
+            if T.hetero_dimer_full(f, r, anneal_c)[1] <= float(outer_profile["pair_dimer_min"]):
+                pair_rejections["primer_cross_dimer_at_anneal"] += 1
                 continue
-            score = abs((ftm + rtm) / 2 - topt) + gap
-            if best is None or score < best["score"]:
-                best = dict(score=round(score, 2), forward=f, reverse=r, amplicon=amp,
-                            f_tm=round(ftm, 1), r_tm=round(rtm, 1), pair_tm_gap=round(gap, 1),
-                            f_outside=I_fs - fe, r_outside=rs - I_re)
-    return dict(outer=best) if best else None
+            worst_dimer = min(T.self_dimer(f), T.self_dimer(r), T.hetero_dimer(f, r))
+            preliminary = (abs((ftm + rtm) / 2.0 - topt) + gap +
+                           2.0 * max(0.0, -5.5 - worst_dimer))
+            pair_pool.append(dict(
+                score=round(preliminary, 5), dimer=round(worst_dimer, 3),
+                fstart=fs, fend=fe, f=f, rstart=rs, rend=re, r=r,
+                amp=amp, gap=gap, f_tm=ftm, r_tm=rtm,
+                f_outside=I_fs - fe, r_outside=rs - I_re,
+            ))
+    stages.append(dict(
+        stage="nested_geometry_and_pair_gates", unit="primer_pairs",
+        entered=len(F) * len(R), retained=len(pair_pool),
+        rejected=sum(pair_rejections.values()), hard_gate=True, reversible=False,
+        rejection_reasons=pair_rejections,
+        evaluations=["fully_nested_geometry", "primer_tm_gap", "primer_cross_dimer_at_anneal"],
+    ))
+
+    full_annotation_limit = CANONICAL_FULL_ANNOTATION_LIMIT
+    retained_pairs, retention_ledger = CRET.retain_pairs_diverse(
+        pair_pool, limit=full_annotation_limit,
+        region_size=max(80, outer_flank_max // 4),
+        amplicon_bin=max(25, min(150, outer_amp_max // 8)), per_near=2,
+    )
+    retention_ledger = dict(retention_ledger)
+    retention_ledger["stage"] = "nested_pair_diversity_retention"
+    stages.append(retention_ledger)
+
+    scored = []
+    for pair in retained_pairs:
+        assay = dict(
+            forward=pair["f"], reverse=pair["r"], amplicon=pair["amp"],
+            f_xy=(pair["fstart"], pair["fend"]),
+            r_xy=(pair["rstart"], pair["rend"]),
+            f_tm=round(pair["f_tm"], 1), r_tm=round(pair["r_tm"], 1),
+            pair_tm_gap=round(pair["gap"], 1),
+            f_outside=pair["f_outside"], r_outside=pair["r_outside"],
+            candidate_rank=float(pair["score"]),
+            preliminary_pair_penalty=float(pair["score"]),
+            preliminary_worst_dimer=float(pair["dimer"]),
+            nested_geometry=dict(inner_start=I_fs, inner_end=I_re,
+                                 minimum_gap=min_gap, fully_nested=True),
+        )
+        score, conservation, discrimination = _score(
+            assay, target_corpus, off_corpus, float(min_ident))
+        scored.append(dict(
+            score=round(score - float(pair["score"]), 2), score_raw=score,
+            quality_penalty=float(pair["score"]), assay=assay,
+            conservation=conservation, discrimination=discrimination,
+        ))
+
+    ranked, objective_profile = RANK.rank_candidates(
+        scored, target_corpus, off_corpus, outer_profile,
+        objective_name=objective_profile["key"], panel=panel,
+    )
+    finalists = RANK.select_finalists(ranked, n=n_candidates)
+    for row in finalists:
+        competitor = ranked[row["rank"]] if row.get("rank", 0) < len(ranked) else None
+        row["rank_explanation"] = REXPLAIN.explain(row, competitor)
+        row["score"] = row["display_score"]
+
+    hard_valid = sum(bool((row.get("evidence") or {}).get("hard_valid")) for row in ranked)
+    stages.extend([
+        dict(stage="nested_full_annotation", unit="primer_pairs",
+             entered=len(retained_pairs), retained=len(ranked), rejected=0,
+             hard_gate=False, reversible=False,
+             evaluations=["target_epcr", "offtarget_epcr", "conservation",
+                          "condition_robustness"]),
+        dict(stage="nested_structured_hard_validity", unit="primer_pairs",
+             entered=len(ranked), retained=hard_valid, rejected=len(ranked) - hard_valid,
+             hard_gate=True, reversible=False,
+             reason="canonical chemistry, geometry, coverage, and objective hard gates"),
+        dict(stage="nested_finalist_selection", unit="primer_pairs",
+             entered=hard_valid, retained=len(finalists),
+             rejected=max(0, hard_valid - len(finalists)),
+             hard_gate=False, reversible=True,
+             reason="category-aware diverse finalist display budget"),
+    ])
+    candidate_limits = {
+        "flank_primers_per_side": topk,
+        "full_annotation_pool": full_annotation_limit,
+        "display_candidates": n_candidates,
+        "outer_flank_max": outer_flank_max,
+    }
+    input_hash = hashlib.sha256(
+        ("\n".join(target_corpus) + "\n--OFF--\n" + "\n".join(off_corpus)).encode()
+    ).hexdigest()
+    parent_profile_sha = _stable_hash(profile)
+    outer_profile_sha = _stable_hash(outer_profile)
+    manifest = RANK.manifest(
+        objective_profile, candidate_limits,
+        input_hashes={"sequence_corpus_sha256": input_hash,
+                      "parent_chemistry_profile_sha256": parent_profile_sha,
+                      "outer_chemistry_profile_sha256": outer_profile_sha},
+        warnings=(["no supplied off-target corpus; outer-pair exclusivity remains unresolved"]
+                  if not off_corpus else []),
+        constraints={
+            "workflow": "nested_outer_primer_design",
+            "primer_only_semantics": True,
+            "parent_chemistry_profile_name": parent_profile_name,
+            "parent_chemistry_profile_sha256": parent_profile_sha,
+            "outer_chemistry_profile_sha256": outer_profile_sha,
+            "effective_anneal_c": outer_profile.get("anneal_c", T.ANNEAL_C),
+            "inner_amplicon": inner_amp,
+            "minimum_inner_outer_gap": min_gap,
+            "outer_amplicon_min": outer_profile["amp_min"],
+            "outer_amplicon_max": outer_profile["amp_max"],
+        },
+    )
+    out = dict(
+        outer=None, candidates=finalists, objective_profile=objective_profile,
+        candidate_attrition={"stages": stages, "candidate_limits": candidate_limits},
+        ranker_manifest=manifest, search_status="heuristic_bounded",
+        effective_outer_profile=outer_profile,
+        ranking_statement=("Strongest computational support among the fully evaluated retained "
+                           "nested-geometry pool under the declared primer-only objective; "
+                           "laboratory confirmation of both PCR rounds is required."),
+    )
+    if finalists:
+        lead = finalists[0]
+        outer = deepcopy(lead["assay"])
+        outer.update(
+            rank=lead["rank"], score=lead["display_score"],
+            score_semantics="subordinate display score; structured rank is authoritative",
+            evidence=deepcopy(lead["evidence"]),
+            rank_trace=deepcopy(lead.get("rank_trace")),
+            rank_explanation=deepcopy(lead.get("rank_explanation")),
+            equivalence_group=deepcopy(lead.get("equivalence_group")),
+            finalist_categories=deepcopy(lead.get("finalist_categories") or []),
+        )
+        out["outer"] = outer
+    elif ranked:
+        # Invalid candidates are diagnostic only and can never be promoted to the
+        # compatibility ``outer`` recommendation.
+        out["top_rejected"] = deepcopy(ranked[:3])
+        out["constraint_note"] = (
+            "outer primer pairs preserved nested geometry but none cleared the canonical "
+            "chemistry, coverage, and objective hard gates"
+        )
+    else:
+        out["constraint_note"] = (
+            "no outer primer pair survived nested geometry and primer-pair hard gates"
+        )
+    return DCONTRACT.attach_contract(
+        out, workflow="nested_outer_primer_design", profile=outer_profile,
+        profile_key="nested_outer", objective=objective_profile["key"],
+        targets=target_corpus, off_targets=off_corpus,
+        panel_count=len(panel or []), search_tier="interactive",
+        constraints={"inner_amplicon": inner_amp, "minimum_gap": min_gap,
+                     "outer_amplicon_max": outer_amp_max,
+                     "primer_only_semantics": True},
+    )
 
 
 def resolve_and_fetch_query(target_query, off_query=None, n_fetch=20):
@@ -1043,18 +1294,48 @@ def enrich_query_design(out, query_context, min_ident=0.6,
         if nested:
             _prof = PROF.PROFILES.get(out.get("profile_used")) or {}
             try:
-                nz = design_nested(_ref, _prof, out["candidates"][0]["assay"]) if (_ref and _prof) else None
+                nz = design_nested(
+                    _ref, _prof, out["candidates"][0]["assay"],
+                    targets=tg, offs=off, min_ident=min_ident, objective=objective,
+                ) if (_ref and _prof) else None
             except Exception:
                 nz = None
             if nz and nz.get("outer"):
                 _inner = out["candidates"][0]["assay"]
                 out["nested"] = dict(outer=nz["outer"], inner_amplicon=_inner["amplicon"],
-                                     inner_forward=_inner["forward"], inner_reverse=_inner["reverse"])
+                                     inner_forward=_inner["forward"], inner_reverse=_inner["reverse"],
+                                     outer_candidates=nz.get("candidates") or [],
+                                     objective_profile=nz.get("objective_profile"),
+                                     candidate_attrition=nz.get("candidate_attrition"),
+                                     ranker_manifest=nz.get("ranker_manifest"),
+                                     design_contract=nz.get("design_contract"),
+                                     effective_outer_profile=nz.get("effective_outer_profile"),
+                                     search_status=nz.get("search_status"),
+                                     ranking_statement=nz.get("ranking_statement"))
             else:
                 out["nested"] = dict(note="couldn't place a flanking outer pair — the reference needs "
                                           "roughly 150+ bp of usable sequence beyond the inner amplicon "
-                                          "on each side. The inner assay above runs fine on its own.")
+                                          "on each side and the pair must clear the declared chemistry, "
+                                          "coverage, and objective hard gates. The inner assay above runs "
+                                          "fine on its own.",
+                                     objective_profile=(nz or {}).get("objective_profile"),
+                                     candidate_attrition=(nz or {}).get("candidate_attrition"),
+                                     ranker_manifest=(nz or {}).get("ranker_manifest"),
+                                     design_contract=(nz or {}).get("design_contract"),
+                                     effective_outer_profile=(nz or {}).get("effective_outer_profile"),
+                                     constraint_note=(nz or {}).get("constraint_note"),
+                                     top_rejected=(nz or {}).get("top_rejected") or [])
 
+    profile = PROF.PROFILES.get(out.get("profile_used")) or {}
+    out = DCONTRACT.attach_contract(
+        out, workflow="automatic_query_design", profile=profile,
+        profile_key=out.get("profile_used"), objective=objective,
+        targets=tg, off_targets=off or [],
+        junction_count=(1 if prefer_junction else 0),
+        search_tier="interactive", constraints={
+            "min_identity": min_ident, "prefer_junction": bool(prefer_junction),
+            "nested_requested": bool(nested),
+        })
     return out
 
 
