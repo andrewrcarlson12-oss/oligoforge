@@ -9,16 +9,19 @@ from typing import Dict, List, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field
 
+from oligoforge import __version__
 from oligoforge import thermo as T, design as D, profiles as P, ncbi, specificity as SP, isolates as ISO, multiplex as MX, structure as STR, nn as NN
 from oligoforge import ranking_profiles as RPROF, manual_design as MDS, assay_rescue as ARES, experimental_feedback as EFB, run_compare as RCOMP
 from oligoforge import validation_studio as VSTUDIO
 from oligoforge import assurance as ASSURE
+from oligoforge import api_errors as APIERR, design_contract as DCONTRACT, provenance as PROV
 from oligoforge.assurance.evidence_package import verify_evidence_package
 from oligoforge.jobs import DesignJobManager, QueueFull as DesignQueueFull, IdempotencyConflict, RetryNotAvailable
 
-app = FastAPI(title="OligoForge", version="1.36.0")
+app = FastAPI(title="OligoForge", version=__version__)
 HERE = os.path.dirname(os.path.abspath(__file__))
 # When frozen by PyInstaller: read-only resources (static/) live under sys._MEIPASS,
 # and user data (saved panels) must go somewhere writable, not the temp unpack dir.
@@ -65,26 +68,35 @@ def _shutdown_design_jobs():
 
 
 def _shared_feature_disabled(feature):
-    return JSONResponse(
-        {"error": "%s is disabled on this multi-user hosted deployment; use browser-local storage "
-                  "or run a private instance" % feature},
-        status_code=403,
-    )
+    return APIERR.problem_response(
+        "%s is disabled on this multi-user hosted deployment; use browser-local storage or run a private instance" % feature,
+        code="capability.disabled", category="authorization", status_code=403,
+        recovery=["Keep this data in the browser-local workspace.",
+                  "Use a private OligoForge instance when server persistence is required."],
+        stage="capability_check")
 
 
-def _api_failure(area, exc, status_code=200):
+def _api_failure(area, exc, status_code=500):
     """Log full diagnostics server-side without reflecting secrets, paths or stack details publicly."""
-    log.exception("%s failed", area)
-    detail = "%s failed" % area
-    if not HOSTED_MODE:
-        detail += ": %s" % exc
-    return JSONResponse({"error": detail}, status_code=status_code)
+    code_part = "".join(ch if ch.isalnum() else "_" for ch in str(area).lower()).strip("_")
+    log.error("%s failed request_id=%s exception_class=%s", area,
+              APIERR.current_request_id(), type(exc).__name__)
+    return APIERR.problem_response(
+        "%s failed" % area, code="internal.%s_failed" % (code_part or "operation"),
+        category="internal", status_code=status_code, retryable=False, stage=area,
+        recovery=["Your inputs are preserved; review them and retry once.",
+                  "If it fails again, copy the diagnostic request ID for support."],
+    )
 
 
 def _local_blast_denied(mode=None, db_path=None):
     if HOSTED_MODE and (str(mode or "").lower() == "local" or bool(db_path)):
-        return JSONResponse({"error": "local BLAST database paths are disabled on hosted deployments"},
-                            status_code=403)
+        return APIERR.problem_response(
+            "local BLAST database paths are disabled on hosted deployments",
+            code="capability.local_blast_disabled", category="authorization", status_code=403,
+            recovery=["Use remote BLAST when sequence upload is acceptable.",
+                      "Run a private local OligoForge instance to use a local database."],
+            stage="specificity")
     return None
 
 
@@ -149,27 +161,59 @@ async def _validation_error(_request: Request, exc: RequestValidationError):
     # Do not echo rejected payload values (which may contain huge sequences, API keys or local paths).
     details = [{"loc": list(e.get("loc", ())), "msg": e.get("msg", "invalid value"),
                 "type": e.get("type", "validation_error")} for e in exc.errors()]
-    return _security_headers(JSONResponse({"error": "request validation failed", "details": details},
-                                         status_code=422))
+    return _security_headers(APIERR.problem_response(
+        "request validation failed", code="input.validation_failed", category="input",
+        status_code=422, field_errors=details, extra={"details": details},
+        recovery=["Correct the listed fields and submit again."], stage="request_validation"))
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_error(_request: Request, exc: StarletteHTTPException):
+    status = int(exc.status_code)
+    code = "request.not_found" if status == 404 else "request.http_%d" % status
+    message = "API route not found" if status == 404 else str(exc.detail or "request failed")
+    return _security_headers(APIERR.problem_response(
+        message, code=code, category="request", status_code=status,
+        recovery=(["Check the API path and HTTP method."] if status == 404 else [])))
 
 
 @app.middleware("http")
 async def _log_requests(request, call_next):
+    rid = APIERR.request_id(request.headers.get("X-Request-ID"))
+    token = APIERR.bind_request_id(rid)
     t0 = _time.perf_counter()
     raw_len = request.headers.get("content-length")
     try:
         if raw_len is not None and int(raw_len) > MAX_REQUEST_BYTES:
-            return _security_headers(JSONResponse({"error": "request body too large"}, status_code=413))
+            resp = APIERR.problem_response(
+                "request body too large", code="input.request_too_large", category="input",
+                status_code=413, recovery=["Submit a shorter target region or fewer records."])
+            resp.headers["X-Request-ID"] = rid
+            APIERR.reset_request_id(token)
+            return _security_headers(resp)
     except ValueError:
-        return _security_headers(JSONResponse({"error": "invalid Content-Length header"}, status_code=400))
+        resp = APIERR.problem_response(
+            "invalid Content-Length header", code="input.invalid_content_length",
+            category="input", status_code=400)
+        resp.headers["X-Request-ID"] = rid
+        APIERR.reset_request_id(token)
+        return _security_headers(resp)
     try:
         resp = await call_next(request)
-    except Exception:
-        log.exception("unhandled error %s %s", request.method, request.url.path)
-        resp = JSONResponse({"error": "internal server error"}, status_code=500)
-    log.info("%s %s -> %s %.0fms", request.method, request.url.path,
-             resp.status_code, (_time.perf_counter() - t0) * 1000.0)
-    return _security_headers(resp)
+    except Exception as exc:
+        log.error("unhandled error request_id=%s method=%s path=%s exception_class=%s",
+                  rid, request.method, request.url.path, type(exc).__name__)
+        resp = APIERR.problem_response(
+            "internal server error", code="internal.unhandled", category="internal",
+            status_code=500, recovery=["Your inputs are preserved; retry once.",
+                                       "If it fails again, copy the diagnostic request ID for support."])
+    try:
+        resp.headers["X-Request-ID"] = rid
+        log.info("request_id=%s %s %s -> %s %.0fms", rid, request.method, request.url.path,
+                 resp.status_code, (_time.perf_counter() - t0) * 1000.0)
+        return _security_headers(resp)
+    finally:
+        APIERR.reset_request_id(token)
 
 
 # ---------- request models ----------
@@ -243,6 +287,69 @@ def profiles():
 @app.get("/api/ranking-profiles")
 def ranking_profiles():
     return RPROF.public_profiles()
+
+
+@app.get("/api/system/diagnostics")
+def system_diagnostics():
+    """Non-sensitive capability and engine state for user-visible troubleshooting."""
+    import shutil
+    try:
+        primer3_ok = isinstance(T.tm("ACGTACGTACGTACGTACGT"), float)
+    except Exception:
+        primer3_ok = False
+    snap = T._snapshot()
+    queue_state = DESIGN_JOBS.stats()
+    return {
+        "schema_version": "oligoforge-system-diagnostics/v1",
+        "ok": bool(primer3_ok),
+        "application": {"version": app.version, "commit": BUILD_COMMIT, "booted": BOOT_TIME},
+        "core_design": {
+            "available": bool(primer3_ok),
+            "policy_id": DCONTRACT.POLICY_ID,
+            "contract_schema": DCONTRACT.CONTRACT_SCHEMA,
+            "ranker_version": RPROF.RANKER_VERSION,
+            "objective_profile_version": RPROF.PROFILE_VERSION,
+        },
+        "capabilities": {
+            "structure_model": {"available": bool(STR.available()), "required_for_core_design": False},
+            "remote_ncbi": {"configured_contact": bool(getattr(ncbi.Entrez, "email", None)),
+                            "api_key_configured": bool(getattr(ncbi.Entrez, "api_key", None)),
+                            "live_probe_performed": False},
+            "local_blast": {"available": bool(shutil.which("blastn")),
+                            "allowed": not HOSTED_MODE},
+            "server_storage": {"enabled": ALLOW_SERVER_STORAGE,
+                               "writable": bool(os.path.isdir(DATA_DIR) and os.access(DATA_DIR, os.W_OK))},
+            "shared_reaction_conditions": {"enabled": ALLOW_SHARED_CONDITIONS},
+        },
+        "reaction_conditions": {"mv_conc_mM": snap[0], "dv_conc_mM": snap[1],
+                                "dntp_conc_mM": snap[2], "total_oligo_conc_nM": snap[3],
+                                "anneal_c": snap[4]},
+        "automatic_design_jobs": queue_state,
+        "limits": {"max_request_bytes": MAX_REQUEST_BYTES,
+                   "max_template_nt": T.MAX_TEMPLATE_LEN,
+                   "max_oligo_nt": T.MAX_OLIGO_LEN},
+        "software_versions": PROV.software_versions(),
+        "privacy": "No sequences, credentials, local paths, host names, or exception details are included.",
+    }
+
+
+class DesignContractReq(BaseModel):
+    contract: Dict
+
+
+class DesignContractCompareReq(BaseModel):
+    left: Dict
+    right: Dict
+
+
+@app.post("/api/design-contracts/verify")
+def api_verify_design_contract(r: DesignContractReq):
+    return DCONTRACT.verify_contract(r.contract)
+
+
+@app.post("/api/design-contracts/compare")
+def api_compare_design_contracts(r: DesignContractCompareReq):
+    return DCONTRACT.compare_contracts(r.left, r.right)
 
 
 def _require_objective(name):
@@ -491,21 +598,29 @@ def design(r: DesignReq):
     try:
         r.objective = _require_objective(r.objective)
     except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=422)
+        return APIERR.problem_response(
+            str(e), code="input.unknown_objective", category="input", status_code=422,
+            stage="objective_resolution",
+            recovery=["Select one of the objectives returned by /api/ranking-profiles."])
     junctions = []
     if len(r.template or "") > T.MAX_TEMPLATE_LEN:
-        return JSONResponse({"error": "template too long (%d nt; limit %d). Paste the transcript / "
-                                      "amplicon region, not a whole chromosome." % (len(r.template or ""), T.MAX_TEMPLATE_LEN)},
-                            status_code=200)
+        return APIERR.problem_response(
+            "template too long (%d nt; limit %d). Paste the transcript / "
+            "amplicon region, not a whole chromosome." % (len(r.template or ""), T.MAX_TEMPLATE_LEN),
+            code="input.template_too_long", category="input", status_code=422,
+            stage="target_parsing", recovery=["Paste a bounded transcript or target-region sequence."])
     if "|" in (r.template or ""):                            # single transcript with marked exon boundaries
         ref_single, junctions, tnotes = _parse_junction_template(r.template)
         targets = [ref_single] if (ref_single and len(ref_single) >= 60) else []
     else:
         targets, tnotes = _parse_fasta_targets(r.template)
     if not targets:
-        return JSONResponse({"error": "no usable template \u2014 paste at least ~60 nt of the transcript / region "
-                                      "(raw sequence, multi-record FASTA, or one sequence with '|' at exon boundaries)."},
-                            status_code=200)
+        return APIERR.problem_response(
+            "no usable template \u2014 paste at least ~60 nt of the transcript / region "
+            "(raw sequence, multi-record FASTA, or one sequence with '|' at exon boundaries).",
+            code="input.template_unusable", category="input", status_code=422,
+            stage="target_parsing",
+            recovery=["Paste raw sequence, multi-record FASTA, or a transcript with '|' exon boundaries."])
     offs, _onotes = _parse_fasta_targets(r.off_targets) if r.off_targets else ([], [])
     panel = [a for a in (r.panel or []) if a and a.get("oligos")]   # workbench assays to check multiplex fit against
     notes = list(tnotes or [])
@@ -518,26 +633,43 @@ def design(r: DesignReq):
     # an offline in-silico-PCR verdict. One pasted sequence with no off-targets behaves exactly as before.
     if (r.profile or "").lower() == "auto":
         order, _gc = _AD_design._auto_order(ref)
-        if _gc < 40.0 and "parasite_lna" not in order:
-            order = order[:1] + ["parasite_lna"] + order[1:]
-        res = None; used = None
+        res = None; used = None; engine_errors = []
         for pk in order:
             try:
                 res = _AD_design.design_from_sequences(targets, P.PROFILES[pk], offs=offs or None,
                                                         n_candidates=NCAND, objective=r.objective,
                                                         junctions=junctions, panel=panel)
-            except Exception:
+            except Exception as exc:
+                log.error("profile attempt failed request_id=%s profile=%s exception_class=%s",
+                          APIERR.current_request_id(), pk, type(exc).__name__)
+                engine_errors.append(pk)
                 res = None
             if res and res.get("candidates"):
                 used = pk; break
         if not (res and res.get("candidates")):
-            return JSONResponse({"error": "no clean assay found under any Auto chemistry (tried: %s; reference GC %.0f%%). "
-                                          "Try a longer / cleaner region." % (", ".join(order), gc)}, status_code=200)
+            if engine_errors:
+                return APIERR.problem_response(
+                    "design engine could not complete one or more chemistry attempts",
+                    code="internal.design_profile_attempt_failed", category="internal", status_code=500,
+                    stage="candidate_design", recovery=["Retry once with the same preserved inputs.",
+                    "If it fails again, copy the diagnostic request ID for support."],
+                    extra={"profiles_attempted": order, "profiles_failed": engine_errors})
+            return APIERR.problem_response(
+                "no clean assay found under any Auto chemistry (tried: %s; reference GC %.0f%%)" % (", ".join(order), gc),
+                code="design.no_solution", category="scientific_no_solution", status_code=422,
+                stage="candidate_design", recovery=["Use a longer target region.",
+                "Review target quality or select a chemistry profile manually."],
+                extra={"profiles_attempted": order})
         prof = P.PROFILES[used]
         notes.append("Auto-selected chemistry: %s (reference GC %.0f%%)." % (prof["name"], gc))
     else:
-        pk = r.profile if r.profile in P.PROFILES else "idt_taqman"
-        prof = P.PROFILES[pk]
+        try:
+            prof = _require_profile(r.profile)
+        except ValueError as exc:
+            return APIERR.problem_response(
+                str(exc), code="input.unknown_profile", category="input", status_code=422,
+                stage="profile_resolution", recovery=["Select one of the profiles returned by /api/profiles."])
+        used = str(r.profile)
         try:
             res = _AD_design.design_from_sequences(targets, prof, offs=offs or None,
                                                     n_candidates=NCAND, objective=r.objective,
@@ -551,7 +683,12 @@ def design(r: DesignReq):
                 hint = " The reference is GC-rich (GC %.0f%%) \u2014 switch to Auto or the 'GC-rich' profile." % gc
             else:
                 hint = " Try Auto, a longer region, or a different chemistry."
-            return JSONResponse({"error": "no clean assay found under %s.%s" % (prof["name"], hint)}, status_code=200)
+            return APIERR.problem_response(
+                "no clean assay found under %s.%s" % (prof["name"], hint),
+                code="design.no_solution", category="scientific_no_solution", status_code=422,
+                stage="candidate_design", recovery=["Try Auto or another appropriate chemistry profile.",
+                "Use a longer target region while keeping true specificity and geometry requirements."],
+                extra={"profile": used, "reference_gc_percent": round(gc, 1)})
 
     def _loc(sub):                                          # fallback for legacy candidates lacking coordinates
         i = ref.find((sub or "").upper())
@@ -666,12 +803,20 @@ def design(r: DesignReq):
             hard_failures=(sc.get("evidence") or {}).get("hard_failures") or [],
             evidence=sc.get("evidence"), finalist_categories=sc.get("finalist_categories") or [],
             rank_explanation=sc.get("rank_explanation")))
-    return dict(template=ref, profile=prof["name"], n=len(cands), candidates=cands,
+    contract = DCONTRACT.build_contract(
+        res, workflow="interactive_pasted_design", profile=prof,
+        profile_key=used, objective=r.objective, targets=targets,
+        off_targets=offs, panel_count=len(panel), junction_count=len(junctions),
+        search_tier="interactive", search_budget_seconds=35.0,
+        constraints={"panel_assays": len(panel), "junctions": len(junctions)})
+    return dict(template=ref, profile=prof["name"], profile_key=used,
+                n=len(cands), candidates=cands,
                 n_targets=len(targets), n_offs=len(offs), n_panel=len(panel),
                 junctions=junctions, n_junctions=len(junctions), off_control=off_ctrl,
                 objective_profile=res.get("objective_profile"), candidate_attrition=res.get("candidate_attrition"),
                 ranker_manifest=res.get("ranker_manifest"), search_status=res.get("search_status"),
                 ranking_statement=res.get("ranking_statement"),
+                design_contract=contract,
                 note=(" · ".join(notes) if notes else None), constraint_note=res.get("constraint_note"))
 
 
@@ -896,25 +1041,41 @@ def copies(r: CopiesReq):
 @app.post("/api/batch_design")
 def batch_design(r: BatchReq):
     if not r.items:
-        return JSONResponse({"error": "batch contains no design items"}, status_code=422)
+        return APIERR.problem_response(
+            "batch contains no design items", code="input.empty_batch", category="input",
+            status_code=422, stage="batch_validation",
+            recovery=["Add at least one named target template to the batch."])
     if len(r.items) > 8:
-        return JSONResponse({"error": "batch is limited to 8 templates per request"}, status_code=422)
+        return APIERR.problem_response(
+            "batch is limited to 8 templates per request", code="input.batch_too_large",
+            category="input", status_code=422, stage="batch_validation",
+            recovery=["Split the batch into requests of eight templates or fewer."])
     out = []
     for it in r.items:
         item_name = str(it.name or "unnamed")[:120]
         try:
             objective = _require_objective(it.objective)
         except ValueError as exc:
-            out.append(dict(name=item_name, ok=False, error=str(exc)))
+            problem = APIERR.problem_payload(
+                str(exc), code="input.unknown_objective", category="input",
+                stage="objective_resolution",
+                recovery=["Select one of the objectives returned by /api/ranking-profiles."])
+            out.append(dict(name=item_name, ok=False, error=str(exc), problem=problem["problem"]))
             continue
         if len(it.template or "") > T.MAX_TEMPLATE_LEN:
-            out.append(dict(name=item_name, ok=False,
-                            error="template exceeds %d nt" % T.MAX_TEMPLATE_LEN))
+            message = "template exceeds %d nt" % T.MAX_TEMPLATE_LEN
+            problem = APIERR.problem_payload(
+                message, code="input.template_too_long", category="input",
+                stage="target_parsing", recovery=["Use a bounded transcript or target region."])
+            out.append(dict(name=item_name, ok=False, error=message, problem=problem["problem"]))
             continue
         targets, _notes = _parse_fasta_targets(it.template)
         if not targets:
-            out.append(dict(name=item_name, ok=False,
-                            error="no usable target sequence (need at least ~60 nt)"))
+            message = "no usable target sequence (need at least ~60 nt)"
+            problem = APIERR.problem_payload(
+                message, code="input.template_unusable", category="input",
+                stage="target_parsing", recovery=["Paste at least ~60 nt of usable target sequence."])
+            out.append(dict(name=item_name, ok=False, error=message, problem=problem["problem"]))
             continue
         offs, _off_notes = _parse_fasta_targets(it.off_targets) if it.off_targets else ([], [])
         ref = _AD_design._reference(targets)
@@ -930,31 +1091,53 @@ def batch_design(r: BatchReq):
                         result = candidate_result; used_key = profile_key; break
                 prof = P.PROFILES[used_key] if used_key else None
             else:
-                profile_key = it.profile if it.profile in P.PROFILES else "idt_taqman"
-                prof = P.PROFILES[profile_key]
+                prof = _require_profile(it.profile)
+                used_key = str(it.profile)
                 result = _AD_design.design_from_sequences(
                     targets, prof, offs=offs or None,
                     n_candidates=3, objective=objective, search_budget_s=12.0)
+        except ValueError as exc:
+            problem = APIERR.problem_payload(
+                str(exc), code="input.invalid_batch_item", category="input",
+                recovery=["Correct this item's profile, objective, or sequence and retry the batch."],
+                stage="batch_validation")
+            out.append(dict(name=item_name, ok=False, error=str(exc), problem=problem["problem"]))
+            continue
         except Exception as exc:
-            log.exception("batch design failed for %s", item_name)
+            log.error("batch design failed request_id=%s item=%s exception_class=%s",
+                      APIERR.current_request_id(), item_name, type(exc).__name__)
             detail = "batch design failed" if HOSTED_MODE else str(exc)
-            out.append(dict(name=item_name, ok=False, error=detail))
+            problem = APIERR.problem_payload(
+                detail, code="internal.batch_design_failed", category="internal",
+                recovery=["Retry this item once; if it repeats, copy the request ID for support."],
+                stage="batch_design")
+            out.append(dict(name=item_name, ok=False, error=detail, problem=problem["problem"]))
             continue
         if not (result and result.get("candidates")):
-            out.append(dict(name=item_name, ok=False,
-                            error=(result or {}).get("error") or "no hard-valid assay under that profile"))
+            message = (result or {}).get("error") or "no hard-valid assay under that profile"
+            problem = APIERR.problem_payload(
+                message, code="design.no_solution", category="scientific_no_solution",
+                stage="batch_design",
+                recovery=["Try Auto, another appropriate chemistry, or a longer target region."])
+            out.append(dict(name=item_name, ok=False, error=message, problem=problem["problem"]))
             continue
         ranked = result["candidates"][0]
         a = ranked["assay"]
         pi = a.get("probe_info")
         evidence = ranked.get("evidence") or {}
         explanation = ranked.get("rank_explanation") or {}
+        contract = DCONTRACT.build_contract(
+            result, workflow="batch_design", profile=prof, profile_key=used_key,
+            objective=objective, targets=targets, off_targets=offs,
+            search_tier="batch", search_budget_seconds=12.0,
+            constraints={"batch_item": True})
         out.append(dict(
             name=item_name, ok=True, forward=a["forward"], reverse=a["reverse"],
             probe=a.get("probe"), amplicon=a["amplicon"],
             f_tm=round(a["f_tm"], 1), r_tm=round(a["r_tm"], 1),
             probe_tm=round(pi["tm"], 1) if pi else None, gblock=a.get("gblock"),
-            profile=(prof or {}).get("name"), objective=objective,
+            profile=(prof or {}).get("name"), profile_key=used_key,
+            objective=(result.get("objective_profile") or {}).get("key", objective),
             rank=ranked.get("rank"), display_score=ranked.get("display_score"),
             hard_valid=evidence.get("hard_valid"), hard_failures=evidence.get("hard_failures") or [],
             uncertainty=(explanation.get("uncertainty") or explanation.get("preference_strength")),
@@ -964,6 +1147,7 @@ def batch_design(r: BatchReq):
             ranker_manifest=result.get("ranker_manifest"),
             candidate_attrition=result.get("candidate_attrition"),
             alternatives_evaluated=result.get("n_candidates_screened"),
+            design_contract=contract,
         ))
     return dict(results=out, pipeline="authoritative_structured_ranker",
                 policy=("Every successful batch winner passed the same retained-pool annotation and "
@@ -1312,6 +1496,13 @@ def _job_with_links(snapshot):
     return out
 
 
+def _idempotency_key(request):
+    value = request.headers.get("Idempotency-Key")
+    if value is not None and len(value) > 200:
+        raise ValueError("Idempotency-Key is limited to 200 characters")
+    return value
+
+
 @app.get("/api/autodesign/limits")
 def api_autodesign_limits():
     stats = DESIGN_JOBS.stats()
@@ -1335,27 +1526,49 @@ def api_autodesign_submit(r: AutoDesignReq, request: Request):
     try:
         _validate_autodesign_request(r)
     except ValueError as exc:
-        return JSONResponse({"error": str(exc)}, status_code=422)
+        return APIERR.problem_response(
+            str(exc), code="input.autodesign_invalid", category="input", status_code=422,
+            recovery=["Correct the automatic-design fields and submit again."],
+            stage="automatic_design_validation")
     denied = _local_blast_denied(r.blast_mode, r.blast_db_path) if r.run_blast else None
     if denied:
         return denied
     try:
-        snapshot = DESIGN_JOBS.submit(r.model_dump(), idempotency_key=request.headers.get("Idempotency-Key"))
+        snapshot = DESIGN_JOBS.submit(r.model_dump(), idempotency_key=_idempotency_key(request))
         return JSONResponse(_job_with_links(snapshot), status_code=202)
+    except ValueError as exc:
+        return APIERR.problem_response(
+            str(exc), code="input.idempotency_key_invalid", category="input", status_code=422,
+            recovery=["Use a shorter unique idempotency key."], stage="job_submission")
     except DesignQueueFull:
-        return JSONResponse({"error": "automatic-design queue is full; retry after current work completes",
-                             "code": "queue_full"}, status_code=429, headers={"Retry-After": "10"})
+        return APIERR.problem_response(
+            "automatic-design queue is full; retry after current work completes",
+            code="capacity.queue_full", category="capacity", status_code=429,
+            retryable=True, retry_after_seconds=10, stage="job_submission",
+            recovery=["Wait 10 seconds and retry with the same preserved inputs."],
+            extra={"code": "queue_full"})
     except IdempotencyConflict:
-        return JSONResponse({"error": "Idempotency-Key was already used for different inputs",
-                             "code": "idempotency_conflict"}, status_code=409)
+        return APIERR.problem_response(
+            "Idempotency-Key was already used for different inputs",
+            code="conflict.idempotency_key_reused", category="conflict", status_code=409,
+            recovery=["Create a new idempotency key for changed inputs."],
+            stage="job_submission", extra={"code": "idempotency_conflict"})
+    except RuntimeError as exc:
+        return APIERR.problem_response(
+            "automatic-design job service is unavailable", code="dependency.job_service_unavailable",
+            category="dependency", status_code=503, retryable=True, retry_after_seconds=10,
+            recovery=["Retry after the service has restarted."], stage="job_submission")
 
 
 @app.get("/api/autodesign/jobs/{job_id}")
 def api_autodesign_status(job_id: str):
     snapshot = DESIGN_JOBS.get(job_id)
     if snapshot is None:
-        return JSONResponse({"error": "automatic-design job was not found, expired, or was lost on restart",
-                             "code": "job_lost_or_expired"}, status_code=404)
+        return APIERR.problem_response(
+            "automatic-design job was not found, expired, or was lost on restart",
+            code="job.lost_or_expired", category="not_found", status_code=404,
+            recovery=["Your form is preserved; submit it deliberately to start a new job."],
+            stage="job_lookup", extra={"code": "job_lost_or_expired"})
     return _job_with_links(snapshot)
 
 
@@ -1363,8 +1576,11 @@ def api_autodesign_status(job_id: str):
 def api_autodesign_cancel(job_id: str):
     snapshot = DESIGN_JOBS.cancel(job_id)
     if snapshot is None:
-        return JSONResponse({"error": "automatic-design job was not found, expired, or was lost on restart",
-                             "code": "job_lost_or_expired"}, status_code=404)
+        return APIERR.problem_response(
+            "automatic-design job was not found, expired, or was lost on restart",
+            code="job.lost_or_expired", category="not_found", status_code=404,
+            recovery=["The form remains available; no cancellation is needed for an expired job."],
+            stage="job_cancel", extra={"code": "job_lost_or_expired"})
     return _job_with_links(snapshot)
 
 
@@ -1375,20 +1591,36 @@ def api_autodesign_retry_blast(job_id: str, r: BlastRetryReq, request: Request):
     if denied:
         return denied
     try:
-        snapshot = DESIGN_JOBS.retry_blast(job_id, idempotency_key=request.headers.get("Idempotency-Key"), **values)
+        snapshot = DESIGN_JOBS.retry_blast(job_id, idempotency_key=_idempotency_key(request), **values)
         if snapshot is None:
-            return JSONResponse({"error": "automatic-design job was not found, expired, or was lost on restart",
-                                 "code": "job_lost_or_expired"}, status_code=404)
+            return APIERR.problem_response(
+                "automatic-design job was not found, expired, or was lost on restart",
+                code="job.lost_or_expired", category="not_found", status_code=404,
+                recovery=["Submit the preserved design again, then retry specificity."],
+                stage="specificity_retry", extra={"code": "job_lost_or_expired"})
         return JSONResponse(_job_with_links(snapshot), status_code=202)
+    except ValueError as exc:
+        return APIERR.problem_response(
+            str(exc), code="input.idempotency_key_invalid", category="input", status_code=422,
+            recovery=["Use a shorter unique idempotency key."], stage="specificity_retry")
     except RetryNotAvailable:
-        return JSONResponse({"error": "a completed primary design is required before retrying specificity",
-                             "code": "primary_result_unavailable"}, status_code=409)
+        return APIERR.problem_response(
+            "a completed primary design is required before retrying specificity",
+            code="conflict.primary_result_unavailable", category="conflict", status_code=409,
+            recovery=["Complete primary design before retrying optional specificity."],
+            stage="specificity_retry", extra={"code": "primary_result_unavailable"})
     except DesignQueueFull:
-        return JSONResponse({"error": "automatic-design queue is full", "code": "queue_full"},
-                            status_code=429, headers={"Retry-After": "10"})
+        return APIERR.problem_response(
+            "automatic-design queue is full", code="capacity.queue_full", category="capacity",
+            status_code=429, retryable=True, retry_after_seconds=10,
+            recovery=["Wait 10 seconds and retry specificity only."],
+            stage="specificity_retry", extra={"code": "queue_full"})
     except IdempotencyConflict:
-        return JSONResponse({"error": "Idempotency-Key was already used for different inputs",
-                             "code": "idempotency_conflict"}, status_code=409)
+        return APIERR.problem_response(
+            "Idempotency-Key was already used for different inputs",
+            code="conflict.idempotency_key_reused", category="conflict", status_code=409,
+            recovery=["Create a new idempotency key for changed retry settings."],
+            stage="specificity_retry", extra={"code": "idempotency_conflict"})
 
 
 @app.post("/api/autodesign")
@@ -1396,7 +1628,10 @@ def api_autodesign(r: AutoDesignReq):
     try:
         _validate_autodesign_request(r)
     except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=422)
+        return APIERR.problem_response(
+            str(e), code="input.invalid_autodesign_request", category="input", status_code=422,
+            stage="automatic_design_configuration",
+            recovery=["Correct the target query, profile, objective, or retrieval settings and retry."])
     _set_email(r.email, r.ncbi_key)
     denied = _local_blast_denied(r.blast_mode, r.blast_db_path) if r.run_blast else None
     if denied:
@@ -1468,11 +1703,19 @@ def _manual_inputs(r):
 def api_manual_design(r: ManualDesignReq):
     try:
         profile, objective, targets, offs = _manual_inputs(r)
-        return MDS.analyze_assay(r.forward, r.reverse, r.template, profile,
-                                 r.probe, targets=targets, offs=offs,
-                                 objective=objective, max_mm=max(0, min(int(r.max_mm), 4)))
+        result = MDS.analyze_assay(r.forward, r.reverse, r.template, profile,
+                                   r.probe, targets=targets, offs=offs,
+                                   objective=objective, max_mm=max(0, min(int(r.max_mm), 4)))
+        return DCONTRACT.attach_contract(
+            result, workflow="manual_exact_analysis", profile=profile,
+            profile_key=r.profile, objective=objective, targets=targets or [r.template],
+            off_targets=offs or [], search_tier="exact_analysis",
+            constraints={"max_mismatches": max(0, min(int(r.max_mm), 4))})
     except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=422)
+        return APIERR.problem_response(
+            str(e), code="input.manual_assay_invalid", category="input", status_code=422,
+            stage="manual_assay_analysis",
+            recovery=["Correct the oligo, template, chemistry, or evidence-set input and retry."])
     except Exception as e:
         return _api_failure("manual assay analysis", e)
 
@@ -1482,15 +1725,25 @@ def api_manual_redesign(r: RedesignReq):
         profile, objective, targets, offs = _manual_inputs(r)
         excluded = [(int(x[0]), int(x[1])) for x in (r.excluded_regions or []) if len(x) == 2]
         required = r.required_region if (r.required_region and len(r.required_region) == 2) else None
-        return MDS.constrained_redesign(r.forward, r.reverse, r.template, profile,
-                                        r.probe, locks=r.locks, objective=objective,
-                                        max_results=max(1, min(int(r.max_results), 20)),
-                                        max_shift=r.max_shift, excluded_regions=excluded,
-                                        max_mm=max(0, min(int(r.max_mm), 4)),
-                                        amp_min=r.amp_min, amp_max=r.amp_max,
-                                        required_region=required, targets=targets, offs=offs)
+        result = MDS.constrained_redesign(
+            r.forward, r.reverse, r.template, profile,
+            r.probe, locks=r.locks, objective=objective,
+            max_results=max(1, min(int(r.max_results), 20)),
+            max_shift=r.max_shift, excluded_regions=excluded,
+            max_mm=max(0, min(int(r.max_mm), 4)),
+            amp_min=r.amp_min, amp_max=r.amp_max,
+            required_region=required, targets=targets, offs=offs)
+        return DCONTRACT.attach_contract(
+            result, workflow="constrained_redesign", profile=profile,
+            profile_key=r.profile, objective=objective, targets=targets or [r.template],
+            off_targets=offs or [], search_tier="constrained",
+            constraints={"locks": r.locks or {}, "max_shift": r.max_shift,
+                         "excluded_regions": excluded, "required_region": required})
     except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=422)
+        return APIERR.problem_response(
+            str(e), code="input.redesign_constraints_invalid", category="input", status_code=422,
+            stage="constrained_redesign",
+            recovery=["Correct the component locks, regions, oligos, or template and retry."])
     except Exception as e:
         return _api_failure("constrained redesign", e)
 
@@ -1498,12 +1751,21 @@ def api_manual_redesign(r: RedesignReq):
 def api_assay_rescue(r: RescueReq):
     try:
         profile, objective, targets, offs = _manual_inputs(r)
-        return ARES.rescue(r.forward, r.reverse, r.template, profile,
-                           r.probe, objective=objective, observed=r.observed,
-                           targets=targets, offs=offs,
-                           max_results=max(1, min(int(r.max_results), 10)))
+        result = ARES.rescue(r.forward, r.reverse, r.template, profile,
+                             r.probe, objective=objective, observed=r.observed,
+                             targets=targets, offs=offs,
+                             max_results=max(1, min(int(r.max_results), 10)))
+        return DCONTRACT.attach_contract(
+            result, workflow="assay_rescue", profile=profile,
+            profile_key=r.profile, objective=objective, targets=targets or [r.template],
+            off_targets=offs or [], search_tier="rescue",
+            search_budget_seconds=(result.get("runtime") or {}).get("budget_s"),
+            constraints={"observed_evidence_supplied": bool(r.observed)})
     except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=422)
+        return APIERR.problem_response(
+            str(e), code="input.rescue_request_invalid", category="input", status_code=422,
+            stage="assay_rescue",
+            recovery=["Correct the assay sequences, template, or observed-evidence fields and retry."])
     except Exception as e:
         return _api_failure("assay rescue", e)
 
@@ -1524,7 +1786,10 @@ def api_manual_compare_edit(r: ManualEditCompareReq):
             targets=targets, offs=offs, objective=objective,
             max_mm=max(0, min(int(r.max_mm), 4)))
     except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=422)
+        return APIERR.problem_response(
+            str(e), code="input.edit_comparison_invalid", category="input", status_code=422,
+            stage="manual_assay_edit_comparison",
+            recovery=["Correct the baseline/edited assay or evidence-set input and retry."])
     except Exception as e:
         return _api_failure("manual assay edit comparison", e)
 
@@ -1728,15 +1993,23 @@ class ViewerDesignReq(BaseModel):
     probe_offset_min: float = 5.0
     probe_offset_max: float = 10.5
     n: int = 5
+    objective: Optional[str] = None
 
 
 @app.post("/api/viewer_design")
 def viewer_design(r: ViewerDesignReq):
     seq, notes, err = T.clean_seq(r.sequence)
     if err:
-        return JSONResponse({"error": "sequence: " + err}, status_code=200)
-    if len(seq) < 50:
-        return JSONResponse({"error": "sequence too short to design on (need at least 50 nt)"}, status_code=200)
+        return APIERR.problem_response(
+            "sequence: " + err, code="input.invalid_sequence", category="input",
+            status_code=422, stage="viewer_design",
+            recovery=["Use nucleotide sequence text containing supported DNA/IUPAC symbols."])
+    if len(seq) <= 60:
+        return APIERR.problem_response(
+            "sequence too short to design on (need at least 61 nt)",
+            code="input.template_too_short", category="input", status_code=422,
+            recovery=["Load a longer target region that includes room for both primers and the product."],
+            stage="viewer_design")
     # strict config from the TaqMan base, with the user's multiplex rules clamped to sane ranges
     c = dict(P.PROFILES["idt_taqman"])
     tmlo, tmhi = sorted((float(r.tm_min), float(r.tm_max)))
@@ -1752,11 +2025,22 @@ def viewer_design(r: ViewerDesignReq):
         c.update(no_probe=False, probe_offset_min=polo, probe_offset_max=pohi)
     else:
         c["no_probe"] = True
+    c["name"] = "Viewer custom " + ("probe" if r.probe else "SYBR") + " profile"
     n = max(1, min(int(r.n), 8))
+    objective = RPROF.resolve_objective(r.objective, no_probe=bool(c.get("no_probe")))
     try:
-        cands = D.design_candidates(seq, c, n=n)
+        result = _AD_design.design_from_sequences(
+            [seq], c, n_candidates=n, objective=objective, search_budget_s=12.0)
     except Exception as e:
-        return _api_failure("design", e)
+        return _api_failure("viewer design", e)
+    rows = (result or {}).get("candidates") or []
+    if not rows:
+        return APIERR.problem_response(
+            (result or {}).get("error") or "no clean assay found under the selected Viewer rules",
+            code="design.no_solution", category="scientific_no_solution", status_code=422,
+            recovery=["Widen the Tm, GC, or amplicon window.",
+                      "Use a longer sequence while retaining true specificity requirements."],
+            stage="viewer_design")
 
     def _gc(s):
         return round(T.gc_percent(s), 1) if s else None
@@ -1765,7 +2049,8 @@ def viewer_design(r: ViewerDesignReq):
         return bool(tmlo <= tm <= tmhi)
 
     out = []
-    for a in cands:
+    for row in rows:
+        a = row["assay"]
         pi = a.get("probe_info")
         out.append(dict(
             forward=a["forward"], reverse=a["reverse"], probe=a.get("probe"),
@@ -1777,9 +2062,23 @@ def viewer_design(r: ViewerDesignReq):
             probe_offset=round(pi["offset"], 1) if pi else None,
             probe_strand=(pi.get("strand") if pi else None),
             f_in=_inw(a["f_tm"]), r_in=_inw(a["r_tm"]),
-            gblock=a.get("gblock")))
+            gblock=a.get("gblock"), rank=row.get("rank"),
+            hard_valid=(row.get("evidence") or {}).get("hard_valid"),
+            evidence=row.get("evidence"), rank_trace=row.get("rank_trace"),
+            rank_explanation=row.get("rank_explanation"),
+            finalist_categories=row.get("finalist_categories") or []))
+    contract = DCONTRACT.build_contract(
+        result, workflow="sequence_viewer_design", profile=c,
+        profile_key="viewer_custom", objective=objective, targets=[seq],
+        search_tier="viewer", search_budget_seconds=12.0,
+        constraints={"tm_window": [tmlo, tmhi], "gc_window": [gclo, gchi],
+                     "amplicon_window": [amlo, amhi], "primer_length_window": [lnlo, lnhi]})
     return dict(seq_len=len(seq), tm_window=[tmlo, tmhi], gc_window=[gclo, gchi],
-                candidates=out, note=(" · ".join(notes) if notes else None))
+                candidates=out, objective_profile=result.get("objective_profile"),
+                candidate_attrition=result.get("candidate_attrition"),
+                ranker_manifest=result.get("ranker_manifest"),
+                search_status=result.get("search_status"), design_contract=contract,
+                note=(" · ".join(notes) if notes else None))
 
 
 # ============ Validation Studio: bounded candidate-comparison experiments ============

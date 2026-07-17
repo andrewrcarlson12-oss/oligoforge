@@ -2,7 +2,7 @@
 
 ## Purpose and boundary
 
-This document defines the implemented requirements baseline for OligoForge Assurance 1.36.0 and compares its artifacts with relevant public standards and reporting practices. It is not a patent prior-art search, freedom-to-operate opinion, standards certification, regulatory determination, or claim of novelty.
+This document defines the implemented requirements baseline for OligoForge Assurance 1.37.0 and compares its artifacts with relevant public standards and reporting practices. It is not a patent prior-art search, freedom-to-operate opinion, standards certification, regulatory determination, or claim of novelty.
 
 Only the following Assurance capabilities are implemented:
 
@@ -69,7 +69,7 @@ The MIQE paper describes minimum information needed to evaluate quantitative rea
 
 DriftGuard applies an established software pattern—versioned baseline, immutable input snapshot, deterministic set delta, bounded model execution, reason records, and review state—to molecular sequence inputs. It performs no scheduled retrieval, epidemiological surveillance, prevalence estimation, phylogenetics, forecasting, or future-evolution prediction. “Stable” means no modeled concern in the supplied snapshots and declared model; it is not a guarantee of future assay performance.
 
-## Explicit non-requirements for 1.36.0
+## Explicit non-requirements for 1.37.0
 
 The following are out of scope and must not be represented as present:
 

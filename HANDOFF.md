@@ -1,8 +1,8 @@
-# OligoForge 1.36.0 engineering handoff
+# OligoForge 1.37.0 engineering handoff
 
-Release identity: application 1.36.0, authoritative ranker 2.2.0, search 2.1.1, ranking schema 1.2.0, and objective profile `2026-07-ranking-truth-3`.
+Release identity: application 1.37.0, canonical design policy `oligoforge-canonical-design-policy/v1`, authoritative ranker 2.2.0, search 2.2.0, ranking schema 1.2.0, and objective profile `2026-07-ranking-truth-3`.
 
-Authoritative search/ranking modules are `candidate_search.py`, `candidate_retention.py`, `ranking_profiles.py`, `ranking.py`, `ranking_explain.py`, `provenance.py`, and `ranking_benchmark.py`.
+Authoritative search/ranking modules are `candidate_search.py`, `candidate_retention.py`, `ranking_profiles.py`, `ranking.py`, `ranking_explain.py`, `provenance.py`, `design_contract.py`, and `ranking_benchmark.py`. API problem semantics are centralized in `api_errors.py`.
 
 Manual/evidence modules are `manual_design.py`, `assay_rescue.py`, and `experimental_feedback.py`.
 
@@ -24,7 +24,12 @@ Experimental feedback is assay-specific evidence. Do not activate a learned rera
 
 Current status: computational pre-release. Synthetic/adversarial ranking behavior improved; held-out wet-lab rank-1 superiority is not established.
 
-## 1.36.0 operational invariants
+## 1.37.0 operational invariants
+
+- A generic balanced objective must resolve to SYBR when the effective chemistry is probe-less. Keep that resolution inside the shared ranking profile boundary, not in one UI route.
+- Displayed finalist count must not shrink the canonical search or full-annotation corpus. Junction annotation must not reorder an authoritative rank. Nested outer primers must retain nested geometry and pass the same structured hard gates under primer-only semantics.
+- Supported design surfaces must preserve `design_contract`; Workbench transfer may not strip it. Contract status is a scoped computational qualification, never a wet-lab guarantee.
+- API failures should use `oligoforge-problem/v1` and preserve the request identifier. Do not reflect sequence values, credentials, local paths, or native exception text in public diagnostics.
 
 - The in-memory job manager has one scientific worker, matching the process-wide Primer3/Entrez constraints. Do not increase worker count without removing shared native/global state and adding isolation tests.
 - The shipped queue is process-local and non-durable. Restart loses jobs and idempotency records; terminal records expire; multiple processes have independent queues and capability namespaces. Use one process, or replace this backend with an authenticated shared queue/store before horizontal scaling.
@@ -38,7 +43,7 @@ Current status: computational pre-release. Synthetic/adversarial ranking behavio
 
 ## Search determinism invariant
 
-Search 2.1.1 evaluates up to the first three spread-ordered target windows (5′, 3′, midpoint) before applying its soft runtime budget and records `deterministic_minimum_windows`. The direct `design_assay` path intentionally declares three windows; automatic and other broader paths pass larger explicit budgets. Do not move the wall-clock cutoff ahead of this invariant corpus. Any change requires cold-cache/warm-cache determinism regressions and regenerated traces.
+Search 2.2.0 preserves the 2.1.1 deterministic minimum of up to the first three spread-ordered target windows (5′, 3′, midpoint) before applying its soft runtime budget. It additionally fixes the shared automatic-design tier at 96 retained candidates, 30 discrimination specialists, 20 objective-aware primer pairs, and 28 fully annotated candidates regardless of display count. The direct `design_assay` path intentionally declares three windows; automatic and other broader paths pass larger explicit budgets. Do not move the wall-clock cutoff ahead of this invariant corpus or couple scientific depth to UI row count. Any change requires cold-cache/warm-cache determinism regressions, a search-version change, and regenerated traces.
 
 This repair does not make search exhaustive and does not change ranker 2.2.0. Keep search-version changes separate from ranker/profile changes in manifests and release claims.
 
@@ -59,7 +64,7 @@ Ordinary Manual Design panels now render evidence cards/tables; machine records 
 
 Aegis multi-edit mutation search, Repair Compiler orchestration, the `assurance_futureproof` objective/FutureProof design, enterprise portfolio persistence, and identity-backed review/approval are not implemented. Existing constrained redesign and Assay Rescue must not be renamed or documented as those workflows.
 
-No public historical sequence replay was performed for 1.36.0. The frozen biological trace is a regression fixture only; do not add `DEMO_HISTORICAL_REPLAY.md` or a retrospective performance claim without a genuine source-versioned public replay and documented methods.
+No public historical sequence replay was performed for 1.37.0. The frozen biological trace is a regression fixture only; do not add `DEMO_HISTORICAL_REPLAY.md` or a retrospective performance claim without a genuine source-versioned public replay and documented methods.
 
 ## 1.34.0 maintenance notes
 

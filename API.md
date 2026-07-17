@@ -1,6 +1,6 @@
-# OligoForge 1.36.0 API
+# OligoForge 1.37.0 API
 
-This document describes the HTTP surface implemented for the 1.36.0 release. The executable authority is `app.py`; request and response details generated from that code are available at `/openapi.json`, `/docs`, and `/redoc` while the service is running. The JSON schemas under `schemas/` are authorities for Assurance artifacts, not substitutes for the HTTP OpenAPI document.
+This document describes the HTTP surface implemented for the 1.37.0 release. The executable authority is `app.py`; request and response details generated from that code are available at `/openapi.json`, `/docs`, and `/redoc` while the service is running. The JSON schemas under `schemas/` are authorities for Assurance artifacts, not substitutes for the HTTP OpenAPI document.
 
 OligoForge is research and engineering software. An API response is not analytical, clinical, or regulatory evidence by itself.
 
@@ -10,7 +10,8 @@ OligoForge is research and engineering software. An API response is not analytic
 - Content type: JSON for API requests and responses unless an endpoint returns an encoded export inside JSON.
 - Authentication: none is implemented. Do not expose the service publicly without an authentication and authorization layer.
 - Request limit: `OLIGOFORGE_MAX_REQUEST_BYTES`, default 5 MiB. An oversized declared body receives HTTP 413; an invalid `Content-Length` receives HTTP 400.
-- Validation: Pydantic request errors receive HTTP 422 with field locations and messages but not rejected values. Unhandled errors receive a generic HTTP 500 response; details remain in server logs.
+- Problems and correlation: new and migrated failures use `oligoforge-problem/v1`, with stable code/category/stage, retryability, recovery actions, safe field errors, and an opaque request identifier. `X-Request-ID` is returned on every response and may be supplied by a client when it matches the bounded safe format.
+- Validation: Pydantic request errors receive HTTP 422 with field locations and messages but not rejected values. Unhandled errors receive a sanitized HTTP 500 problem; exception details remain in server logs under the same request identifier.
 - Legacy domain errors: several scientific endpoints return `{"error": "..."}` with HTTP 200. Clients must inspect the response body and must not treat status 200 alone as scientific success.
 - Security headers: responses set content-type sniffing, framing, referrer, permissions, and content-security-policy headers. TLS, identity, authorization, rate limiting, audit logging, backups, and tenant isolation remain deployment responsibilities.
 - Hosted mode: `OLIGOFORGE_HOSTED=1` disables server project/panel storage, shared reaction-condition mutation, and client-supplied local BLAST paths by default.
@@ -27,6 +28,9 @@ The request-model column names the model in `app.py`. Required fields and all de
 | GET | `/healthz` | — | Readiness, build/version, Primer3, data-directory, and NCBI configuration summary. |
 | GET | `/api/profiles` | — | List assay design profiles. |
 | GET | `/api/ranking-profiles` | — | List ranking objectives/profiles. |
+| GET | `/api/system/diagnostics` | — | Report non-sensitive core readiness, capabilities, queue state, conditions, versions, and limits. |
+| POST | `/api/design-contracts/verify` | `DesignContractReq` | Verify the deterministic self-hash and required fields of one design contract. |
+| POST | `/api/design-contracts/compare` | `DesignContractCompareReq` | Compare two verified contracts without conflating display count with scientific search execution. |
 | GET | `/api/conditions` | — | Read process-wide reaction conditions. |
 | POST | `/api/conditions` | `CondReq` | Change shared reaction conditions when deployment policy permits. |
 
@@ -41,6 +45,8 @@ The request-model column names the model in `app.py`. Required fields and all de
 | POST | `/api/accessibility` | `AccessReq` | Accessibility analysis. |
 | POST | `/api/batch_design` | `BatchReq` | Bounded batch design, at most eight templates per request. |
 | POST | `/api/viewer_design` | `ViewerDesignReq` | Design candidates on a user-selected sequence with coordinates. |
+
+Successful supported design surfaces return an additive `oligoforge-design-contract/v1` record. It declares the workflow, effective objective, chemistry-profile hash, target/off-target evidence scope, engine versions, bounded search, conformance state, warnings, and deterministic result fingerprints without embedding the input sequences. It is computational provenance, not wet-lab validation.
 
 ### Retrieval and sequence context
 
@@ -167,7 +173,7 @@ Assurance semantics are deliberately bounded:
 - DriftGuard compares supplied snapshots under a declared complete-product model. It does not emit a numeric probability of clinical failure or future evolution.
 - OFVR identifiers are local records, unreviewed by default, and are not a recognized external vulnerability standard.
 - Evidence package hashes detect modification; they are not digital signatures and do not establish author identity.
-- The package request may carry caller-supplied opaque `repairs` artifacts. OligoForge 1.36.0 does not implement an Assurance Repair generator or workflow.
+- The package request may carry caller-supplied opaque `repairs` artifacts. OligoForge 1.37.0 does not implement an Assurance Repair generator or workflow.
 - Aegis, Repair, and FutureProof subsystems are not implemented.
 
 The browser's Assurance destination orchestrates these routes from registration through package verification. Its state is session-local and client-held; the API does not provide an authenticated registry, lifecycle list endpoint, or durable approval store.

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.37.0 — design consistency and operational reliability
+
+- Added a versioned canonical design contract that records workflow, resolved objective, chemistry identity, declared evidence scope, engine versions, search limits, qualification state, conformance checks, and deterministic fingerprints without embedding raw sequences.
+- Unified probe-less chemistry handling so generic balanced requests resolve to the SYBR objective, and removed workflow-specific profile ordering and silent unknown-profile fallback.
+- Made the retained search and full-annotation pools independent of the number of candidates displayed, preserving comparable evidence depth across direct, batch, automatic, and viewer workflows.
+- Versioned that material search-corpus change as search 2.2.0 and added a new 1.37 frozen biological ordering fixture; ranker weights, hard gates, objective priorities, and ranking schema remain unchanged.
+- Preserved authoritative rank order when annotating junction preference so displayed ranks, traces, explanations, and downstream selection all identify the same candidate.
+- Replaced the nested outer-primer scalar shortcut with bounded diverse retention and the canonical primer-only structured ranker, including SYBR objective semantics, hard gates, complete-product evidence, robustness, attrition, manifest, explanation, and its own design contract.
+- Added structured, request-correlated problem responses with stable codes, stages, retry guidance, recovery actions, and field errors, while retaining a compatibility error string for existing clients.
+- Added non-sensitive system diagnostics and design-contract verification/comparison endpoints, plus browser-side recovery cards that keep failure details and request identifiers available.
+- Hardened state-changing browser actions so failed condition, panel, reset, job, and cancellation requests are not reported as successful or silently discarded.
+- Added bounded transient job-poll retries, continuous readiness monitoring that cannot remain stale green, persistent startup-profile failures, and escaped diagnostics across newly rendered surfaces.
+- Centralized desktop release identity on the Python package version and added deterministic source ZIP creation, SHA-256 verification, release-identity regressions, least-privilege CI permissions, timeouts, dependency checks, and tag/version enforcement.
+- The authoritative structured ranker remains 2.2.0 and candidate search is 2.2.0. This release improves workflow consistency, provenance, and failure handling; it does not claim new held-out biological accuracy or wet-lab validation.
+
 ## 1.36.0 — visible lifecycle workspaces
 
 - Added first-class Validation Studio and Assurance destinations to the main navigation so the 1.35 lifecycle engines are directly discoverable and usable without API calls.

@@ -1,6 +1,6 @@
-# OligoForge Ranking Audit — v1.36.0
+# OligoForge Ranking Audit — v1.37.0
 
-Version 1.36.0 does not change the authoritative ranking order, ranking schema, objective priorities, or ranker version (2.2.0). Search version 2.1.1 evaluates a deterministic minimum of up to three spread-ordered target windows before its soft runtime cutoff, preventing cache warmth from changing the minimum candidate corpus; search remains heuristic-bounded. The new visible Validation Studio and Assurance workspaces consume the same completed assay evidence and server authorities without silently changing rank.
+Version 1.37.0 does not change ranker weights, ranking schema, objective priorities, or ranker version (2.2.0). It repairs cross-workflow policy wiring: probe-less balanced requests resolve to SYBR, display count no longer controls search/annotation depth, post-rank junction annotation cannot reorder a winner, Viewer uses the canonical sequence-design engine, and nested outer primers now pass the structured primer-only hard gates instead of a raw scalar. Every supported design surface declares these facts in `oligoforge-design-contract/v1`. The materially wider, display-independent candidate corpus is versioned as search 2.2.0 and remains heuristic-bounded.
 
 ## Executive finding
 
@@ -49,8 +49,9 @@ Default automatic multi-sequence design records these values in each run:
 - Up to 12 primer pairs per window after pair diversity retention.
 - Up to 3 local probe candidates per retained pair.
 - Up to 30 triplets per window.
-- Objective probe augmentation over up to `max(8, requested × 2)` retained pairs, scanning up to 24 probes and adding at most 2 alternatives per pair.
-- Final expensive-annotation pool of `max(20, min(28, requested × 5))` complete assays; five requested results therefore use 25.
+- A canonical retained corpus of up to 96 complete assays, including up to 30 discrimination specialists.
+- Objective probe augmentation over up to 20 retained primer pairs, scanning up to 24 probes and adding at most 2 alternatives per pair.
+- A canonical expensive-annotation pool of up to 28 complete assays, independent of how many finalists the caller displays.
 - Exact duplicate suppression, near-duplicate family limits, regional round-robin retention, and finalist preference for distinct primer pairs and alternate regions.
 
 These are engineering budgets, not biological truths. Every truncation is labeled heuristic and reversible in the ledger.
@@ -133,12 +134,12 @@ Current trace:
 - Dimer/native-call cap retained 5,400 pairs; pair-diversity beams retained 216.
 - 297,688 probe candidates entered hard screening; 7,874 survived; probe-diversity beams retained 414.
 - 328 complete triplets survived window beams; base diversity retention kept 22.
-- 15 discrimination-specialist triplets and 19 target/off-target-aware probe alternatives were added without bypassing final hard gates.
-- 56 candidates entered the final annotation-retention stage; 25 diverse complete assays received full annotation.
-- Five finalists were returned in 30.94 seconds on the audit machine.
+- 26 discrimination-specialist triplets and 39 target/off-target-aware probe alternatives were added without bypassing final hard gates.
+- 87 candidates entered the final annotation-retention stage; 28 diverse complete assays received full annotation.
+- Five finalists were returned in 172.753 seconds in the recorded release environment; runtime is environment-specific and is not a throughput qualification.
 - Rank 1 modeled 100% coherent target/probe coverage, zero supplied off-target products, and full validity across all three declared condition scenarios.
 
-The complete machine-readable trace is `tests/benchmark/plasmodium_ranking_trace.json`.
+The complete machine-readable trace is the deterministic gzip file `tests/benchmark/plasmodium_ranking_trace.json.gz`.
 
 ## Remaining limitations
 

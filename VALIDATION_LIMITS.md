@@ -1,4 +1,4 @@
-# Validation limits — OligoForge 1.36.0
+# Validation limits — OligoForge 1.37.0
 
 OligoForge produces computational candidates, structured evidence, uncertainty labels, provenance manifests, and assay-readiness records. It does not biologically validate an assay.
 
@@ -9,6 +9,8 @@ The ranking benchmark proves that the software obeys frozen adversarial decision
 Rank confidence is conditional on supplied evidence. Missing off-target, panel, junction, sequence-version, or database-version information can produce an explicit insufficient-evidence state. “Near-equivalent” means the implemented computational evidence does not support a decisive distinction; it is not an equivalence proof.
 
 Search is heuristic-bounded. A stronger triplet can exist outside the retained pool. Every run records candidate limits, attrition, conditions, input hashes, model versions, external-database state, warnings, and fallbacks so that this uncertainty remains visible.
+
+The canonical design contract verifies which shared policy ran, whether objective prerequisites were supplied, whether the winner cleared recorded computational hard gates, and whether two results are configuration-comparable. It does not certify database completeness, synthesis, amplification, fluorescence, analytical performance, or wet-lab reproducibility.
 
 Experimental-feedback records remain local evidence. The learned-reranker gate is only a minimum eligibility screen and does not establish that a model is valid or deployable.
 

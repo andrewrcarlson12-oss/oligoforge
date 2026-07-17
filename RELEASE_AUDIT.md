@@ -1,15 +1,18 @@
-# OligoForge 1.36.0 release audit
+# OligoForge 1.37.0 release audit
 
 ## Audited scope
 
-Version 1.36.0 is the lifecycle-workspace release. The audit covers:
+Version 1.37.0 is the design-consistency and operational-reliability release. The audit covers:
 
 - first-class Validation Studio and Assurance destinations in the main browser navigation;
 - readable candidate-disagreement, case-selection, full-plate, control, interpretation, AssaySBOM, snapshot, delta, DriftGuard, OFVR, and package evidence;
 - exact end-to-end API wiring, snapshot baseline/retrieval provenance, active-plan packaging, downloads, workflow status, responsive layout, and accessibility semantics;
 - preservation of the 1.35 staged-design, Manual Design, lifecycle engines, authoritative ranker, provenance chain, hosted restrictions, recursive test discovery, and release directory limits.
+- one verifiable quality contract across supported design surfaces, consistent probe-less objective resolution, display-independent evidence depth, stable rank ordering, and structured nested outer-primer ranking;
+- one structured API problem format with request correlation, bounded browser retries, visible diagnostics, honest persistence outcomes, and continuous readiness monitoring; and
+- deterministic source packaging, checksum verification, release-identity gates, and least-privilege CI/release automation.
 
-The ranker remains version 2.2.0 and search remains version 2.1.1. Version 1.36.0 does not change rank weights, objective priorities, hard constraints, candidate search, or authoritative ordering rules.
+The ranker remains version 2.2.0. The canonical, display-independent retained and annotation corpus is versioned as search 2.2.0. Version 1.37.0 does not change rank weights, objective priorities, hard constraints, or benchmark labels; it corrects inconsistent routing into those authorities and makes each execution contract explicit.
 
 ## Implemented boundary
 
@@ -28,14 +31,14 @@ The ranker remains version 2.2.0 and search remains version 2.1.1. Version 1.36.
 |---|---|
 | Focused automatic-design job integration scenarios | Passed |
 | Focused Validation Studio and Assurance unit/API regressions | Passed |
-| Ranking benchmark determinism after search 2.1.1 change | Passed |
+| Ranking benchmark determinism and 1.37 search 2.2.0 biological fixture | Passed |
 | Evidence/provenance regression after trace regeneration | Passed |
 | Browser/UI harness set | Passed; 10 harnesses, including 20 lifecycle workflow/accessibility checks |
 | Manual Design targeted browser checks | Passed; 75 checks |
 | Real-DOM async job integration check | Passed; submit/idempotency/resume-state/result path exercised |
-| Recursive source-tree Python suite | Passed; 49 / 49 programs |
+| Recursive source-tree Python suite | Passed; see final measured counts in `RELEASE_TEST_REPORT.md` |
 | Clean pinned-environment install/import and `pip check` | Passed |
-| Live Uvicorn health and representative API smoke test | Passed; three representative routes returned HTTP 200 |
+| Live Uvicorn health and representative API smoke test | Passed; six endpoints returned HTTP 200 (health, diagnostics, limits, profiles, contract verification, and OpenAPI) |
 | npm high-severity audit | Passed; 0 vulnerabilities across 63 dependencies |
 | Directory direct-child count gate | Passed |
 | Staged-copy manifest, archive safety, re-extraction, and extracted-tree tests | Passed; all manifest hashes verified and the full extracted suite passed |
@@ -54,4 +57,4 @@ This is a computational pre-release for primer/probe design, decision support, e
 
 ## Deployment boundary
 
-The supplied Dockerfile, Render blueprint, and deployment guidance are documented and locally testable. No live Render service was modified or verified because the supplied archive contained no repository URL, service URL, credentials, or deployment authorization. The application has no built-in authentication, tenant isolation, shared durable queue, or regulatory electronic-record controls; public or sensitive-data deployments must add them externally.
+The supplied Dockerfile, Render blueprint, and deployment guidance are documented and locally testable. No live Render service was modified or verified because no service URL, credentials, or deployment authorization were supplied. The application has no built-in authentication, tenant isolation, shared durable queue, or regulatory electronic-record controls; public or sensitive-data deployments must add them externally.

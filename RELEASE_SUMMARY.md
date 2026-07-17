@@ -1,12 +1,42 @@
-# OligoForge 1.36.0 release summary
+# OligoForge 1.37.0 release summary
 
 ## Outcome
 
-OligoForge 1.36.0 turns the Validation Studio and Assurance engines into visible, guided, end-to-end browser workspaces. The lifecycle capabilities that were previously most apparent through APIs, CLI commands, and documentation are now first-class destinations in the main navigation with readable evidence, explicit progress, worked examples, responsive plate maps, accessibility semantics, and direct artifact downloads.
+OligoForge 1.37.0 makes scientific behavior and operational failure handling consistent across the product. Supported primer/probe workflows now carry a canonical, machine-verifiable design contract; probe-less chemistry resolves to the same objective everywhere; display count no longer changes the retained evidence corpus; and junction annotations cannot reorder an already-ranked result. Structured problems, request IDs, recovery actions, and non-sensitive diagnostics replace opaque failure notifications with supportable evidence.
 
-The authoritative structured ranker remains version 2.2.0 and search remains 2.1.1. This release does not change weights, hard constraints, lexicographic priorities, objective profiles, candidate-search behavior, or deterministic tie-breaking.
+The authoritative structured ranker remains version 2.2.0. This release corrects workflow wiring and evidence consistency while preserving ranker weights, hard constraints, lexicographic priorities, and deterministic tie-breaking. It does not claim new held-out biological accuracy, wet-lab performance, or universal optimality.
 
-## Delivered in 1.36.0
+## Delivered in 1.37.0
+
+### One design-quality contract
+
+- Each supported design result declares workflow, requested and resolved objective, chemistry identity/hash, reaction context, evidence scope, engine versions, bounded search limits, qualification state, conformance checks, and deterministic fingerprints.
+- The contract deliberately hashes sequence corpora rather than embedding raw target or off-target sequences.
+- Verification and comparison endpoints distinguish an intact contract from changed scientific context, evidence scope, or workflow.
+- Probe-less chemistries consistently resolve generic balanced requests to the SYBR objective; unknown profiles are rejected instead of silently substituted.
+- Candidate enumeration and full-annotation depth use canonical retained pools rather than changing with the requested display count.
+- Junction preference remains an annotation on the authoritative ranked order, preventing stale rank numbers and downstream winner drift.
+- Nested outer primers are now retained as a diverse bounded pool and evaluated by the same primer-only structured ranker under SYBR semantics; raw Tm/dimer scalar selection can no longer promote an invalid outer pair.
+
+### Failures that can be diagnosed and recovered
+
+- API failures use a versioned problem schema with a stable code, category, stage, retryability, recovery actions, field errors, and request identifier while retaining a top-level compatibility error string.
+- Validation, capability denial, queue conflicts, lost jobs, retry exhaustion, and unexpected server failures share the same response contract.
+- The browser preserves actionable error details, safely escapes server text, avoids leaking credentials to unrelated endpoints, and exposes request IDs that can be copied into support reports.
+- A system-diagnostics endpoint reports non-sensitive readiness, capability, queue, condition, version, and deployment-limit state.
+- State-changing settings, reset, panel, job, and cancellation actions report their true outcome instead of showing success after a rejected request.
+- Automatic-job polling retries only bounded transient failures while preserving the job/stage snapshot, and the readiness lamp continues probing so a formerly healthy service cannot remain falsely green.
+
+### Release integrity
+
+- The desktop launcher now derives its release identity from `oligoforge.__version__`, removing a duplicate version source.
+- Package metadata, browser lifecycle fixtures, README, changelog, and release summary carry the 1.37.0 identity.
+- A deterministic source builder normalizes member order, timestamps, file modes, and storage and writes a standard SHA-256 sidecar.
+- A path-safe verifier rejects malformed, escaping, missing, or modified checksum targets.
+- Focused tests reproduce the archive twice, verify byte identity, and prove that tampering is detected.
+- GitHub Actions uses least-privilege permissions, explicit timeouts, dependency integrity checks, tag/version enforcement, and source-artifact verification before release attachment.
+
+## Inherited 1.36.0 lifecycle workspaces
 
 ### Visible Validation Studio
 
@@ -90,9 +120,9 @@ Hashes establish content integrity, not authorship, database completeness, popul
 
 Ranker 2.2.0 remains authoritative. Validation Studio observations, Assurance scans, OFVRs, and imported experimental feedback do not retrain, reweight, or silently change candidate order. A learned reranker remains disabled unless target-group isolation, conflict adjudication, leakage-controlled validation, calibration, ablation, and held-out improvement are demonstrated.
 
-Search version 2.1.1 always evaluates up to the first three windows in the spread ordering (5′, 3′, midpoint) before applying the soft time budget. The ledger records `deterministic_minimum_windows`. Direct `design_assay` declares this three-window corpus; broader workflows retain their explicit larger window and retention budgets. This establishes deterministic bounded inputs, not an exhaustive or globally optimal assay search.
+Search version 2.2.0 preserves the deterministic minimum of up to the first three windows in spread order (5′, 3′, midpoint) before applying the soft time budget and fixes the shared automatic-design tier at up to 96 retained candidates, 30 discrimination specialists, 20 objective-aware primer pairs, and 28 fully annotated candidates independent of display count. The ledger records those limits and `deterministic_minimum_windows`. Direct `design_assay` declares the three-window corpus; broader workflows retain explicit larger window budgets. This establishes deterministic bounded inputs, not an exhaustive or globally optimal assay search.
 
-The frozen synthetic/adversarial ranking benchmark and Plasmodium/Haemoproteus trace remain regression evidence for software behavior. The trace was regenerated with application 1.36.0 and search 2.1.1; its expected candidate ordering remains unchanged. These fixtures do not establish improved held-out biological selection performance.
+The frozen synthetic/adversarial ranking benchmark and Plasmodium/Haemoproteus trace remain regression evidence for software behavior. The trace is regenerated for application 1.37.0 and search 2.2.0 against a newly versioned expected ordering after the canonical corpus expansion. These fixtures document deterministic software behavior; they do not establish improved held-out biological selection performance.
 
 ## Foundation files retained from 1.35.0
 
@@ -102,13 +132,19 @@ The frozen synthetic/adversarial ranking benchmark and Plasmodium/Haemoproteus t
 - API/release guidance: `API.md`, `DEPLOYMENT.md`, `DATA_LICENSING_AND_ATTRIBUTION.md`, `ASSURANCE_PRIOR_ART_AND_REQUIREMENTS.md`, and `REGULATORY_EVIDENCE_MAPPING.md`.
 - Release checks: `tests/integration/test_new_api.py`, `tests/test_release_engineering.py`, and `tools/check_directory_file_counts.py`.
 
-## Main files changed for 1.36.0
+## Main files changed for 1.37.0
+
+- Scientific consistency: `oligoforge/design_contract.py`, `oligoforge/autodesign.py`, and `oligoforge/ranking_profiles.py`.
+- API and browser reliability: `oligoforge/api_errors.py`, `app.py`, and `static/index.html`.
+- Release integrity: `oligoforge/__init__.py`, `launcher.py`, package metadata, GitHub Actions, deterministic source/checksum tools, and focused release regressions.
+
+## Main files inherited from 1.36.0
 
 - API/UI: `app.py`, `static/index.html`, `launcher.py`, and `oligoforge/__init__.py`.
 - Verification: new `tests/ui_lifecycle.js`, expanded `tests/integration/test_new_api.py`, and regenerated versioned biological trace.
 - Release identity and guidance: `package.json`, `package-lock.json`, README, changelog, specification, API, deployment, handoff, ranking, validation, requirements, regulatory, and release documents.
 
-No production scientific module was intentionally removed. The final clean-archive file inventory and digest are generated during packaging rather than inferred in this summary.
+No production scientific module was intentionally removed. The committed clean-source inventory is regenerated and verified immediately before packaging; the finished archive digest is generated during packaging rather than inferred in this summary.
 
 ## Deployment
 
@@ -116,7 +152,7 @@ Local use remains the safest default. The included Dockerfile and `render.yaml` 
 
 Run one application process for the shipped job backend. Multiple workers or replicas create independent queues and capability namespaces; use sticky routing for a temporary constrained deployment or replace the backend with an authenticated shared durable queue and store. The application does not provide authentication, authorization, tenant isolation, TLS termination, a shared database, or regulatory electronic-record controls.
 
-No live Render service was deployed or verified because no authorized repository/service target was provided.
+No live service is deployed or verified merely by building this source release. Repository publication and any auto-deploying service remain review-gated operational actions.
 
 ## Explicitly not delivered
 
@@ -145,4 +181,4 @@ Preregister a target-grouped comparison of rank 1 against region/pair-diverse al
 
 ## Historical continuity
 
-Version 1.34.0 added decision analysis, exhaustive allowed manual near-placement visibility, exact edit comparison, run comparison, rank-reversal conditions, context-local feedback summaries, benchmark uncertainty intervals, and authoritative Batch Design. Version 1.35.0 added staged jobs, evidence-oriented Manual Design, Validation Studio, and Assurance engines. Version 1.36.0 preserves those scientific behaviors while making both lifecycle engines visible and operational in the browser. See `CHANGELOG.md`, `RANKING_AUDIT.md`, and `RANKING_VALIDATION_REPORT.md` for the historical ranking-truth record.
+Version 1.34.0 added decision analysis, exhaustive allowed manual near-placement visibility, exact edit comparison, run comparison, rank-reversal conditions, context-local feedback summaries, benchmark uncertainty intervals, and authoritative Batch Design. Version 1.35.0 added staged jobs, evidence-oriented Manual Design, Validation Studio, and Assurance engines. Version 1.36.0 made both lifecycle engines visible and operational in the browser. Version 1.37.0 adds one declared design-quality contract and one supportable failure contract across those surfaces. See `CHANGELOG.md`, `RANKING_AUDIT.md`, and `RANKING_VALIDATION_REPORT.md` for the historical ranking-truth record.

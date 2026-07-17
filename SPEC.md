@@ -2,13 +2,13 @@
 
 ## Product boundary
 
-OligoForge 1.36.0 is a computational workbench for primer/probe design, assay comparison, experiment planning, and local evidence packaging. It reports modeled evidence and reproducible provenance through both APIs and visible lifecycle workspaces. It does not establish wet-lab amplification, analytical or clinical performance, future-variant resilience, regulatory acceptability, or a globally optimal design.
+OligoForge 1.37.0 is a computational workbench for primer/probe design, assay comparison, experiment planning, and local evidence packaging. It reports modeled evidence and reproducible provenance through both APIs and visible lifecycle workspaces. Supported design workflows also emit one canonical quality contract and API failures emit one supportable problem contract. It does not establish wet-lab amplification, analytical or clinical performance, future-variant resilience, regulatory acceptability, or a globally optimal design.
 
 Release identity:
 
-- application: 1.36.0;
+- application: 1.37.0;
 - authoritative ranker: 2.2.0;
-- candidate search: 2.1.1;
+- candidate search: 2.2.0;
 - ranking schema: 1.2.0;
 - objective profile: `2026-07-ranking-truth-3`;
 - provenance schema: 1.0.0.
@@ -22,14 +22,16 @@ Release identity:
 3. A PCR observation is based on a coherent forward/reverse product. Probe signal additionally requires probe recognition within that product; independent oligo similarity is not a substitute.
 4. Automatic, batch, viewer, manual, constrained-redesign, rescue, Workbench, and report paths preserve the authoritative evidence and provenance fields appropriate to their workflow.
 5. Missing objective-required evidence suppresses comparison confidence. Deterministic export order is not evidence that close candidates are biologically distinguishable.
+6. Probe-less chemistry resolves a generic balanced request to the stricter SYBR complete-product objective; a design surface may not silently weaken that effective objective.
+7. Every supported design result carries `oligoforge-design-contract/v1`, including chemistry identity, effective objective, evidence scope, bounded search, hard-validity conformance, and deterministic fingerprints. A contract never upgrades computational evidence into a wet-lab claim.
 
 ## Candidate search and ranking
 
 The search constructs complete forward-primer/reverse-primer/probe triplets over spread-ordered target windows, applies hard screens and bounded native-library limits, suppresses exact/near duplicates, retains regional and pair diversity, completes expensive annotation on a bounded retained pool, and ranks through objective-specific structured evidence.
 
-Search is heuristic-bounded. Search 2.1.1 evaluates up to the first three windows in spread order—5′, 3′, midpoint—before applying the soft runtime budget. The ledger records planned/evaluated windows, the deterministic minimum, runtime expiry, stage attrition, candidate limits, and retained identities. Direct `design_assay` declares three windows; broader workflows pass explicit larger limits.
+Search is heuristic-bounded. Search 2.2.0 preserves the deterministic minimum of up to the first three windows in spread order—5′, 3′, midpoint—before applying the soft runtime budget, and fixes the shared automatic-design tier at up to 96 retained candidates, 30 discrimination specialists, 20 objective-aware primer pairs, and 28 fully annotated candidates independent of display count. The ledger records planned/evaluated windows, the deterministic minimum, runtime expiry, stage attrition, candidate limits, and retained identities. Direct `design_assay` declares three windows; broader workflows pass explicit larger limits.
 
-The ranker remains 2.2.0. Hard constraints cannot be compensated by soft advantages. Objective profiles determine lexicographic evidence priority, followed by deterministic tie-breaks. Pareto, equivalence, missing-evidence, uncertainty, closest-competitor, and reversal information explain order without changing it. Any authoritative ordering change requires a version change and updated frozen evidence.
+The ranker remains 2.2.0. Hard constraints cannot be compensated by soft advantages. Objective profiles determine lexicographic evidence priority, followed by deterministic tie-breaks. Pareto, equivalence, missing-evidence, uncertainty, closest-competitor, and reversal information explain order without changing it. Display count does not control the canonical search or full-annotation pool. Post-ranking junction annotation cannot reorder candidates. Nested outer primers are primer-only assays and pass the same structured hard-gated engine under SYBR semantics. Any authoritative ordering change requires a version change and updated frozen evidence.
 
 ## Staged automatic-design jobs
 
@@ -110,7 +112,7 @@ Hosted mode disables shared server project storage, shared reaction-condition mu
 
 Capability identifiers are bearer secrets, not user authentication. The application has no built-in authorization, tenant isolation, shared durable store, TLS termination, audit-signature identity, or regulatory electronic-record controls. Operators must provide those controls before a public or sensitive-data deployment.
 
-## Features outside 1.36.0
+## Features outside 1.37.0
 
 The following are not implemented: Aegis multi-edit mutation search, Repair Compiler orchestration, the `assurance_futureproof` objective/FutureProof design, enterprise portfolio persistence, identity-backed review/approval, and public historical sequence replay. Frozen biological fixtures are software regressions, not retrospective or prospective validation studies.
 

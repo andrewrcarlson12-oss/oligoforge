@@ -1,4 +1,4 @@
-# OligoForge 1.36.0 deployment
+# OligoForge 1.37.0 deployment
 
 OligoForge is safest as a local, single-user service. The shipped container and Render blueprint can run a public web service, but the application has no built-in authentication, authorization, tenant isolation, durable job queue, or regulatory electronic-record controls. A public or sensitive-data deployment must add those controls outside the application.
 
@@ -21,7 +21,7 @@ The image does not add TLS, authentication, a reverse proxy, a persistent disk, 
 Build from the repository root:
 
 ```bash
-docker build --pull -t oligoforge:1.36.0 .
+docker build --pull -t oligoforge:1.37.0 .
 ```
 
 Run locally and bind only to loopback on the host:
@@ -31,7 +31,7 @@ docker run --rm \
   --name oligoforge \
   --publish 127.0.0.1:8111:8111 \
   --env OLIGOFORGE_EMAIL=operator@example.org \
-  oligoforge:1.36.0
+  oligoforge:1.37.0
 ```
 
 Use a secret manager or a permission-restricted environment file for `OLIGOFORGE_NCBI_KEY`; avoid shell history, image layers, source files, logs, and request bodies. `OLIGOFORGE_EMAIL` is an NCBI client identity and should identify a monitored contact.
@@ -40,6 +40,7 @@ Check the service:
 
 ```bash
 curl --fail --silent --show-error http://127.0.0.1:8111/healthz
+curl --fail --silent --show-error http://127.0.0.1:8111/api/system/diagnostics
 curl --fail --silent --show-error http://127.0.0.1:8111/api/autodesign/limits
 curl --fail --silent --show-error http://127.0.0.1:8111/openapi.json >/dev/null
 ```
@@ -56,7 +57,7 @@ docker run --rm \
   --publish 127.0.0.1:8111:8111 \
   --env OLIGOFORGE_DATA_PATH=/var/lib/oligoforge \
   --mount type=bind,src=/srv/oligoforge-data,dst=/var/lib/oligoforge \
-  oligoforge:1.36.0
+  oligoforge:1.37.0
 ```
 
 The mounted host directory must be writable by container UID 10001. Back it up and test restore according to the organization's retention policy. Do not mount a broad home, credential, or system directory. Project and panel JSON storage is simple instance-local file storage, not a concurrent database.

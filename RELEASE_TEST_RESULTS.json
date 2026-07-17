@@ -1,12 +1,16 @@
 {
   "schema": "oligoforge-release-test-results/v1",
-  "application_version": "1.36.0",
+  "application_version": "1.37.0",
   "tested_on": "2026-07-16",
-  "source_version": "1.35.0",
+  "baseline_version": "1.36.0",
   "scientific_versions": {
+    "design_policy": "oligoforge-canonical-design-policy/v1",
+    "design_contract": "oligoforge-design-contract/v1",
+    "problem_contract": "oligoforge-problem/v1",
     "ranker": "2.2.0",
-    "search": "2.1.1",
-    "ranking_schema": "1.2.0"
+    "search": "2.2.0",
+    "ranking_schema": "1.2.0",
+    "objective_profile": "2026-07-ranking-truth-3"
   },
   "environment": {
     "python": "3.12.13",
@@ -18,33 +22,58 @@
     "fastapi": "0.139.0",
     "uvicorn": "0.51.0",
     "pydantic": "2.13.4",
-    "httpx": "0.28.1"
+    "httpx": "0.28.1",
+    "numpy": "2.5.1"
   },
   "gates": {
-    "source_python_programs": {"status": "passed", "passed": 49, "failed": 0},
+    "source_python_programs": {"status": "passed", "passed": 54, "failed": 0},
     "source_node_harnesses": {"status": "passed", "passed": 10, "failed": 0},
-    "reextracted_python_programs": {"status": "passed", "passed": 49, "failed": 0},
+    "reextracted_python_programs": {"status": "passed", "passed": 54, "failed": 0},
     "reextracted_node_harnesses": {"status": "passed", "passed": 10, "failed": 0},
+    "design_contract": {"status": "passed", "checks": 17},
+    "error_contract": {"status": "passed", "checks": 13},
+    "nested_quality": {"status": "passed", "checks": 9},
+    "discrimination_golden": {"status": "passed", "checks": 12},
+    "inclusivity_golden": {"status": "passed", "checks": 8},
+    "evidence_provenance": {"status": "passed", "checks": 37},
+    "ranking_truth": {"status": "passed", "checks": 41},
+    "ranking_benchmark_byte_determinism": {"status": "passed", "non_mutating": true},
     "autodesign_jobs": {"status": "passed", "scenarios": 10, "assertions": 55},
     "manual_studio": {"status": "passed", "checks": 75},
-    "real_dom_jobs": {"status": "passed", "checks": 8, "registered_handlers": 129},
-    "real_dom_lifecycle": {"status": "passed", "checks": 20, "accessible_control_names": true, "full_plate_wells": 96},
+    "viewer": {"status": "passed", "checks": 34},
+    "workbench": {"status": "passed", "checks": 13},
+    "real_dom_jobs": {"status": "passed", "checks": 8, "registered_handlers": 131},
+    "real_dom_lifecycle": {"status": "passed", "checks": 20, "full_plate_wells": 96},
+    "release_identity": {"status": "passed", "checks": 23},
+    "release_manifest": {"status": "passed", "checks": 11},
     "compileall": {"status": "passed"},
     "working_pip_check": {"status": "passed"},
-    "isolated_environment_import_pip_check": {"status": "passed"},
-    "fresh_dependency_download": {"status": "not_completed", "reason": "configured package-index proxy unavailable"},
+    "fresh_dependency_download": {"status": "not_run", "claim_made": false},
     "npm_audit": {"status": "passed", "dependencies": 63, "vulnerabilities": 0},
-    "live_uvicorn": {"status": "passed", "http_200_routes": 3, "healthz_version": "1.36.0"},
-    "directory_direct_child_limit": {"status": "passed", "limit": 100, "maximum": 61, "maximum_directory": "tests"},
+    "live_uvicorn": {
+      "status": "passed",
+      "http_200_endpoints": 6,
+      "healthz_version": "1.37.0",
+      "runtime_routes_with_methods": 79,
+      "openapi_paths": 72,
+      "openapi_operations": 75,
+      "request_ids_present": true,
+      "signed_contract_valid": true
+    },
+    "directory_direct_child_limit": {"status": "passed", "limit": 100, "maximum": 66, "maximum_directory": "tests"},
+    "committed_manifest_hash_verification": {"status": "passed"},
+    "deterministic_source_archives": {"status": "passed", "independent_builds": 2, "byte_identical": true},
     "archive_path_and_symlink_safety": {"status": "passed"},
-    "manifest_hash_verification": {"status": "passed"}
+    "archive_checksum": {"status": "passed", "algorithm": "SHA-256"}
   },
-  "inventory_against_1_35_0": {
-    "baseline_files": 215,
-    "candidate_files_before_generated_release_manifest": 218,
-    "added": 3,
-    "removed": 0,
-    "content_changed": 28
+  "inventory_against_1_36_0": {
+    "baseline_files": 219,
+    "candidate_files": 229,
+    "added": 13,
+    "removed": 3,
+    "content_changed": 40,
+    "removed_runtime_placeholders": ["panels/README.txt", "projects/README.txt"],
+    "replaced_evidence_artifact": "tests/benchmark/plasmodium_ranking_trace.json -> tests/benchmark/plasmodium_ranking_trace.json.gz"
   },
   "claims_boundary": "Software verification only; no analytical, clinical, regulatory, future-evolution, or rank-1 wet-lab performance claim."
 }
